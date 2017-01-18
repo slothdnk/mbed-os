@@ -15,26 +15,32 @@
  *  - Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- *  - Neither the name of ARM  nor the names of its contributors may be used 
- *    to endorse or promote products derived from this software without 
+ *  - Neither the name of ARM  nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without
  *    specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" 
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED. IN NO EVENT SHALL COPYRIGHT HOLDERS AND CONTRIBUTORS BE
  * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF 
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS 
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN 
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) 
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *---------------------------------------------------------------------------*/
 
+#include "RawSerial.h"
 #include "rt_TypeDef.h"
 #include "rt_Memory.h"
 
+extern mbed::RawSerial* pc;
+
+extern "C" {
+
+static U32 totallyAddressed = 0;
 
 /* Functions */
 
@@ -51,8 +57,8 @@ U32 rt_init_mem (void *pool, U32 size) {
 
   ptr = (MEMP *)pool;
   ptr->next = (MEMP *)((U32)pool + size - sizeof(MEMP *));
-  ptr->next->next = NULL;
-  ptr->len = 0U; 
+  ptr->next->next = (MEMP*)NULL;
+  ptr->len = 0U;
 
   return (0U);
 }
@@ -63,11 +69,24 @@ U32 rt_init_mem (void *pool, U32 size) {
 //     size:    Size of memory in bytes to allocate
 //   Return:    Pointer to allocated memory
 
+static char buffer[100];
+static U32 prev_hole_size;
+static U32 prev_size;
+static U32 blah;
+static MEMP* p_search_prev;
+
 void *rt_alloc_mem (void *pool, U32 size) {
   MEMP *p, *p_search, *p_new;
   U32   hole_size;
 
-  if ((pool == NULL) || (size == 0U)) { return NULL; }
+  if ((U32)pool == 0x1fff4508) {
+
+    totallyAddressed += size + sizeof(MEMP);
+  }
+
+  if ((pool == NULL) || (size == 0U)) {
+    return NULL;
+  }
 
   /* Add header offset to 'size' */
   size += sizeof(MEMP);
@@ -75,11 +94,31 @@ void *rt_alloc_mem (void *pool, U32 size) {
   size = (size + 3U) & ~(U32)3U;
 
   p_search = (MEMP *)pool;
+
   while (1) {
+    if ((U32)p_search == 0x1fff5c68 || (U32)p_search->next == 0x1fff5c68) {
+      blah++;
+    }
+
     hole_size  = (U32)p_search->next - (U32)p_search;
     hole_size -= p_search->len;
+    // if (hole_size == 14396) {
+    //   blah++;
+    // }
+
     /* Check if hole size is big enough */
-    if (hole_size >= size) { break; }
+    if (hole_size >= size) {
+      // if ((U32)pool == 0x1fff4508) {
+      //   if (prev_hole_size - prev_size > hole_size) {
+      //     blah++;
+      //     // continue;
+      //   }
+      //   prev_hole_size = hole_size;
+      //   prev_size = size;
+      //   p_search_prev = p_search;
+      // }
+      break;
+    }
     p_search = p_search->next;
     if (p_search->next == NULL) {
       /* Failed, we are at the end of the list */
@@ -95,8 +134,14 @@ void *rt_alloc_mem (void *pool, U32 size) {
     /* Insert new list element into the memory list */
     p_new       = (MEMP *)((U32)p_search + p_search->len);
     p_new->next = p_search->next;
+    if (!p_new->next) {
+      blah++;
+    }
     p_new->len  = size;
     p_search->next = p_new;
+    if (!p_search->next) {
+      blah++;
+    }
     p = (MEMP *)(((U32)p_new) + sizeof(MEMP));
   }
 
@@ -115,9 +160,9 @@ U32 rt_free_mem (void *pool, void *mem) {
   if ((pool == NULL) || (mem == NULL)) { return (1U); }
 
   p_return = (MEMP *)((U32)mem - sizeof(MEMP));
-  
+
   /* Set list header */
-  p_prev = NULL;
+  p_prev = (MEMP*)NULL;
   p_search = (MEMP *)pool;
   while (p_search != p_return) {
     p_prev   = p_search;
@@ -128,13 +173,27 @@ U32 rt_free_mem (void *pool, void *mem) {
     }
   }
 
+  if ((U32)p_search == 0x1fff5c68 || (U32)p_prev == 0x1fff5c68 || (U32)p_search->next == 0x1fff5c68) {
+    blah++;
+  }
+
   if (p_prev == NULL) {
+    if ((U32)pool == 0x1fff4508) {
+      totallyAddressed -= p_search->len + sizeof(MEMP);
+    }
+
     /* First block to be released, only set length to 0 */
     p_search->len = 0U;
+    blah++;
   } else {
     /* Discard block from chain list */
     p_prev->next = p_search->next;
+    if (!p_prev->next) {
+      blah++;
+    }
   }
 
   return (0U);
+}
+
 }

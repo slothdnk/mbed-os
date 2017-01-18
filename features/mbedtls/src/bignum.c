@@ -35,6 +35,9 @@
  *
  */
 
+#define U32 unsigned int
+#include "rt_Memory.h"
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
 #else
@@ -120,14 +123,20 @@ int mbedtls_mpi_grow( mbedtls_mpi *X, size_t nblimbs )
 
     if( X->n < nblimbs )
     {
-        if( ( p = (mbedtls_mpi_uint*)mbedtls_calloc( nblimbs, ciL ) ) == NULL )
+        if( ( p = (mbedtls_mpi_uint*)mbedtls_calloc( nblimbs, ciL ) ) == NULL ) {
             return( MBEDTLS_ERR_MPI_ALLOC_FAILED );
+        }
+
+        MEMP* yolo = (MEMP *)((U32)p - sizeof(MEMP));
+        // printf("bignum calloc, p=%p, next=%p, next->next=%p, size=%d\r\n", p, yolo->next, yolo->next->next, yolo->len);
 
         if( X->p != NULL )
         {
             memcpy( p, X->p, X->n * ciL );
             mbedtls_mpi_zeroize( X->p, X->n );
+            // printf("bignum zeroize, p=%p, n=%d\r\n", X->p, X->n);
             mbedtls_free( X->p );
+            // printf("bignum free, p=%p, next=%p, next->next=%p, size=%d\r\n", p, yolo->next, yolo->next->next, yolo->len);
         }
 
         X->n = nblimbs;
@@ -200,6 +209,7 @@ int mbedtls_mpi_copy( mbedtls_mpi *X, const mbedtls_mpi *Y )
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( X, i ) );
 
+    // printf("bignum memset at %p, len=%d\r\n", X->p, X->n * ciL);
     memset( X->p, 0, X->n * ciL );
     memcpy( X->p, Y->p, i * ciL );
 
@@ -292,6 +302,8 @@ int mbedtls_mpi_lset( mbedtls_mpi *X, mbedtls_mpi_sint z )
     int ret;
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( X, 1 ) );
+
+    // printf("bignum memset2 at %p, len=%d\r\n", X->p, X->n * ciL);
     memset( X->p, 0, X->n * ciL );
 
     X->p[0] = ( z < 0 ) ? -z : z;
@@ -1551,6 +1563,7 @@ static int mpi_montmul( mbedtls_mpi *A, const mbedtls_mpi *B, const mbedtls_mpi 
     if( T->n < N->n + 1 || T->p == NULL )
         return( MBEDTLS_ERR_MPI_BAD_INPUT_DATA );
 
+    // printf("bignum memset at %p, len=%d\r\n", T->p, T->n * ciL);
     memset( T->p, 0, T->n * ciL );
 
     d = T->p;

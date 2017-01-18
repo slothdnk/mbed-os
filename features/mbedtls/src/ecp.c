@@ -40,6 +40,9 @@
  *     <http://eprint.iacr.org/2004/342.pdf>
  */
 
+#define U32 unsigned int
+#include "rt_Memory.h"
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
 #else
@@ -799,6 +802,9 @@ static int ecp_normalize_jac_many( const mbedtls_ecp_group *grp,
     if( ( c = mbedtls_calloc( t_len, sizeof( mbedtls_mpi ) ) ) == NULL )
         return( MBEDTLS_ERR_ECP_ALLOC_FAILED );
 
+    MEMP* yolo = (MEMP *)((U32)c - sizeof(MEMP));
+    // printf("ecp calloc2, p=%p, next=%p, size=0x%d\r\n", c, yolo->next, yolo->len);
+
     mbedtls_mpi_init( &u ); mbedtls_mpi_init( &Zi ); mbedtls_mpi_init( &ZZi );
 
     /*
@@ -1373,6 +1379,9 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
             ret = MBEDTLS_ERR_ECP_ALLOC_FAILED;
             goto cleanup;
         }
+
+        MEMP* yolo = (MEMP *)((U32)T - sizeof(MEMP));
+        // printf("ecp calloc, p=%p, next=%p, size=0x%d\r\n", T, yolo->next, yolo->len);
 
         MBEDTLS_MPI_CHK( ecp_precompute_comb( grp, T, P, w, d ) );
 

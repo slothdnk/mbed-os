@@ -24,6 +24,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define U32 unsigned int
+#include "rt_Memory.h"
+
 /* There are two memory tracers in mbed OS:
 
 - the first can be used to detect the maximum heap usage at runtime. It is
@@ -180,17 +183,25 @@ extern "C" void __wrap__free_r(struct _reent * r, void * ptr) {
 
 #endif // if !defined(FEATURE_UVISOR)
 
+static uint32_t calloc_counter = 0;
+
 extern "C" void * __wrap__calloc_r(struct _reent * r, size_t nmemb, size_t size) {
     void *ptr = NULL;
 #ifdef MBED_HEAP_STATS_ENABLED
     // Note - no lock needed since malloc is thread safe
-
     ptr = malloc(nmemb * size);
     if (ptr != NULL) {
         memset(ptr, 0, nmemb * size);
     }
 #else // #ifdef MBED_HEAP_STATS_ENABLED
+    calloc_counter++;
+    if (calloc_counter == 25) {
+        printf("JUST BEFORE WE'RE GONNA FAIL %p\r\n", ((MEMP*)0x1fff5c68)->next);
+        calloc_counter++;
+    }
+    printf("__real__calloc_r %p\r\n", ((MEMP*)0x1fff5c68)->next);
     ptr = __real__calloc_r(r, nmemb, size);
+    printf("__real__calloc_r_done %p\r\n", ((MEMP*)0x1fff5c68)->next);
 #endif // #ifdef MBED_HEAP_STATS_ENABLED
 #ifdef MBED_MEM_TRACING_ENABLED
     mem_trace_mutex->lock();
