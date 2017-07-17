@@ -1295,7 +1295,9 @@
         "progen": {"target": "xdot-l151cc"},
         "device_has": ["ANALOGIN", "ANALOGOUT", "I2C", "I2CSLAVE", "INTERRUPTIN", "PORTIN", "PORTINOUT", "PORTOUT", "PWMOUT", "RTC", "SERIAL", "SLEEP", "SPI", "SPISLAVE", "SPI_ASYNCH", "STDIO_MESSAGES"],
         "default_lib": "std",
-        "release_versions": ["5"]
+        "release_versions": ["5"],
+        "device_name": "STM32L151CC",
+        "bootloader_supported": true
     },
     "MOTE_L152RC": {
         "inherits": ["Target"],
