@@ -115,13 +115,6 @@ struct flash_s {
     uint32_t dummy;
 };
 
-struct dac_s {
-    DACName dac;
-    PinName pin;
-    uint32_t channel;
-    DAC_HandleTypeDef handle;
-};
-
 #include "gpio_object.h"
 
 #ifdef __cplusplus
