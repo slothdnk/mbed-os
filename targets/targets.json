@@ -1701,7 +1701,11 @@
         "features": ["LWIP"],
         "release_versions": ["5"],
         "device_name": "STM32F439ZI",
-        "bootloader_supported": true
+        "bootloader_supported": true,
+        "post_binary_hook": {
+            "function": "MCU_ODINW2Code.binary_hook",
+            "toolchains": ["ARM_STD", "GCC_ARM"]
+        }
     },
     "UBLOX_C030": {
         "inherits": ["FAMILY_STM32"],

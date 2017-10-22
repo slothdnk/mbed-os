@@ -24,6 +24,7 @@ import sys
 from copy import copy
 from inspect import getmro
 from collections import namedtuple, Mapping
+from subprocess import call
 from tools.targets.LPC import patch
 from tools.paths import TOOLS_BOOTLOADERS
 from tools.utils import json_file_to_dict
@@ -534,6 +535,20 @@ class RTL8195ACode:
     def binary_hook(t_self, resources, elf, binf):
         from tools.targets.REALTEK_RTL8195AM import rtl8195a_elf2bin
         rtl8195a_elf2bin(t_self, elf, binf)
+
+class MCU_ODINW2Code(object):
+    """Code specific to the ODIN-W2 Mbed Cloud board"""
+    @staticmethod
+    def binary_hook(t_self, resources, elf, binf):
+        # get project folder
+        proj_folder = os.path.abspath(os.path.join(os.path.dirname(binf), "../../.."))
+
+        call(["python", os.path.join(proj_folder, "tools/combine_bootloader_with_app.py"),
+              "-b", os.path.join(proj_folder, "tools/mbed-bootloader-mbed-connect-odin.bin"),
+              "-a", binf,
+              "-c", "0x00020400",
+              "-d", "0x00020000",
+              "-o", os.path.join(os.path.dirname(binf), "combined.bin")])
 ################################################################################
 
 # Instantiate all public targets
