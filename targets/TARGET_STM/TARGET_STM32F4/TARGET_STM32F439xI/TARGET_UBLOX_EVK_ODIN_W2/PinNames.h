@@ -57,7 +57,7 @@ typedef enum {
     PD_4  = 0x34, PD_5  = 0x35, PD_6  = 0x36, PD_7  = 0x37,
     PD_8  = 0x38, PD_9  = 0x39, PD_10 = 0x3A, PD_11 = 0x3B,
     PD_12 = 0x3C, PD_13 = 0x3D, PD_14 = 0x3E, PD_15 = 0x3F,
-    
+
     PE_0  = 0x40, PE_1  = 0x41, PE_2  = 0x42, PE_3  = 0x43,
     PE_4  = 0x44, PE_5  = 0x45, PE_6  = 0x46, PE_7  = 0x47,
     PE_8  = 0x48, PE_9  = 0x49, PE_10 = 0x4A, PE_11 = 0x4B,
@@ -121,8 +121,8 @@ typedef enum {
     P_TP7   = PA_13,  // TMS  SWDIO
     P_TP8   = PA_15,  // TDI
     P_TP9   = PA_14,  // TCK  SWCLK
-    P_TP10  = PB_3,   // TDO 
-    //P_TP11,         // BOOT0 		
+    P_TP10  = PB_3,   // TDO
+    //P_TP11,         // BOOT0
 
     // Board Pins
     // A0-A5
@@ -150,27 +150,29 @@ typedef enum {
     D14     = PF_0,   // SDA
     D15     = PF_1,   // SCL
     // Internal
-    LED1    = PE_0,   // Red / Mode
-    LED2    = PB_6,   // Green / Switch-1
-    LED3    = PB_8,   // Blue
-    LED4    = D10,
-    SW0     = PF_2,   // Switch-0
-    SW1     = PB_6,   // Green / Switch-1
-
-    LED_RED   = LED1,
-    LED_GREEN = LED2,
-    LED_BLUE  = LED3,
+    LED1       = PD_9,
+    LED2       = PA_12,
+    LED3       = PD_8,
+    LED4       = PA_11,
+    LED5       = PC_2,
+    LED6       = PA_3,
+    LED7       = PF_6,
+    LED_RED    = PE_0,
+    LED_GREEN  = PB_6,
+    LED_BLUE   = PB_8,
+    SW1        = PF_2,
+    SW2        = PG_4,
 
     // Standardized button names
-    BUTTON1 = SW0,
-    BUTTON2 = SW1,
+    BUTTON1 = SW1,
+    BUTTON2 = SW2,
 
     // ST-Link
     USBRX   = PA_10,
     USBTX   = PA_9,
-    SWDIO   = PA_15, 
-    SWCLK   = PA_14, 
-    NTRST   = PB_4,  
+    SWDIO   = PA_15,
+    SWCLK   = PA_14,
+    NTRST   = PB_4,
 
     // Not connected
     NC = (int)0xFFFFFFFF
