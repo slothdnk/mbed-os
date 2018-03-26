@@ -173,7 +173,7 @@ public:
             return NetworkStack::gethostbyname(name, address, version);
         }
 
-        nsapi_addr_t addr = {NSAPI_UNSPEC, 0};
+        nsapi_addr_t addr = {NSAPI_UNSPEC, { 0 }};
         nsapi_error_t err = _stack_api()->gethostbyname(_stack(), name, &addr, version);
         address->set_addr(addr);
         return err;
@@ -258,7 +258,7 @@ protected:
             return NSAPI_ERROR_UNSUPPORTED;
         }
 
-        nsapi_addr_t addr = {NSAPI_IPv4, 0};
+        nsapi_addr_t addr = {NSAPI_IPv4, { 0 }};
         uint16_t port = 0;
 
         nsapi_error_t err = _stack_api()->socket_accept(_stack(), server, socket, &addr, &port);
@@ -304,7 +304,7 @@ protected:
             return NSAPI_ERROR_UNSUPPORTED;
         }
 
-        nsapi_addr_t addr = {NSAPI_IPv4, 0};
+        nsapi_addr_t addr = {NSAPI_IPv4, { 0 }};
         uint16_t port = 0;
 
         nsapi_size_or_error_t err = _stack_api()->socket_recvfrom(_stack(), socket, &addr, &port, data, size);
