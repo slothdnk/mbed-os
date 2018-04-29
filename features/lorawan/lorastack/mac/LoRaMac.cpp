@@ -1586,8 +1586,6 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
 
 lorawan_status_t LoRaMac::send_frame_on_channel(uint8_t channel)
 {
-    tr_info("send_frame_on_channel (channel=%u)", channel);
-
     tx_config_params_t tx_config;
     int8_t tx_power = 0;
 
