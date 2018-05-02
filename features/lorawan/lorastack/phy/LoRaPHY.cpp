@@ -29,11 +29,6 @@ SPDX-License-Identifier: BSD-3-Clause
 
 #include "LoRaPHY.h"
 
-#define tr_debug(...) printf("[LPHY][DBG] "); printf(__VA_ARGS__); printf("\n") //dummies if feature common pal is not added
-#define tr_info(...)  printf("[LPHY][INF] "); printf(__VA_ARGS__); printf("\n") //dummies if feature common pal is not added
-#define tr_error(...) printf("[LPHY][ERR] "); printf(__VA_ARGS__); printf("\n") //dummies if feature common pal is not added
-#define tr_warn(...) printf("[LPHY][WRN] "); printf(__VA_ARGS__); printf("\n") //dummies if feature common pal is not added
-
 #define BACKOFF_DC_1_HOUR       100
 #define BACKOFF_DC_10_HOURS     1000
 #define BACKOFF_DC_24_HOURS     10000

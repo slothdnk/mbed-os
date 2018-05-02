@@ -309,6 +309,8 @@ int16_t LoRaWANStack::handle_tx(const uint8_t port, const uint8_t* data,
 
     status = state_controller(DEVICE_STATE_SCHEDULING);
 
+    tr_info("lora_state_machine is %d", status);
+
     // send user the length of data which is scheduled now.
     // user should take care of the pending data.
     return (status == LORAWAN_STATUS_OK) ? len : (int16_t) status;

@@ -955,6 +955,8 @@ bool LoRaMac::validate_payload_length(uint16_t length,
                                       int8_t datarate,
                                       uint8_t fopts_len)
 {
+    tr_info("validate_payload_length");
+
     uint16_t max_value = 0;
     uint16_t payloadSize = 0;
 
@@ -1586,6 +1588,8 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
 
 lorawan_status_t LoRaMac::send_frame_on_channel(uint8_t channel)
 {
+    tr_info("send_frame_on_channel");
+
     tx_config_params_t tx_config;
     int8_t tx_power = 0;
 
@@ -1865,6 +1869,8 @@ void LoRaMac::bind_radio_driver(LoRaRadio& radio)
 
 lorawan_status_t LoRaMac::mlme_request( loramac_mlme_req_t *mlmeRequest )
 {
+    tr_info("mlme_request");
+
     if (LORAMAC_IDLE != _params.mac_state) {
         return LORAWAN_STATUS_BUSY;
     }
@@ -1904,6 +1910,8 @@ lorawan_status_t LoRaMac::mlme_request( loramac_mlme_req_t *mlmeRequest )
 
 lorawan_status_t LoRaMac::test_request( loramac_compliance_test_req_t *mcpsRequest )
 {
+    tr_info("mcps_request");
+
     if (_params.mac_state != LORAMAC_IDLE) {
         return LORAWAN_STATUS_BUSY;
     }
