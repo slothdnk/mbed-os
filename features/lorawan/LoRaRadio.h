@@ -112,11 +112,9 @@ typedef struct radio_lora_settings {
  *
  */
 typedef struct radio_lora_packet_handler {
-    int8_t   snr_value;
-    int8_t   rssi_value;
-    uint8_t  size;
-    bool     pending;
-    uint32_t timestamp_ms;
+    int8_t  snr_value;
+    int8_t  rssi_value;
+    uint8_t size;
 } radio_lora_packet_handler_t;
 
 /** Radio settings.

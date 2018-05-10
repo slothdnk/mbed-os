@@ -108,7 +108,6 @@ uint32_t LoRaPHY::get_radio_rng()
 
 void LoRaPHY::handle_send(uint8_t *buf, uint8_t size)
 {
-    tr_info("handle_send (size=%u)", size);
     _radio->lock();
     _radio->send(buf, size);
     _radio->unlock();
