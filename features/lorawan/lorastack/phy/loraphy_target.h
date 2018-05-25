@@ -18,6 +18,10 @@
 #ifndef LORAPHY_TARGET
 #define LORAPHY_TARGET
 
+#ifdef TARGET_SIMULATOR
+#include "device.h"
+#endif
+
 #ifdef MBED_CONF_LORA_PHY
 
 #define LORA_REGION_EU868           0x10

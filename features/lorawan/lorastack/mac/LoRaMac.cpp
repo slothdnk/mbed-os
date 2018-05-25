@@ -191,6 +191,8 @@ void LoRaMac::post_process_mlme_ind()
 
 void LoRaMac::on_radio_tx_done(void)
 {
+    tr_info("tx_done");
+
     lorawan_time_t cur_time = _lora_time.get_current_time();
 
     if (_device_class != CLASS_C) {

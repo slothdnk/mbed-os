@@ -28,6 +28,7 @@
 #define __SIMULATOR_DEVICE_H__
 
 #include <stdint.h>
+#include <string.h>             // so we have memcpy
 #include "cmsis.h"
 #include "objects.h"
 #include "gpio_object.h"
@@ -43,7 +44,7 @@
 
 // LoRaWAN configuration
 #ifndef MBED_CONF_LORA_PHY
-#define MBED_CONF_LORA_PHY                          0
+#define MBED_CONF_LORA_PHY                          EU868
 #endif
 
 #ifndef MBED_CONF_LORA_OVER_THE_AIR_ACTIVATION
@@ -102,9 +103,29 @@
 #define MBED_CONF_LORA_LBT_ON                       false
 #endif
 
+#ifndef MBED_CONF_LORA_TX_MAX_SIZE
+#define MBED_CONF_LORA_TX_MAX_SIZE                  255
+#endif
+
 // Tracing (enable here, so mbed_trace is compiled in)
 #ifndef MBED_CONF_MBED_TRACE_ENABLE
 #define MBED_CONF_MBED_TRACE_ENABLE                 1
+#endif
+
+#ifndef MBED_CONF_NSAPI_DNS_RESPONSE_WAIT_TIME
+#define MBED_CONF_NSAPI_DNS_RESPONSE_WAIT_TIME      5000
+#endif
+
+#ifndef MBED_CONF_NSAPI_DNS_TOTAL_ATTEMPTS
+#define MBED_CONF_NSAPI_DNS_TOTAL_ATTEMPTS  3
+#endif
+
+#ifndef MBED_CONF_NSAPI_DNS_RETRIES
+#define MBED_CONF_NSAPI_DNS_RETRIES         0
+#endif
+
+#ifndef MBED_CONF_NSAPI_DNS_CACHE_SIZE
+#define MBED_CONF_NSAPI_DNS_CACHE_SIZE      3
 #endif
 
 // Device features

@@ -1,4 +1,5 @@
 #include "cmsis.h"
+#include "mbed_wait_api.h"
 
 void NVIC_SystemReset () {
     // no-op
@@ -49,4 +50,8 @@ uint32_t __STREXH (uint16_t value, volatile uint16_t *addr) {
 uint32_t __STREXW (uint32_t value, volatile uint32_t *addr) {
     *addr = value;
     return 0;
+}
+
+void __WFI() {
+    wait_ms(100);
 }

@@ -18,6 +18,7 @@
 #include "nsapi_dns.h"
 #include "mbed.h"
 #include "stddef.h"
+#include "mbed_shared_queues.h"
 #include <new>
 
 // Default NetworkStack operations

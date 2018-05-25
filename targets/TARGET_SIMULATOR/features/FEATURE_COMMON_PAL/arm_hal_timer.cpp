@@ -6,8 +6,8 @@
 #include "ns_types.h"
 
 #include "mbed.h"
-#include "platform/arm_hal_timer.h"
-#include "platform/arm_hal_interrupt.h"
+#include "arm_hal_timer.h"
+#include "arm_hal_interrupt.h"
 #include <mbed_assert.h>
 
 static Timer timer;
