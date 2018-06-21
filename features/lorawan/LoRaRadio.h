@@ -106,6 +106,7 @@ typedef struct radio_lora_settings {
     bool     rx_continuous;
     uint32_t tx_timeout;
     bool     public_network;
+    uint16_t symb_timeout;
 } radio_lora_settings_t;
 
 /** Radio LoRa packet handler state.
