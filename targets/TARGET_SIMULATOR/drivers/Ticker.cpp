@@ -7,13 +7,13 @@ namespace mbed {
 void Ticker::setup(us_timestamp_t t) {
     EM_ASM_({
         window.MbedJSHal.timers.ticker_setup($0, $1);
-    }, &_function, (uint32_t)(t / 1000));
+    }, this, (uint32_t)(t / 1000));
 }
 
 void Ticker::detach() {
     EM_ASM_({
         window.MbedJSHal.timers.ticker_detach($0);
-    }, &_function);
+    }, this);
 }
 
 void Ticker::handler() {
@@ -27,5 +27,5 @@ void Ticker::handler() {
 
 EMSCRIPTEN_KEEPALIVE
 extern "C" void invoke_ticker(uint32_t fn) {
-    ((mbed::Callback<void()>*)fn)->call();
+    ((mbed::Ticker*)fn)->handler();
 }
