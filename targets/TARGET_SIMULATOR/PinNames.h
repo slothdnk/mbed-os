@@ -122,6 +122,9 @@ typedef enum {
     SPI_SCK  = p7,
 
     BUTTON1 = 1337, // hope this is not used yet
+    BUTTON2 = 1338, // hope this is not used yet
+    SW1 = 1337, // hope this is not used yet
+    SW2 = 1338, // hope this is not used yet
 } PinName;
 
 typedef enum {
