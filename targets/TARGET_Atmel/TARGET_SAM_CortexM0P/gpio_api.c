@@ -28,14 +28,13 @@ uint32_t gpio_set(PinName pin)
 
 void gpio_init(gpio_t *obj, PinName pin)
 {
-    MBED_ASSERT(pin != (PinName)NC);
+    if (pin == (PinName)NC)
+        return;
+
     struct port_config pin_conf;
     PortGroup *const port_base = (PortGroup*)port_get_group_from_gpio_pin(pin);
 
     obj->pin = pin;
-    if (pin == (PinName)NC)
-        return;
-
     obj->mask = gpio_set(pin);
     port_get_config_defaults(&pin_conf);
     obj->powersave = pin_conf.powersave;
