@@ -5,7 +5,7 @@
  * \defgroup platform_debug Debug functions
  * @{
  */
- 
+
 /* mbed Microcontroller Library
  * Copyright (c) 2006-2013 ARM Limited
  *
@@ -31,7 +31,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 /** Output a debug message
  *
