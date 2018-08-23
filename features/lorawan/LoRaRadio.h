@@ -24,7 +24,6 @@
  */
 
 #include "platform/Callback.h"
-#include "PinNames.h"
 
 /**
  * Structure to hold RF controls for LoRa Radio.
