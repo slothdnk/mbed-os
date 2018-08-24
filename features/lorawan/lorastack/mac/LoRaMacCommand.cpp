@@ -139,7 +139,17 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
     while (mac_index < commands_size) {
         // Decode Frame MAC commands
         switch (payload[mac_index++]) {
-            case SRV_MAC_LINK_CHECK_ANS:
+            case SRV_MAC_RESET_CONF: {
+                loramac_mlme_confirm_t mlme_conf;
+                mlme_conf.type = MLME_RESET;
+                mlme_conf.status = LORAMAC_EVENT_INFO_STATUS_OK;
+                mlme_conf.version = payload[mac_index++] & 0x0F;
+                confirm_handler(mlme_conf);
+            }
+                break;
+            case SRV_MAC_LINK_CHECK_ANS: {
+                loramac_mlme_confirm_t mlme_conf;
+                mlme_conf.type = MLME_LINK_CHECK;
                 mlme_conf.status = LORAMAC_EVENT_INFO_STATUS_OK;
                 mlme_conf.demod_margin = payload[mac_index++];
                 mlme_conf.nb_gateways = payload[mac_index++];
@@ -290,7 +300,76 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
 
                 ret_value = add_dl_channel_ans(status);
             }
-            break;
+                break;
+            case SRV_MAC_REKEY_CONF: {
+                loramac_mlme_confirm_t mlme_conf;
+                mlme_conf.type = MLME_REKEY;
+                mlme_conf.status = LORAMAC_EVENT_INFO_STATUS_OK;
+                mlme_conf.version = payload[mac_index++] & 0x0F;
+                confirm_handler(mlme_conf);
+            }
+                break;
+            case SRV_MAC_ADR_PARAM_SETUP_REQ: {
+                uint16_t limit = 1;
+                uint16_t delay = 1;
+                uint8_t adrParam = payload[mac_index++];
+                delay = delay << (adrParam & 0x0f);
+                limit = limit << (adrParam >> 4 & 0x0f);
+                lora_phy.set_adr_ack_limit(limit);
+                lora_phy.set_adr_ack_delay(delay);
+                ret_value = add_adr_param_setup_ans();
+            }
+                break;
+            case SRV_MAC_DEVICE_TIME_ANS: {
+                uint32_t secs = (uint32_t) payload[mac_index++];
+                secs |= (uint32_t) payload[mac_index++] << 8;
+                secs |= (uint32_t) payload[mac_index++] << 16;
+                secs |= (uint32_t) payload[mac_index++] << 24;
+                uint32_t millis = ((uint32_t) payload[mac_index++] * 1000) >> 8;
+
+                lora_phy.time_received(secs, millis);
+            }
+                break;
+            case SRV_MAC_FORCE_REJOIN_REQ: {
+                loramac_mlme_confirm_t mlme_conf;
+                uint8_t data = payload[mac_index++];
+                uint8_t max_retries = data & 0x07;
+                uint8_t period = (data >> 3) & 0x07;
+                data = payload[mac_index++];
+                uint8_t datarate = data & 0x0F;
+                uint8_t rejoin_type = (data >> 4) & 0x07;
+
+                mlme_conf.status = LORAMAC_EVENT_INFO_STATUS_OK;
+                mlme_conf.type = MLME_FORCE_REJOIN;
+                mlme_conf.max_retries = max_retries;
+                mlme_conf.period = period;
+                mlme_conf.datarate = datarate;
+                mlme_conf.rejoin_type = rejoin_type;
+                confirm_handler(mlme_conf);
+
+            }
+                break;
+            case SRV_MAC_REJOIN_PARAM_SETUP_REQ: {
+                uint8_t data = payload[mac_index++];
+                uint8_t count = (data & 0x0F) + 4;
+                uint8_t time = ((data >> 4) & 0x0F) + 10;
+
+                uint32_t max_count = 1 << count;
+                uint32_t max_time = 1 << time;
+
+                uint8_t time_available = lora_phy.update_rejoin_params(max_time, max_count);
+                add_rejoin_param_setup_ans(time_available);
+            }
+                break;
+            case SRV_MAC_DEVICE_MODE_CONF: {
+                loramac_mlme_confirm_t mlme_conf;
+                uint8_t classType = payload[mac_index++];
+                mlme_conf.classType = classType;
+                mlme_conf.status = LORAMAC_EVENT_INFO_STATUS_OK;
+                mlme_conf.type = MLME_DEVICE_MODE;
+                confirm_handler(mlme_conf);
+            }
+                break;
             default:
                 // Unknown command. ABORT MAC commands processing
                 tr_error("Invalid MAC command (0x%X)!", payload[mac_index]);

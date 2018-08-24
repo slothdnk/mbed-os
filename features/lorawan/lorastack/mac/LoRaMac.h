@@ -196,6 +196,13 @@ public:
      */
     lorawan_status_t multicast_channel_unlink(multicast_params_t *channel_param);
 
+    /**
+     * @brief get_rejoin_parameters Gets current rejoin parameters
+     * @param max_time Current rejoin max time
+     * @param max_count Current rejoin max count
+     */
+    void get_rejoin_parameters(uint32_t& max_time, uint32_t& max_count);
+
     /** Binds phy layer to MAC.
      *
      * @param phy   LoRaPHY object
@@ -327,6 +334,15 @@ public:
     lorawan_status_t join(bool is_otaa);
 
     /**
+     * @brief rejoin Rejoins the network
+     * @param rejoin_type Rejoin type indicates the rejoin message payload
+     * @param is_forced Indicates if the function was called because of ForceRejoinReq
+     * @param datarate In case of forced rejoin, datarate to be used for Rejoin request
+     * @return LORAWAN_STATUS_OK or a negative error code on failure.
+     */
+    lorawan_status_t rejoin(join_req_type_t rejoin_type, bool is_forced = false, uint8_t datarate = DR_0);
+
+    /**
      * MAC operations upon successful transmission
      */
     void on_radio_tx_done(lorawan_time_t timestamp);
@@ -370,7 +386,6 @@ public:
      */
     const loramac_mcps_confirm_t *get_mcps_confirmation() const;
     const loramac_mcps_indication_t *get_mcps_indication() const;
-    const loramac_mlme_confirm_t *get_mlme_confirmation() const;
     const loramac_mlme_indication_t *get_mlme_indication() const;
 
     /**
@@ -436,6 +451,8 @@ public:
     void lock(void) { }
     void unlock(void) { }
 #endif
+
+    LoRaWANTimeHandler *get_lora_time();
 
 private:
     /**
@@ -589,7 +606,6 @@ private:
      * Resets MAC primitive blocks
      */
     void reset_mcps_confirmation(void);
-    void reset_mlme_confirmation(void);
     void reset_mcps_indication(void);
 
     /**

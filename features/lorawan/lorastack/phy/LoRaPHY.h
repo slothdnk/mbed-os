@@ -564,6 +564,42 @@ public: //Verifiers
      */
     bool verify_nb_join_trials(uint8_t nb_join_trials);
 
+    /**
+     * @brief get_adr_ack_limit Gets the ADR ACK limit currently in use.
+     * @return ADR ACK limit used
+     */
+    uint16_t get_adr_ack_limit() const;
+
+    /**
+     * @brief set_adr_ack_limit Sets ADR ACK limit to be used.
+     * @param value New value for ack limit
+     */
+    void set_adr_ack_limit(const uint16_t& value);
+
+    /**
+     * @brief get_adr_ack_delay Gets the ADR ACK delay currently in use.
+     * @return ADR ACK delay used
+     */
+    uint16_t get_adr_ack_delay() const;
+
+    /**
+     * @brief set_adr_ack_delay Sets ADR ACK delay to be used.
+     * @param value New value for ack delay
+     */
+    void set_adr_ack_delay(const uint16_t& value);
+
+    /**
+     * @brief getRejoin_max_time Getter for current rejoin max time
+     * @return Current rejoin max time in seconds
+     */
+    uint32_t get_rejoin_max_time() const;
+
+    /**
+     * @brief get_rejoin_max_count Getter for current rejoin max count
+     * @return Current rejoin max count
+     */
+    uint32_t get_rejoin_max_count() const;
+
 protected:
     LoRaPHY();
 

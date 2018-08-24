@@ -36,6 +36,9 @@ SPDX-License-Identifier: BSD-3-Clause
 #define TICK_GRANULARITY_JITTER 1.0f
 #define CHANNELS_IN_MASK        16
 
+#define DEVICE_DOES_NOT_SUPPORT_TIME 0
+#define DEVICE_SUPPORTS_TIME 1
+
 LoRaPHY::LoRaPHY()
     : _radio(NULL),
       _lora_time(NULL)
@@ -664,6 +667,26 @@ channel_params_t *LoRaPHY::get_phy_channels()
 bool LoRaPHY::is_custom_channel_plan_supported()
 {
     return phy_params.custom_channelplans_supported;
+}
+
+void LoRaPHY::time_received(uint32_t secs, uint32_t milliseconds)
+{
+    time_t seconds = time(NULL) + GPS_EPOCH_DIFF_WITH_UTC + secs;
+    //Since RTC does not support milliseconds, we round millis to closest second
+    if (milliseconds > 499) {
+        seconds++;
+    }
+
+    set_time(seconds);
+    //TODO: Do we need/want to inform application about updated time??
+}
+
+uint8_t LoRaPHY::update_rejoin_params(uint32_t max_time, uint32_t max_count)
+{
+    //These will be taken into use at next rejoin "cycle"
+    _rejoin_max_time = max_time;
+    _rejoin_max_count = max_count;
+    return DEVICE_SUPPORTS_TIME;
 }
 
 void LoRaPHY::restore_default_channels()
@@ -1461,4 +1484,13 @@ uint8_t LoRaPHY::apply_DR_offset(int8_t dr, int8_t dr_offset)
     return datarate;
 }
 
+uint32_t LoRaPHY::get_rejoin_max_time() const
+{
+    return _rejoin_max_time;
+}
+
+uint32_t LoRaPHY::get_rejoin_max_count() const
+{
+    return _rejoin_max_count;
+}
 

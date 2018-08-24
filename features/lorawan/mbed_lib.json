@@ -92,6 +92,18 @@
         "fsb-mask-china": {
             "help": "FSB mask for upstream [CN470 PHY] Check lorawan/FSB_Usage.txt for more details",
             "value": "{0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}"
+        },
+        "rejoin-default-max-time": {
+            "help": "LW1.1 only! Maximum time in seconds between Rejoin requests.",
+            "value": 3600
+        },
+        "rejoin-default-max-count": {
+            "help": "LW1.1 only! Maximum amount of messages which can be sent between Rejoin requests.",
+            "value": 1000
+        },
+        "rejoin-type1-send-period": {
+            "help": "Rejoin type 1 sending period. NOTE: Rejoin message will be sent when this period has expired. Default is 1 week",
+            "value": 604800
         }
     }
 }
