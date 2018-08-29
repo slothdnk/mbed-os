@@ -1,3 +1,4 @@
+#include <stdio.h>
 /**
  / _____)             _              | |
 ( (____  _____ ____ _| |_ _____  ____| |__
@@ -275,9 +276,29 @@ void LoRaMac::handle_join_accept_frame(const uint8_t *payload, uint16_t size)
             return;
         }
 
-        _params.net_id = (uint32_t) _params.rx_buffer[4];
-        _params.net_id |= ((uint32_t) _params.rx_buffer[5] << 8);
-        _params.net_id |= ((uint32_t) _params.rx_buffer[6] << 16);
+        printf("nwk_skey: ");
+        for (int i = 0; i < 16; i++)
+            printf("%02X ", _params.keys.nwk_skey[i]);
+        printf("\r\n");
+
+        printf("app_skey: ");
+        for (int i = 0; i < 16; i++)
+            printf("%02X ", _params.keys.app_skey[i]);
+        printf("\r\n");
+
+        printf("snwk_sintkey: ");
+        for (int i = 0; i < 16; i++)
+            printf("%02X ", _params.keys.snwk_sintkey[i]);
+        printf("\r\n");
+
+        printf("nwk_senckey: ");
+        for (int i = 0; i < 16; i++)
+            printf("%02X ", _params.keys.nwk_senckey[i]);
+        printf("\r\n");
+
+        _params.net_id = (uint32_t) _params.rx_buffer[payload_start + 3];
+        _params.net_id |= ((uint32_t) _params.rx_buffer[payload_start + 4] << 8);
+        _params.net_id |= ((uint32_t) _params.rx_buffer[payload_start + 5] << 16);
 
         _params.dev_addr = (uint32_t) _params.rx_buffer[7];
         _params.dev_addr |= ((uint32_t) _params.rx_buffer[8] << 8);
@@ -465,9 +486,25 @@ void LoRaMac::extract_mac_commands_only(const uint8_t *payload,
 {
     uint8_t payload_start_index = 8 + fopts_len;
     if (fopts_len > 0) {
-        if (_mac_commands.process_mac_commands(payload, 8, payload_start_index,
-                                               snr, _mlme_confirmation,
-                                               _params.sys_params, *_lora_phy)
+        uint8_t buffer[15];
+
+        if (_params.server_type == LW1_1) {
+            if (0 != _lora_crypto.decrypt_payload(payload + 8, fopts_len,
+                                                  _params.keys.nwk_senckey, sizeof(_params.keys.nwk_senckey) * 8,
+                                                  _params.dev_addr, DOWN_LINK,
+                                                  _params.dl_frame_counter,
+                                                  buffer)) {
+                _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_CRYPTO_FAIL;
+                return false;
+            }
+        } else {
+            memcpy(buffer, payload + 8, fopts_len);
+        }
+
+        if (_mac_commands.process_mac_commands(buffer, 0, fopts_len,
+                                               snr, _params.sys_params,
+                                               *_lora_phy, confirm_handler)
+
                 != LORAWAN_STATUS_OK) {
             _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_ERROR;
             return;
@@ -1715,10 +1752,22 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
 
                     // Update FCtrl field with new value of OptionsLength
                     _params.tx_buffer[0x05] = fctrl->value;
-
                     const uint8_t *buffer = _mac_commands.get_mac_commands_buffer();
-                    for (i = 0; i < mac_commands_len; i++) {
-                        _params.tx_buffer[pkt_header_len++] = buffer[i];
+
+                    if (_params.server_type == LW1_1) {
+                        if (0 != _lora_crypto.encrypt_payload(buffer, mac_commands_len,
+                                                              _params.keys.nwk_senckey,
+                                                              sizeof(_params.keys.nwk_senckey) * 8,
+                                                              _params.dev_addr, UP_LINK,
+                                                              _params.ul_frame_counter,
+                                                              &_params.tx_buffer[pkt_header_len])) {
+                            status = LORAWAN_STATUS_CRYPTO_FAIL;
+                        }
+                        pkt_header_len += mac_commands_len;
+                    } else {
+                        for (i = 0; i < mac_commands_len; i++) {
+                            _params.tx_buffer[pkt_header_len++] = buffer[i];
+                        }
                     }
                 } else {
                     _params.tx_buffer_len = mac_commands_len;
@@ -1764,12 +1813,42 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
                 status = LORAWAN_STATUS_CRYPTO_FAIL;
             }
 
-            _params.tx_buffer[_params.tx_buffer_len + 0] = mic & 0xFF;
-            _params.tx_buffer[_params.tx_buffer_len + 1] = (mic >> 8) & 0xFF;
-            _params.tx_buffer[_params.tx_buffer_len + 2] = (mic >> 16) & 0xFF;
-            _params.tx_buffer[_params.tx_buffer_len + 3] = (mic >> 24) & 0xFF;
+            tr_info("_params.ul_frame_counter = %d", _params.ul_frame_counter);
+
+            if (_params.server_type == LW1_1) {
+                if (_params.is_srv_ack_requested) {
+                    args = _params.counterForAck;
+                }
+                args |= _params.sys_params.channel_data_rate << 16;
+                args |= _params.channel << 24;
+
+                if (0 != _lora_crypto.compute_mic(_params.tx_buffer, _params.tx_buffer_len,
+                                                  _params.keys.snwk_sintkey,
+                                                  sizeof(_params.keys.snwk_sintkey) * 8,
+                                                  args, _params.dev_addr,
+                                                  UP_LINK, _params.ul_frame_counter, &mic2)) {
+                    status = LORAWAN_STATUS_CRYPTO_FAIL;
+                }
+
+                _params.tx_buffer[_params.tx_buffer_len + 0] = mic2 & 0xFF;
+                _params.tx_buffer[_params.tx_buffer_len + 1] = (mic2 >> 8) & 0xFF;
+                _params.tx_buffer[_params.tx_buffer_len + 2] = mic & 0xFF;
+                _params.tx_buffer[_params.tx_buffer_len + 3] = (mic >> 8) & 0xFF;
+
+                tr_info("LoRaWAN 1.1.x MIC1 = 0x%x, MIC2 = 0x%x", mic, mic2);
+            } else {
+                _params.tx_buffer[_params.tx_buffer_len + 0] = mic & 0xFF;
+                _params.tx_buffer[_params.tx_buffer_len + 1] = (mic >> 8) & 0xFF;
+                _params.tx_buffer[_params.tx_buffer_len + 2] = (mic >> 16) & 0xFF;
+                _params.tx_buffer[_params.tx_buffer_len + 3] = (mic >> 24) & 0xFF;
+            }
 
             _params.tx_buffer_len += LORAMAC_MFR_LEN;
+
+            printf("tx_buf (%d):", _params.tx_buffer_len);
+            for (int b = 0; b < _params.tx_buffer_len; b++)
+                printf("%02X ", _params.tx_buffer[b]);
+            printf("\r\n");
         }
         break;
         case FRAME_TYPE_PROPRIETARY:
