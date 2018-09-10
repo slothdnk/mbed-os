@@ -1,6 +1,6 @@
 ## Unit testing
 
-This document describes how to write and use unit tests for Arm Mbed OS. 
+This document describes how to write and use unit tests for Arm Mbed OS.
 
 ### Introduction
 
@@ -113,7 +113,7 @@ With the following steps, you can write a simple unit test. In this example, `rt
    set(unittest-sources
        ../rtos/Semaphore.cpp
    )
-   
+
    set(unittest-test-sources
        stubs/mbed_assert_stub.c
        stubs/Kernel_stub.cpp
