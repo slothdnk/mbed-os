@@ -404,6 +404,7 @@ void rtc_set_wake_up_timer(timestamp_t timestamp)
         }
     }
 
+    core_util_critical_section_enter();
     RtcHandle.Instance = RTC;
     HAL_RTCEx_DeactivateWakeUpTimer(&RtcHandle);
     if (HAL_RTCEx_SetWakeUpTimer_IT(&RtcHandle, WakeUpCounter, WakeUpClock) != HAL_OK) {
