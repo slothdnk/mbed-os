@@ -274,13 +274,10 @@ AT_CellularInformation *AT_CellularDevice::open_information_impl(ATHandler &at)
 void AT_CellularDevice::close_network()
 {
     if (_network) {
-        _network_ref_count--;
-        if (_network_ref_count == 0) {
-            ATHandler *atHandler = &_network->get_at_handler();
-            delete _network;
-            _network = NULL;
-            release_at_handler(atHandler);
-        }
+        ATHandler *atHandler = &_network->get_at_handler();
+        delete _network;
+        _network = NULL;
+        release_at_handler(atHandler);
     }
 }
 
