@@ -30,7 +30,6 @@
 #include "system/lorawan_data_structures.h"
 #include "mbedtls/platform.h"
 
-
 #if defined(MBEDTLS_CMAC_C) && defined(MBEDTLS_AES_C) && defined(MBEDTLS_CIPHER_C)
 
 LoRaMacCrypto::LoRaMacCrypto()
@@ -295,6 +294,54 @@ int LoRaMacCrypto::compute_skeys_for_join_frame(const uint8_t *key, uint32_t key
     if (0 != ret) {
         goto exit;
     }
+
+    if (stype == LW1_0_2) {
+        memcpy(nwk_senckey, nwk_skey, key_length / 8);
+        memcpy(snwk_sintkey, nwk_skey, key_length / 8);
+    } else {
+        memset(nonce, 0, sizeof(nonce));
+        nonce[0] = 0x03;
+        memcpy(nonce + 1, args, args_size);
+        ret = mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, nonce, snwk_sintkey);
+        if (0 != ret)
+            goto exit;
+
+        memset(nonce, 0, sizeof(nonce));
+        nonce[0] = 0x04;
+        memcpy(nonce + 1, args, args_size);
+        ret = mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, nonce, nwk_senckey);
+        if (0 != ret)
+            goto exit;
+    }
+
+exit: mbedtls_aes_free(&aes_ctx);
+    return ret;
+}
+
+int LoRaMacCrypto::compute_join_server_keys(const uint8_t *key, uint32_t key_length, const uint8_t *eui,
+                                            uint8_t *js_intkey, uint8_t *js_enckey)
+{
+    uint8_t nonce[16];
+    int ret = 0;
+
+    if( MBED_CONF_LORA_VERSION == LORAWAN_VERSION_1_0_2 ) {
+        memcpy(js_intkey, key, key_length/8);
+        memcpy(js_enckey, key, key_length/8);
+        return ret;
+    }
+
+    mbedtls_aes_init(&aes_ctx);
+
+    ret = mbedtls_aes_setkey_enc(&aes_ctx, key, key_length);
+    if (0 != ret)
+        goto exit;
+
+    memset(nonce, 0, sizeof(nonce));
+    nonce[0] = 0x05;
+    memcpy(nonce + 1, eui, 8);
+    ret = mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, nonce, js_enckey);
+    if (0 != ret)
+        goto exit;
 
     memset(nonce, 0, sizeof(nonce));
     nonce[0] = 0x02;
