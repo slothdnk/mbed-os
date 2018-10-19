@@ -585,6 +585,14 @@ void LoRaWANStack::process_transmission(void)
 {
     tr_debug("Transmission completed");
 
+    if (_loramac.get_server_type() == LW1_1 && _device_mode_ind_ongoing) {
+        _device_mode_ind_ongoing = false;
+        _loramac.set_device_class(device_class_t(_new_class_type), mbed::callback(this, &LoRaWANStack::post_process_tx_no_reception));
+        send_event_to_application(CLASS_CHANGED);
+    }
+
+    make_tx_metadata_available();
+
     if (_device_current_state == DEVICE_STATE_JOINING) {
         _device_current_state = DEVICE_STATE_AWAITING_JOIN_ACCEPT;
     }
