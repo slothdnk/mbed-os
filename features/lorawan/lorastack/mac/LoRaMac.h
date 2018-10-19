@@ -527,12 +527,15 @@ private:
                                        uint8_t fopts_len, uint8_t *nwk_skey,
                                        uint8_t *app_skey, uint32_t address,
                                        uint32_t downlink_frame_counter,
-                                       int16_t rssi, int8_t snr);
+                                       seq_counter_type_t cnt_type,
+                                       int16_t rssi, int8_t snr,
+                                       mbed::Callback<void(loramac_mlme_confirm_t&)> confirm_handler);
     /**
      * Decrypts and extracts MAC commands from the received encrypted
      * payload if there is no data
      */
-    void extract_mac_commands_only(const uint8_t *payload, int8_t snr, uint8_t fopts_len);
+    bool extract_mac_commands_only(const uint8_t *payload, uint16_t size, int8_t snr, uint8_t fopts_len,
+                                   mbed::Callback<void(loramac_mlme_confirm_t&)> confirm_handler);
 
     /**
      * Callback function to be executed when the DC backoff timer expires
