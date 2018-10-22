@@ -72,6 +72,8 @@ using namespace mbed;
 
 #define JOIN_ACCEPT_LEN_WITHOUT_CFLIST              12
 
+#define RJCOUNT_ROLLOVER                            65535
+
 static void memcpy_convert_endianess(uint8_t *dst,
                                      const uint8_t *src,
                                      uint16_t size)
@@ -254,17 +256,17 @@ void LoRaMac::handle_join_accept_frame(const uint8_t *payload, uint16_t size)
         memcpy_convert_endianess(_params.rx_buffer + 1,  _params.keys.app_eui, 8); // JoinEUI
 
 
-
+        // RJCntX are always incremented so the RJCntLast = RJCntX - 1
         switch (_params.join_request_type) {
             case JOIN_REQUEST:
                 nonce_or_rj_cnt = _params.dev_nonce;
                 break;
             case REJOIN_REQUEST_TYPE0:
             case REJOIN_REQUEST_TYPE2:
-                nonce_or_rj_cnt = _params.RJcount0;
+                nonce_or_rj_cnt = _params.RJcount0 - 1;
                 break;
             case REJOIN_REQUEST_TYPE1:
-                nonce_or_rj_cnt = _params.RJcount1;
+                nonce_or_rj_cnt = _params.RJcount1 - 1;
                 break;
             default:
                 tr_error("Unknown Join Request Type");
@@ -360,10 +362,7 @@ void LoRaMac::handle_join_accept_frame(const uint8_t *payload, uint16_t size)
         if (_params.join_request_type == REJOIN_REQUEST_TYPE0 ||
                 _params.join_request_type == REJOIN_REQUEST_TYPE2) {
             _params.RJcount0 = 0;
-        } else {
-            _params.RJcount1 = 0;
         }
-
     } else {
         _mlme_confirmation.status = LORAMAC_EVENT_INFO_STATUS_JOIN_FAIL;
     }
@@ -834,6 +833,7 @@ void LoRaMac::on_radio_rx_done(const uint8_t *const payload, uint16_t size,
         _lora_phy->put_radio_to_sleep();
     }
 
+    loramac_event_info_status_t ret;
     loramac_mhdr_t mac_hdr;
     uint8_t pos = 0;
     mac_hdr.value = payload[pos++];
@@ -842,13 +842,10 @@ void LoRaMac::on_radio_rx_done(const uint8_t *const payload, uint16_t size,
 
         case FRAME_TYPE_JOIN_ACCEPT:
 
-            if (nwk_joined()) {
-                _mlme_confirmation.pending = false;
-                return;
-            } else {
-                handle_join_accept_frame(payload, size);
-                _mlme_confirmation.pending = true;
-            }
+            ret = handle_join_accept_frame(payload, size);
+            mlme.type = MLME_JOIN_ACCEPT;
+            mlme.status = ret;
+            confirm_handler(mlme);
 
             break;
 
@@ -1312,7 +1309,7 @@ lorawan_status_t LoRaMac::schedule_tx()
                                      MBED_CONF_LORA_MAX_SYS_RX_ERROR,
                                      &_params.rx_window2_config);
 
-    if (!_is_nwk_joined) {
+    if (mac_hdr.bits.mtype == FRAME_TYPE_JOIN_REQ || mac_hdr.bits.mtype == FRAME_TYPE_REJOIN_REQUEST){
         _params.rx_window1_delay = _params.sys_params.join_accept_delay1
                                    + _params.rx_window1_config.window_offset;
         _params.rx_window2_delay = _params.sys_params.join_accept_delay2
@@ -1354,12 +1351,24 @@ lorawan_status_t LoRaMac::schedule_tx()
     _can_cancel_tx = false;
     status = send_frame_on_channel(_params.channel);
 
+    // We must increment RJCountX after every transmission, including
+    // retransmissions
+    if (mac_hdr.bits.mtype == FRAME_TYPE_REJOIN_REQUEST) {
+        if (_params.join_request_type == REJOIN_REQUEST_TYPE0 ||
+                _params.join_request_type == REJOIN_REQUEST_TYPE2) {
+            _params.RJcount0 = _params.RJcount0 < RJCOUNT_ROLLOVER ? _params.RJcount0 + 1 : _params.RJcount0;
+        } else {
+            _params.RJcount1 = _params.RJcount1 < RJCOUNT_ROLLOVER ? _params.RJcount1 + 1 : _params.RJcount1;
+        }
+    }
+
     // If MIC was calculated, remove it from buffer after sending
     // so it can be recalculated and added to the buffer in case
     // of retransmission.
     if (process_mic) {
         _params.tx_buffer_len -= LORAMAC_MFR_LEN;
     }
+
     return status;
 }
 
@@ -1747,6 +1756,16 @@ lorawan_status_t LoRaMac::rejoin(join_req_type_t rejoin_type, bool is_forced, ui
     _params.join_request_type = rejoin_type;
     _params.rejoin_forced = is_forced;
     _params.forced_datarate = datarate;
+
+    if (rejoin_type == REJOIN_REQUEST_TYPE0 || rejoin_type == REJOIN_REQUEST_TYPE2) {
+        if (_params.RJcount0 == RJCOUNT_ROLLOVER) {
+            return LORAWAN_STATUS_SERVICE_UNKNOWN;
+        }
+    } else if (rejoin_type == REJOIN_REQUEST_TYPE1){
+        if (_params.RJcount1 == RJCOUNT_ROLLOVER) {
+            return LORAWAN_STATUS_SERVICE_UNKNOWN;
+        }
+    }
 
     return send_join_request();
 }
@@ -2240,7 +2259,7 @@ lorawan_status_t LoRaMac::calculate_userdata_mic()
         if (_params.is_srv_ack_requested) {
             args = _params.counterForAck;
         }
-        args |= ((uint8_t) _params.sys_params.channel_data_rate) << 16;
+        args |= _params.sys_params.channel_data_rate << 16;
         args |= _params.channel << 24;
 
         if (0 != _lora_crypto.compute_mic(_params.tx_buffer, _params.tx_buffer_len,
