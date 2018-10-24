@@ -247,6 +247,7 @@ protected:
 
     int _base_getc();
     int _base_putc(int c);
+    void _base_flush();
 
 #if DEVICE_SERIAL_ASYNCH
     CThunk<SerialBase> _thunk_irq;

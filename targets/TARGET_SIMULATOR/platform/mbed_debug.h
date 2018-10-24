@@ -1,3 +1,11 @@
+
+/** \addtogroup platform */
+/** @{*/
+/**
+ * \defgroup platform_debug Debug functions
+ * @{
+ */
+
 /* mbed Microcontroller Library
  * Copyright (c) 2006-2013 ARM Limited
  *
@@ -13,48 +21,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "drivers/Serial.h"
-#include "platform/mbed_wait_api.h"
+#ifndef MBED_DEBUG_H
+#define MBED_DEBUG_H
 
-#if DEVICE_SERIAL
+#include <stdio.h>
+#include <stdarg.h>
 
-namespace mbed {
-
-Serial::Serial(PinName tx, PinName rx, const char *name, int baud) : SerialBase(tx, rx, baud), Stream(name)
-{
-}
-
-Serial::Serial(PinName tx, PinName rx, int baud): SerialBase(tx, rx, baud), Stream(NULL)
-{
-}
-
-int Serial::_getc()
-{
-    // Mutex is already held
-    return _base_getc();
-}
-
-int Serial::_putc(int c)
-{
-    // Mutex is already held
-    return _base_putc(c);
-}
-
-void Serial::_flush()
-{
-    _base_flush();
-}
-
-void Serial::lock()
-{
-    _mutex.lock();
-}
-
-void Serial::unlock()
-{
-    _mutex.unlock();
-}
-
-} // namespace mbed
+#define debug printf
 
 #endif
+
+/**@}*/
+
+/**@}*/
+

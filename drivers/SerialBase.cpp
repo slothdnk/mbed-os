@@ -118,6 +118,11 @@ int SerialBase::_base_putc(int c)
     return c;
 }
 
+void SerialBase::_base_flush()
+{
+    // no-op, no flushing required when talking to Serial
+}
+
 void SerialBase::send_break()
 {
     lock();

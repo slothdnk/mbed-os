@@ -37,6 +37,10 @@
 #include <inttypes.h>
 #include "lorawan_types.h"
 
+#ifdef TARGET_SIMULATOR
+#include "device.h"
+#endif
+
 /*!
  * \brief Timer time variable definition
  */

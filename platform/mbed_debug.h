@@ -32,7 +32,6 @@
 extern "C" {
 #endif
 
-
 /** Output a debug message
  *
  * @param format printf-style format string, followed by variables

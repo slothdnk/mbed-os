@@ -3169,7 +3169,7 @@
 
 #endif /* !MBEDTLS_ENTROPY_HARDWARE_ALT && !MBEDTLS_TEST_NULL_ENTROPY */
 
-#if defined(MBEDTLS_TEST_NULL_ENTROPY)
+#if defined(MBEDTLS_TEST_NULL_ENTROPY) && !defined(TARGET_SIMULATOR)
 #warning "MBEDTLS_TEST_NULL_ENTROPY has been enabled. This " \
     "configuration is not secure and is not suitable for production use"
 #endif
