@@ -32,6 +32,7 @@
 #include "cmsis.h"
 #include "objects.h"
 #include "gpio_object.h"
+#include "EthernetInterface.h"
 #include "PeripheralNames.h"
 #include "PortNames.h"
 
@@ -168,5 +169,6 @@
 #define DEVICE_PWMOUT         1
 #define DEVICE_SERIAL         1
 #define DEVICE_FLASH          1
+#define DEVICE_EMAC           1
 
 #endif  // __SIMULATOR_DEVICE_H__
