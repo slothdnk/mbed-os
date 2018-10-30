@@ -32,7 +32,6 @@
 #include "cmsis.h"
 #include "objects.h"
 #include "gpio_object.h"
-#include "EthernetInterface.h"
 #include "PeripheralNames.h"
 #include "PortNames.h"
 
