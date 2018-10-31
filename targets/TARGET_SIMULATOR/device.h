@@ -35,7 +35,8 @@
 #include "PeripheralNames.h"
 #include "PortNames.h"
 
-#define osWaitForever         0xFFFFFFFFU ///< Wait forever timeout value.
+///< Wait forever timeout value - yes, this is not the same as other targets, but 0xffffffff triggers integer overflow
+#define osWaitForever         0x800U
 
 // Serial configuration
 #ifndef MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE
