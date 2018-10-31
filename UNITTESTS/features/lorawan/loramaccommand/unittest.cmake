@@ -36,3 +36,8 @@ set(unittest-test-sources
   stubs/LoRaPHY_stub.cpp
 )
 
+set(unittest-test-flags
+  -DMBED_CONF_LORA_TX_MAX_SIZE=255
+  -DMBED_CONF_LORA_VERSION=0
+)
+

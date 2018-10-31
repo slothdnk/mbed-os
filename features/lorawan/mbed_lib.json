@@ -21,6 +21,10 @@
             "help": "Application IEEE EUI",
             "value": "{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}"
         },
+        "use-secure-element": {
+            "help": "Defines whether device contains a secure element to handle cryptographic operations",
+            "value": false
+        },
         "application-key": {
             "help": "AES encryption/decryption cipher application key",
             "value": "{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}"
