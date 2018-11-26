@@ -754,6 +754,32 @@ bool LoRaPHY::verify_nb_join_trials(uint8_t nb_join_trials)
     return true;
 }
 
+uint16_t LoRaPHY::get_adr_ack_limit() const
+{
+    if (_server_adr_ack_limit != 0) {
+        return _server_adr_ack_limit;
+    }
+    return phy_params.adr_ack_limit;
+}
+
+void LoRaPHY::set_adr_ack_limit(const uint16_t &value)
+{
+    _server_adr_ack_limit = value;
+}
+
+uint16_t LoRaPHY::get_adr_ack_delay() const
+{
+    if (_server_adr_ack_delay != 0) {
+        return _server_adr_ack_delay;
+    }
+    return phy_params.adr_ack_delay;
+}
+
+void LoRaPHY::set_adr_ack_delay(const uint16_t &value)
+{
+    _server_adr_ack_delay = value;
+}
+
 void LoRaPHY::apply_cf_list(const uint8_t *payload, uint8_t size)
 {
     // if the underlying PHY doesn't support CF-List, ignore the request

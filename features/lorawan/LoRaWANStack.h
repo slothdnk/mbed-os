@@ -426,7 +426,7 @@ private:
     /**
      * Handles an MLME confirmation
      */
-    void mlme_confirm_handler(void);
+    void mlme_confirm_handler(loramac_mlme_confirm_t &mlme_confirm);
 
     /**
      * Handles an MCPS confirmation
