@@ -28,9 +28,7 @@
  *******************************************************************************
  */
 
-#if DEVICE_FLASH
 #include "flash_api.h"
-#include "flash_data.h"
 #include "platform/mbed_critical.h"
 
 static uint32_t GetSector(uint32_t Address);
@@ -104,5 +102,3 @@ static uint32_t GetSectorSize(uint32_t Sector)
 {
     return 4096;
 }
-
-#endif
