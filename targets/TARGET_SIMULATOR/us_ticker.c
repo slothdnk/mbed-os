@@ -44,8 +44,3 @@ void us_ticker_set_interrupt(timestamp_t timestamp)
 void us_ticker_fire_interrupt(void)
 {
 }
-
-void us_ticker_free()
-{
-
-}
