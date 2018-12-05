@@ -1050,8 +1050,11 @@ int mbedtls_x509_crt_parse( mbedtls_x509_crt *chain, const unsigned char *buf, s
             {
                 return( ret );
             }
-            else if( ret != MBEDTLS_ERR_PEM_NO_HEADER_FOOTER_PRESENT )
+            else if( ret == MBEDTLS_ERR_PEM_NO_HEADER_FOOTER_PRESENT )
             {
+                break;
+            }
+            else {
                 mbedtls_pem_free( &pem );
 
                 /*
@@ -1066,8 +1069,6 @@ int mbedtls_x509_crt_parse( mbedtls_x509_crt *chain, const unsigned char *buf, s
                 total_failed++;
                 continue;
             }
-            else
-                break;
 
             ret = mbedtls_x509_crt_parse_der( chain, pem.buf, pem.buflen );
 
