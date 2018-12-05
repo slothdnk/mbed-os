@@ -54,7 +54,6 @@ namespace mbed {
  */
 events::EventQueue *mbed_event_queue();
 
-#ifdef MBED_CONF_RTOS_PRESENT
 /**
  * Return a pointer to an EventQueue, on which small high-priority tasks can
  * be queues, such as simple deferrals from interrupt.
@@ -82,8 +81,6 @@ events::EventQueue *mbed_event_queue();
  */
 
 events::EventQueue *mbed_highprio_event_queue();
-
-#endif // MBED_CONF_RTOS_PRESENT
 
 };
 

@@ -18,9 +18,11 @@
 extern "C" {
 #endif
 
+#if !MBED_CONF_NANOSTACK_HAL_EVENT_LOOP_DISPATCH_FROM_APPLICATION
 void ns_event_loop_init(void);
 void ns_event_loop_thread_create(void);
 void ns_event_loop_thread_start(void);
+#endif
 
 #ifdef __cplusplus
 }
