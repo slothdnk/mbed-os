@@ -17,7 +17,7 @@
 #include "us_ticker_api.h"
 #include "cmsis.h"
 #include "mbed_assert.h"
-#include "ins_gclk.h"
+#include "gclk.h"
 #include "compiler.h"
 #include "system.h"
 #include "tc.h"
@@ -153,6 +153,11 @@ void us_ticker_disable_interrupt(void)
     /* Disable the callback */
     tc_disable_callback(&us_ticker_module, TC_CALLBACK_CC_CHANNEL0);
     NVIC_DisableIRQ(TICKER_COUNTER_IRQn);
+}
+
+void us_ticker_fire_interrupt(void)
+{
+    NVIC_SetPendingIRQ(TICKER_COUNTER_IRQn);
 }
 
 void us_ticker_clear_interrupt(void)
