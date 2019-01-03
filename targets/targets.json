@@ -6427,6 +6427,7 @@
     "SAML21J18A": {
         "inherits": ["Target"],
         "core": "Cortex-M0+",
+        "components_add": ["FLASHIAP"],
         "macros": [
             "__SAML21J18A__",
             "I2C_MASTER_CALLBACK_MODE=true",
@@ -6441,6 +6442,7 @@
         "device_has": [
             "ANALOGIN",
             "ANALOGOUT",
+            "FLASH",
             "I2C",
             "I2CSLAVE",
             "I2C_ASYNCH",

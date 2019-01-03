@@ -88,7 +88,11 @@ static char fslittle_fopen_utest_msg_g[FSLITTLE_UTEST_MSG_BUF_SIZE];
 #define FSLITTLE_FOPEN_TEST_MOUNT_PT_PATH      "/" FSLITTLE_FOPEN_TEST_MOUNT_PT_NAME
 #define FSLITTLE_FOPEN_TEST_WORK_BUF_SIZE_1    64
 #define FSLITTLE_FOPEN_TEST_FILEPATH_MAX_DEPTH 20
+#ifdef TARGET_SAML21J18A
+static const int MAX_TEST_SIZE = 64 * 1024;
+#else
 static const int MAX_TEST_SIZE = 256 * 1024 * 2;
+#endif
 static const char *sd_badfile_path = "/sd/badfile.txt";
 static const char *sd_testfile_path = "/sd/test.txt";
 
@@ -1427,7 +1431,11 @@ control_t fslittle_fopen_test_15(const size_t call_count)
 {
     int32_t ret = 0;
     fslittle_kv_data_t *node = fslittle_fopen_test_15_kv_data;
+#ifdef TARGET_SAML21J18A
+    const int32_t num_blocks = 3; /* each file 768b */
+#else
     const int32_t num_blocks = 100; /* each file ~25kB */
+#endif
 
     FSLITTLE_DBGLOG("%s:entered\n", __func__);
     (void) call_count;
