@@ -20,6 +20,7 @@
 #include "PeripheralNames.h"
 #include "PinNames.h"
 #include "gpio_object.h"
+#include "serial_api.h"
 
 /*
  * ==========================================================================

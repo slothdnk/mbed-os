@@ -161,14 +161,4 @@
 #define MBED_CONF_PLATFORM_ERROR_DECODE_HTTP_URL_STR   "\nFor more info, visit: https://armmbed.github.io/mbedos-error/?error=0x%08X"
 #endif
 
-// Device features
-
-#define DEVICE_INTERRUPTIN    1
-#define DEVICE_ANALOGIN       1
-#define DEVICE_ANALOGOUT      1
-#define DEVICE_PWMOUT         1
-#define DEVICE_SERIAL         1
-#define DEVICE_FLASH          1
-#define DEVICE_EMAC           1
-
 #endif  // __SIMULATOR_DEVICE_H__
