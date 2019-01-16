@@ -170,5 +170,6 @@
 #define DEVICE_SERIAL         1
 #define DEVICE_FLASH          1
 #define DEVICE_EMAC           1
+#define DEVICE_RTC            1
 
 #endif  // __SIMULATOR_DEVICE_H__
