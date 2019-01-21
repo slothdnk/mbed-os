@@ -8,32 +8,23 @@ SEARCH_DIR(.)
 
 STACK_SIZE = MBED_BOOT_STACK_SIZE;
 
-#define ROM_START   0x00000000
-#define ROM_SIZE    0x00040000
-#define RAM_START   0x20000000
-#define RAM_SIZE    0x00008000
-#define VECTORS     45   /* This value must match NVIC_NUM_VECTORS */
-
-#define VECTORS_SIZE (VECTORS * 4)
-
 /* Memory Spaces Definitions */
 MEMORY {
-    rom (rx)  : ORIGIN = ROM_START, LENGTH = ROM_SIZE
-    ram (rwx) : ORIGIN = RAM_START + VECTORS_SIZE, LENGTH = RAM_SIZE - VECTORS_SIZE
-}
+    rom (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00040000
+        ram (rwx) : ORIGIN = 0x20000000 + 0xB8, LENGTH = 0x00008000 - 0xB8
+    }
 
-/* Section Definitions */
-SECTIONS {
-    .text :
+    /* Section Definitions */
+    SECTIONS {
+.text :
     {
-        __data_start__ = .;
-        . = ALIGN(4);
+        . = ALIGN(8);
         _sfixed = .;
-        KEEP(*(.isr_vector))
         KEEP(*(.vectors .vectors.*))
         *(.text .text.* .gnu.linkonce.t.*)
         *(.glue_7t) *(.glue_7)
         *(.rodata .rodata* .gnu.linkonce.r.*)
+        *(.ARM.extab* .gnu.linkonce.armextab.*)
 
         /* Support C constructors, and C destructors in both user code
            and the C library. This also provides support for C++ code. */
@@ -69,30 +60,21 @@ SECTIONS {
         KEEP (*(EXCLUDE_FILE (*crtend.o) .dtors))
         KEEP (*(SORT(.dtors.*)))
         KEEP (*crtend.o(.dtors))
-        KEEP(*(.jcr*))
-
-        KEEP(*(.eh_frame*))
 
         . = ALIGN(8);
         _efixed = .;            /* End of text section */
     } > rom
 
-    .ARM.extab :
-    {
-        *(.ARM.extab* .gnu.linkonce.armextab.*)
-    } > rom
-
     /* .ARM.exidx is sorted, so has to go in its own output section.  */
-    __exidx_start = .;
-    .ARM.exidx :
+    PROVIDE_HIDDEN (__exidx_start = .);
+.ARM.exidx :
     {
         *(.ARM.exidx* .gnu.linkonce.armexidx.*)
     } > rom
-    __exidx_end = .;
+    PROVIDE_HIDDEN (__exidx_end = .);
 
     . = ALIGN(8);
     _etext = .;
-    __etext = .;
 
 .relocate :
     AT (_etext)
@@ -103,14 +85,12 @@ SECTIONS {
         *(.data .data.*);
         . = ALIGN(8);
         _erelocate = .;
-        __data_end__ = .;
     } > ram
 
     /* .bss section which is used for uninitialized data */
     .bss (NOLOAD) :
     {
-        . = ALIGN(4);
-        __bss_start__ = .;
+        . = ALIGN(8);
         _sbss = . ;
         _szero = .;
         *(.bss .bss.*)
@@ -118,28 +98,29 @@ SECTIONS {
         . = ALIGN(8);
         _ebss = . ;
         _ezero = .;
-        __bss_end__ = .;
     } > ram
 
-    .heap (COPY):
+    .heap (NOLOAD) :
     {
-        __end__ = .;
-        PROVIDE(end = .);
-        __HeapBase = .;
-        *(.heap*)
+        . = ALIGN(8);
+        __end__ = . ;
         . = ORIGIN(ram) + LENGTH(ram) - STACK_SIZE;
-        __HeapLimit = .;
-        __heap_limit = .; /* Add for _sbrk */
+    } > ram
+
+    /* stack section */
+    .stack (NOLOAD):
+    {
+        . = ALIGN(8);
+        _sstack = .;
+        . = . + STACK_SIZE;
+        . = ALIGN(8);
+        _estack = .;
     } > ram
 
     /* Set stack top to end of RAM, and stack limit move down by
      * size of stack_dummy section */
-    __StackTop = ORIGIN(ram) + LENGTH(ram);
+    __StackTop = ORIGIN(RAM) + LENGTH(RAM);
     __StackLimit = __StackTop - STACK_SIZE;
-    PROVIDE(__stack = __StackTop);
-
-    _sstack = __StackTop;
-    _estack = __StackLimit;
 
     . = ALIGN(8);
 }
