@@ -39,7 +39,9 @@
 #include "netsocket/Socket.h"
 #include "netsocket/UDPSocket.h"
 #include "netsocket/TCPSocket.h"
+#ifdef MBED_CONF_RTOS_PRESENT
 #include "netsocket/TCPServer.h"
+#endif
 #include "netsocket/TLSSocketWrapper.h"
 #include "netsocket/DTLSSocketWrapper.h"
 #include "netsocket/TLSSocket.h"

@@ -49,6 +49,7 @@ extern uint32_t Load$$LR$$LR_IROM1$$Limit[];
 
 namespace mbed {
 
+
 /** \addtogroup drivers */
 
 /** Flash IAP driver. It invokes flash HAL functions.

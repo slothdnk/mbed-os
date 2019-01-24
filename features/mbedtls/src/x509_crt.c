@@ -31,6 +31,10 @@
  *  [SIRO] https://cabforum.org/wp-content/uploads/Chunghwatelecom201503cabforumV4.pdf
  */
 
+#ifdef TARGET_SIMULATOR
+#pragma clang optimize off
+#endif
+
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
 #else
@@ -2755,3 +2759,7 @@ void mbedtls_x509_crt_restart_free( mbedtls_x509_crt_restart_ctx *ctx )
 #endif /* MBEDTLS_ECDSA_C && MBEDTLS_ECP_RESTARTABLE */
 
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
+
+#ifdef TARGET_SIMULATOR
+#pragma clang optimize on
+#endif

@@ -159,6 +159,10 @@ public:
 #if !defined(DOXYGEN_ONLY)
 protected:
     void setup(us_timestamp_t t);
+#ifdef TARGET_SIMULATOR
+    // Make handler public, so we can invoke it from emscripten
+public:
+#endif
     virtual void handler();
 
 protected:

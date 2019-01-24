@@ -21,6 +21,8 @@
 #define SOCKET_H
 
 #include "netsocket/SocketAddress.h"
+#include "netsocket/NetworkStack.h"
+#include "PlatformMutex.h"
 #include "Callback.h"
 
 /** Abstract socket class

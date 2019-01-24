@@ -40,13 +40,20 @@
 #include <errno.h>
 #endif
 
+#ifdef TARGET_SIMULATOR
+#include <sys/types.h>
+#endif
+
+
 /* We can get the following standard types from sys/types for gcc, but we
  * need to define the types ourselves for the other compilers that normally
  * target embedded systems */
+#ifndef TARGET_SIMULATOR
 typedef signed   int  ssize_t;  ///< Signed size type, usually encodes negative errors
 typedef signed   long off_t;    ///< Offset in a data stream
-typedef unsigned int  nfds_t;   ///< Number of file descriptors
 typedef unsigned long long fsblkcnt_t;  ///< Count of file system blocks
+#endif
+typedef unsigned int  nfds_t;   ///< Number of file descriptors
 #if defined(__ARMCC_VERSION) || !defined(__GNUC__)
 typedef unsigned int  mode_t;   ///< Mode for opening files
 typedef unsigned int  dev_t;    ///< Device ID type
@@ -56,19 +63,28 @@ typedef unsigned int  uid_t;    ///< User ID
 typedef unsigned int  gid_t;    ///< Group ID
 #endif
 
-/* Flags for open() and fcntl(GETFL/SETFL)
- * At present, fcntl only supports reading and writing O_NONBLOCK
- */
-#define O_RDONLY 0        ///< Open for reading
-#define O_WRONLY 1        ///< Open for writing
-#define O_RDWR   2        ///< Open for reading and writing
-#define O_NONBLOCK 0x0004 ///< Non-blocking mode
-#define O_APPEND   0x0008 ///< Set file offset to end of file prior to each write
-#define O_CREAT    0x0200 ///< Create file if it does not exist
-#define O_TRUNC    0x0400 ///< Truncate file to zero length
-#define O_EXCL     0x0800 ///< Fail if file exists
-#define O_BINARY   0x8000 ///< Open file in binary mode
+#if defined(TARGET_SIMULATOR)
+#include <sys/stat.h>
 
+#define _HAS_STAT_H_
+
+typedef unsigned int  mode_t;   ///< Mode for opening files
+typedef unsigned int  dev_t;    ///< Device ID type
+#ifndef TARGET_SIMULATOR
+typedef unsigned int  nlink_t;  ///< Number of links to a file
+#endif
+typedef unsigned int  uid_t;    ///< User ID
+typedef unsigned int  gid_t;    ///< Group ID
+#endif
+
+#define O_RDONLY 0      ///< Open for reading
+#define O_WRONLY 1      ///< Open for writing
+#define O_RDWR   2      ///< Open for reading and writing
+#define O_CREAT  0x0200 ///< Create file if it does not exist
+#define O_TRUNC  0x0400 ///< Truncate file to zero length
+#define O_EXCL   0x0800 ///< Fail if file exists
+#define O_APPEND 0x0008 ///< Set file offset to end of file prior to each write
+#define O_BINARY 0x8000 ///< Open file in binary mode
 #define O_ACCMODE   (O_RDONLY|O_WRONLY|O_RDWR)
 
 #define NAME_MAX 255    ///< Maximum size of a name in a file path
@@ -417,6 +433,7 @@ typedef struct Dir DIR;
  * GCC_ARM/IAR/standard POSIX definitions. Guard against this and future
  * changes by changing the symbol definition for filesystem use.
  */
+#ifndef _HAS_STAT_H_
 #define     _IFMT   0170000 //< type of file
 #define     _IFSOCK 0140000 //< socket
 #define     _IFLNK  0120000 //< symbolic link
@@ -466,6 +483,7 @@ struct stat {
     time_t    st_mtime;   ///< Time of last data modification
     time_t    st_ctime;   ///< Time of last status change
 };
+#endif // _HAS_STAT_H_
 
 struct statvfs {
     unsigned long  f_bsize;    ///< Filesystem block size

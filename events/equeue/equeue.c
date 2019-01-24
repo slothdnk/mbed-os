@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 #include "equeue/equeue.h"
+#include "mbed_wait_api.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -84,6 +85,8 @@ int equeue_create_inplace(equeue_t *q, size_t size, void *buffer)
     q->background.update = 0;
     q->background.timer = 0;
 
+    q->dispatch_called = false;
+
     // initialize platform resources
     int err;
     err = equeue_sema_create(&q->eventsema);
@@ -133,6 +136,14 @@ void equeue_destroy(equeue_t *q)
 // equeue chunk allocation functions
 static struct equeue_event *equeue_mem_alloc(equeue_t *q, size_t size)
 {
+#ifdef TARGET_SIMULATOR
+    // ok... so for some reason this is necessary
+    // no idea why, maybe something with blocks not actually allocated until we yield back
+    // however... only after dispatch was called the first time, not before, otherwise it hangs.
+    if (q->dispatch_called) {
+        wait_ms(10);
+    }
+#endif
     // add event overhead
     size += sizeof(struct equeue_event);
     size = (size + sizeof(void *) -1) & ~(sizeof(void *) -1);
@@ -409,8 +420,18 @@ void equeue_break(equeue_t *q)
     equeue_sema_signal(&q->eventsema);
 }
 
+<<<<<<< HEAD
 void equeue_dispatch(equeue_t *q, int ms)
 {
+=======
+void equeue_dispatch(equeue_t *q, int ms) {
+#ifdef TARGET_SIMULATOR
+    if (!q->dispatch_called) {
+        q->dispatch_called = true;
+    }
+#endif
+
+>>>>>>> Add Mbed Simulator support (Mbed OS 5.11.2)
     unsigned tick = equeue_tick();
     unsigned timeout = tick + ms;
     q->background.active = false;
@@ -488,6 +509,11 @@ void equeue_dispatch(equeue_t *q, int ms)
 
         // update tick for next iteration
         tick = equeue_tick();
+
+#ifdef TARGET_SIMULATOR
+        // yield back to browser in between to process events
+        wait_ms(20);
+#endif
     }
 }
 

@@ -77,25 +77,33 @@ nsapi_size_or_error_t UDPSocket::sendto(const SocketAddress &address, const void
             ret = sent;
             break;
         } else {
+#ifdef MBED_CONF_RTOS_PRESENT
             uint32_t flag;
+#endif
 
             // Release lock before blocking so other threads
             // accessing this object aren't blocked
             _lock.unlock();
+#ifdef MBED_CONF_RTOS_PRESENT
             flag = _event_flag.wait_any(WRITE_FLAG, _timeout);
+#endif
             _lock.lock();
 
+#ifdef MBED_CONF_RTOS_PRESENT
             if (flag & osFlagsError) {
                 // Timeout break
                 ret = NSAPI_ERROR_WOULD_BLOCK;
                 break;
             }
+#endif
         }
     }
 
     _writers--;
     if (!_socket || !_writers) {
+#ifdef MBED_CONF_RTOS_PRESENT
         _event_flag.set(FINISHED_FLAG);
+#endif
     }
     _lock.unlock();
     return ret;
@@ -145,25 +153,33 @@ nsapi_size_or_error_t UDPSocket::recvfrom(SocketAddress *address, void *buffer, 
             _socket_stats.stats_update_recv_bytes(this, recv);
             break;
         } else {
+#ifdef MBED_CONF_RTOS_PRESENT
             uint32_t flag;
+#endif
 
             // Release lock before blocking so other threads
             // accessing this object aren't blocked
             _lock.unlock();
+#ifdef MBED_CONF_RTOS_PRESENT
             flag = _event_flag.wait_any(READ_FLAG, _timeout);
+#endif
             _lock.lock();
 
+#ifdef MBED_CONF_RTOS_PRESENT
             if (flag & osFlagsError) {
                 // Timeout break
                 ret = NSAPI_ERROR_WOULD_BLOCK;
                 break;
             }
+#endif
         }
     }
 
     _readers--;
     if (!_socket || !_readers) {
+#ifdef MBED_CONF_RTOS_PRESENT
         _event_flag.set(FINISHED_FLAG);
+#endif
     }
 
     _lock.unlock();

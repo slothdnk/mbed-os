@@ -22,8 +22,10 @@
 
 #include "netsocket/Socket.h"
 #include "netsocket/NetworkStack.h"
-#include "rtos/Mutex.h"
+#include "PlatformMutex.h"
+#ifdef MBED_CONF_RTOS_PRESENT
 #include "rtos/EventFlags.h"
+#endif
 #include "Callback.h"
 #include "mbed_toolchain.h"
 #include "SocketStats.h"
@@ -163,8 +165,10 @@ protected:
     uint32_t _timeout;
     mbed::Callback<void()> _event;
     mbed::Callback<void()> _callback;
+#ifdef MBED_CONF_RTOS_PRESENT
     rtos::EventFlags _event_flag;
-    rtos::Mutex _lock;
+#endif
+    PlatformMutex _lock;
     SocketAddress _remote_peer;
     uint8_t _readers;
     uint8_t _writers;

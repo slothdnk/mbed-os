@@ -23,7 +23,9 @@
 #include "netsocket/InternetSocket.h"
 #include "netsocket/NetworkStack.h"
 #include "netsocket/NetworkInterface.h"
+#ifdef MBED_CONF_RTOS_PRESENT
 #include "rtos/EventFlags.h"
+#endif
 
 
 /** TCP socket connection

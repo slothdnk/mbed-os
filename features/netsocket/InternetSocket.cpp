@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "device.h"
 #include "InternetSocket.h"
 #include "platform/Callback.h"
 
@@ -82,7 +83,9 @@ nsapi_error_t InternetSocket::close()
     // Wait until all readers and writers are gone
     while (_readers || _writers) {
         _lock.unlock();
+#ifdef MBED_CONF_RTOS_PRESENT
         _event_flag.wait_any(FINISHED_FLAG, osWaitForever);
+#endif
         _lock.lock();
     }
 
@@ -197,7 +200,9 @@ nsapi_error_t InternetSocket::getsockopt(int level, int optname, void *optval, u
 }
 void InternetSocket::event()
 {
+#ifdef MBED_CONF_RTOS_PRESENT
     _event_flag.set(READ_FLAG | WRITE_FLAG);
+#endif
 
     _pending += 1;
     if (_callback && _pending == 1) {

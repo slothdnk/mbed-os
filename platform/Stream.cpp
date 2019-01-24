@@ -45,7 +45,11 @@ int Stream::putc(int c)
 {
     lock();
     std::fseek(_file, 0, SEEK_CUR);
+#if defined(TARGET_SIMULATOR)
+    int ret = _putc(c);
+#else
     int ret = std::fputc(c, _file);
+#endif
     unlock();
     return ret;
 }
@@ -147,8 +151,21 @@ int Stream::printf(const char *format, ...)
     lock();
     std::va_list arg;
     va_start(arg, format);
+<<<<<<< HEAD
     std::fseek(_file, 0, SEEK_CUR);
+=======
+#if defined(TARGET_SIMULATOR)
+    char buffer[4096] = { 0 };
+    int r = vsprintf(buffer, format, arg);
+    for (int ix = 0; ix < r; ix++) {
+        _putc(buffer[ix]);
+    }
+    _flush();
+#else
+    fflush(_file);
+>>>>>>> Add Mbed Simulator support (Mbed OS 5.11.2)
     int r = vfprintf(_file, format, arg);
+#endif
     va_end(arg);
     unlock();
     return r;

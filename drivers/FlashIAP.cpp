@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include "device.h"
 #include "FlashIAP.h"
 #include "platform/mbed_assert.h"
 #include "platform/ScopedRamExecutionLock.h"

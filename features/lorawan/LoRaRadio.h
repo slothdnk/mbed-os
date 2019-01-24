@@ -319,6 +319,7 @@ typedef struct radio_lora_settings {
      * Change the network mode to Public or Private.
      */
     bool public_network;
+    uint16_t symb_timeout;
 } radio_lora_settings_t;
 
 /** LoRa packet
@@ -339,6 +340,8 @@ typedef struct radio_lora_packet_handler {
      * Size of the transmitted or received packet.
      */
     uint8_t size;
+    bool      pending;
+    uint32_t  timestamp_ms;
 } radio_lora_packet_handler_t;
 
 /** Global radio settings.
