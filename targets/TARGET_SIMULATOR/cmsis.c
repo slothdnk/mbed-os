@@ -53,5 +53,13 @@ uint32_t __STREXW (uint32_t value, volatile uint32_t *addr) {
 }
 
 void __WFI() {
-    wait_ms(100);
+    wait_ms(20);
+}
+
+void __WFE() {
+    wait_ms(20);
+}
+
+void __DSB() {
+    /*noop*/
 }

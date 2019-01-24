@@ -46,4 +46,8 @@ uint32_t __STREXW (uint32_t value, volatile uint32_t *addr);
 
 void __WFI();
 
+void __WFE();
+
+void __DSB();
+
 #endif

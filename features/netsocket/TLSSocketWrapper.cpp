@@ -222,11 +222,15 @@ nsapi_error_t TLSSocketWrapper::continue_handshake()
     while (true) {
         ret = mbedtls_ssl_handshake(&_ssl);
         if (_timeout && (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE)) {
+#ifdef MBED_CONF_RTOS_PRESENT
             uint32_t flag;
             flag = _event_flag.wait_any(1, _timeout);
             if (flag & osFlagsError) {
                 break;
             }
+#else
+            break;
+#endif
         } else {
             break;
         }
@@ -298,12 +302,16 @@ nsapi_error_t TLSSocketWrapper::send(const void *data, nsapi_size_t size)
         if (_timeout == 0) {
             break;
         } else if (ret == MBEDTLS_ERR_SSL_WANT_WRITE || ret == MBEDTLS_ERR_SSL_WANT_READ) {
+#ifdef MBED_CONF_RTOS_PRESENT
             uint32_t flag;
             flag = _event_flag.wait_any(1, _timeout);
             if (flag & osFlagsError) {
                 // Timeout break
                 break;
             }
+#else
+            break;
+#endif
         } else {
             break;
         }
@@ -352,12 +360,16 @@ nsapi_size_or_error_t TLSSocketWrapper::recv(void *data, nsapi_size_t size)
         if (_timeout == 0) {
             break;
         } else if (ret == MBEDTLS_ERR_SSL_WANT_WRITE || ret == MBEDTLS_ERR_SSL_WANT_READ) {
+#ifdef MBED_CONF_RTOS_PRESENT
             uint32_t flag;
             flag = _event_flag.wait_any(1, _timeout);
             if (flag & osFlagsError) {
                 // Timeout break
                 break;
             }
+#else
+            break;
+#endif
         } else {
             break;
         }
@@ -676,7 +688,9 @@ nsapi_error_t TLSSocketWrapper::listen(int)
 
 void TLSSocketWrapper::event()
 {
+#ifdef MBED_CONF_RTOS_PRESENT
     _event_flag.set(1);
+#endif
     if (_sigio) {
         _sigio();
     }

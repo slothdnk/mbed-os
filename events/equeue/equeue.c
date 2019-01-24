@@ -420,18 +420,14 @@ void equeue_break(equeue_t *q)
     equeue_sema_signal(&q->eventsema);
 }
 
-<<<<<<< HEAD
 void equeue_dispatch(equeue_t *q, int ms)
 {
-=======
-void equeue_dispatch(equeue_t *q, int ms) {
 #ifdef TARGET_SIMULATOR
     if (!q->dispatch_called) {
         q->dispatch_called = true;
     }
 #endif
 
->>>>>>> Add Mbed Simulator support (Mbed OS 5.11.2)
     unsigned tick = equeue_tick();
     unsigned timeout = tick + ms;
     q->background.active = false;

@@ -19,7 +19,9 @@
 #define _MBED_HTTPS_TLS_SOCKET_WRAPPER_H_
 
 #include "netsocket/Socket.h"
+#ifdef MBED_CONF_RTOS_PRESENT
 #include "rtos/EventFlags.h"
+#endif
 #include "platform/Callback.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/ssl.h"
@@ -238,7 +240,9 @@ private:
     mbedtls_ctr_drbg_context _ctr_drbg;
     mbedtls_entropy_context _entropy;
 
+#ifdef MBED_CONF_RTOS_PRESENT
     rtos::EventFlags _event_flag;
+#endif
     mbed::Callback<void()> _sigio;
     Socket *_transport;
     int _timeout;
