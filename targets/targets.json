@@ -6451,6 +6451,7 @@
             "PORTINOUT",
             "PORTOUT",
             "PWMOUT",
+            "USTICKER",
             "RTC",
             "SERIAL",
             "SERIAL_ASYNCH",
