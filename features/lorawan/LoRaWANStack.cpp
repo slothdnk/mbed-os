@@ -402,7 +402,7 @@ int16_t LoRaWANStack::handle_rx(uint8_t *data, uint16_t length, uint8_t &port, i
     }
 
     // No messages to read.
-    if (!_rx_msg.receive_ready) {
+    if (core_util_atomic_flag_test_and_set(&_rx_payload_in_use)) {
         return LORAWAN_STATUS_WOULD_BLOCK;
     }
 
@@ -453,7 +453,7 @@ int16_t LoRaWANStack::handle_rx(uint8_t *data, uint16_t length, uint8_t &port, i
         _rx_msg.msg.mcps_indication.buffer = NULL;
         _rx_msg.msg.mcps_indication.buffer_size = 0;
         _rx_msg.pending_size = 0;
-        _rx_msg.receive_ready = false;
+        core_util_atomic_flag_clear(&_rx_payload_in_use);
     }
 
     return base_size;
@@ -800,7 +800,7 @@ void LoRaWANStack::process_reception(const uint8_t *const payload, uint16_t size
 
     if (_ctrl_flags & REJOIN_IN_PROGRESS) {
         _ctrl_flags &= ~REJOIN_IN_PROGRESS;
-        _ready_for_rx = true;
+        core_util_atomic_flag_clear(&_rx_payload_in_use);
         return;
     }
 
@@ -835,7 +835,7 @@ void LoRaWANStack::process_reception(const uint8_t *const payload, uint16_t size
         poll_rejoin();
     }
 
-    _ready_for_rx = true;
+    core_util_atomic_flag_clear(&_rx_payload_in_use);
 }
 
 void LoRaWANStack::poll_rejoin(void)
@@ -1218,7 +1218,7 @@ void LoRaWANStack::mcps_indication_handler()
         tr_debug("Packet Received %d bytes, Port=%d",
                  _rx_msg.msg.mcps_indication.buffer_size,
                  mcps_indication->port);
-        _rx_msg.receive_ready = true;
+        core_util_atomic_flag_clear(&_rx_payload_in_use);
         send_event_to_application(RX_DONE);
     }
 
