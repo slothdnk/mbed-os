@@ -23,6 +23,7 @@
  *  @{
  */
 
+#include "PinNames.h"
 #include "platform/Callback.h"
 
 /**
