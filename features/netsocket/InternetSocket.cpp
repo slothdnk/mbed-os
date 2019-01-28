@@ -50,10 +50,27 @@ nsapi_error_t InternetSocket::open(NetworkStack *stack)
         return err;
     }
 
+    printf("InternetSocket:: after socket_open\n");
+    for (size_t ix = 0; ix < 20; ix++) {
+        uint8_t *s = (uint8_t*)socket;
+        printf("%02x ", s[ix]);
+    }
+    printf("\n");
+
+
     _socket_stats.stats_update_socket_state(this, SOCK_OPEN);
     _socket = socket;
     _event = callback(this, &InternetSocket::event);
     _stack->socket_attach(_socket, Callback<void()>::thunk, &_event);
+
+
+    printf("InternetSocket:: after socket_attach\n");
+    for (size_t ix = 0; ix < 20; ix++) {
+        uint8_t *s = (uint8_t*)socket;
+        printf("%02x ", s[ix]);
+    }
+    printf("\n");
+
 
     _lock.unlock();
     return NSAPI_ERROR_OK;
@@ -179,6 +196,16 @@ nsapi_error_t InternetSocket::setsockopt(int level, int optname, const void *opt
         ret = _stack->setsockopt(_socket, level, optname, optval, optlen);
     }
 
+
+    printf("InternetSocket:: after setsockopt\n");
+    for (size_t ix = 0; ix < 20; ix++) {
+        uint8_t *s = (uint8_t*)_socket;
+        printf("%02x ", s[ix]);
+    }
+    printf("\n");
+
+
+
     _lock.unlock();
     return ret;
 }
@@ -194,6 +221,16 @@ nsapi_error_t InternetSocket::getsockopt(int level, int optname, void *optval, u
         ret = _stack->getsockopt(_socket, level, optname, optval, optlen);
     }
 
+
+    printf("InternetSocket:: after getsockopt\n");
+    for (size_t ix = 0; ix < 20; ix++) {
+        uint8_t *s = (uint8_t*)_socket;
+        printf("%02x ", s[ix]);
+    }
+    printf("\n");
+
+
+
     _lock.unlock();
     return ret;
 
@@ -202,12 +239,14 @@ void InternetSocket::event()
 {
 #ifdef MBED_CONF_RTOS_PRESENT
     _event_flag.set(READ_FLAG | WRITE_FLAG);
-#endif
 
     _pending += 1;
     if (_callback && _pending == 1) {
         _callback();
     }
+#else
+    _callback();
+#endif
 }
 
 void InternetSocket::sigio(Callback<void()> callback)
