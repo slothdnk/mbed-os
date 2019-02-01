@@ -133,32 +133,35 @@ typedef enum {
 
     // LoRa
     LORA_RESET      = PA_1,
-    LORA_MOSI       = PB_5,
-    LORA_MISO       = PB_4,
+    LORA_MOSI       = PA_7,
+    LORA_MISO       = PB_6,
     LORA_SCK        = PB_3,
-    LORA_NSS        = PA_15,
-    LORA_DIO0       = PA_6,
-    LORA_DIO1       = PA_7,
-    //LORA_DIO2       = PA_8,
-    LORA_DIO3       = PB_1,
-    LORA_DIO4       = PC_13,
+    LORA_NSS        = PA_0,
+    LORA_DIO0       = PB_1,
+    LORA_DIO1       = PB_10,
+    LORA_DIO2       = PB_11,
+    LORA_DIO3       = PB_7,
+    LORA_DIO4       = PB_5,
+    LORA_DIO5       = PB_4,
 
     // ADC internal channels
     ADC_TEMP = 0xF0,
     ADC_VREF = 0xF1,
 
     // GPIOs
-    GPIO0           = PA_4,     // analog out capable, analog in capable. Also used as A0 for LCD on MTB
-    GPIO1           = PA_5,     // analog out capable, analog in capable. Also used as RESET for LCD on MTB
-    GPIO2           = PB_0,     // analog in capable, pwm capable // CS for LCD on MTB
-    GPIO3           = PA_2,
+    //GPIO0           = PA_4,     // analog out capable, analog in capable. Also used as A0 for LCD on MTB
+    //GPIO1           = PA_5,     // analog out capable, analog in capable. Also used as RESET for LCD on MTB
+    //GPIO2           = PB_0,     // analog in capable, pwm capable // CS for LCD on MTB
+    //GPIO3           = PA_2,
 
     // LED
-    LED1            = PA_8,
-    LED2            = GPIO3,
+    LED1            = PA_3,
+    LED2            = PA_0,
+    LED3            = PA_1,
+    LED4            = PA_8,
 
     //Standardized button name
-    SW1 = PA_0,
+    SW1 = PB_15,
     BUTTON1 = SW1,
 
     // Wake Pin
@@ -168,24 +171,28 @@ typedef enum {
     UART1_TX        = PA_9,
     UART1_RX        = PA_10,
     UART1_CTS       = PA_11,
-    UART1_RTS       = PA_12,
+    UART1_RTS       = PA_3,
 
     UART_TX         = UART1_TX,
     UART_RX         = UART1_RX,
     UART_CTS        = UART1_CTS,
     UART_RTS        = UART1_RTS,
+    
+    STDIO_UART_TX   = UART_TX,
+    STDIO_UART_RX   = UART_RX,
 
     //UART 2
-    UART2_TX        = PA_2,
+    //UART2_TX        = PA_2,
     //UART2_RX        = PA_3,
 
     // DAPLink
-    USBTX           = MBED_CONF_TARGET_STDIO_UART_TX,
-    USBRX           = MBED_CONF_TARGET_STDIO_UART_RX,
+    USBTX           = UART_TX,
+    USBRX           = UART_RX,
     SWDIO           = PA_13,
     SWCLK           = PA_14,
 
     // SPI
+    /*
     SPI1_MOSI       = PB_15,
     SPI1_MISO       = PB_14,
     SPI1_SCK        = PB_13,
@@ -202,6 +209,7 @@ typedef enum {
 
     I2C_SCL         = I2C0_SCL,
     I2C_SDA         = I2C0_SDA,
+*/
 
 } PinName;
 

@@ -4624,5 +4624,16 @@
     "UNO_91H": {
         "inherits": ["RDA5981X"],
         "detect_code": ["8001"]
+    },
+	"IM880B": {
+        "inherits": ["FAMILY_STM32"],
+        "core": "Cortex-M3",
+        "default_toolchain": "ARM",
+        "extra_labels_add": ["STM32L1", "STM32L151xBA", "STM32L151CBA"],
+		"macros_add": ["HSE_VALUE=16000000"],
+        "supported_toolchains": ["ARM", "GCC_ARM", "IAR"],
+        "release_versions": ["5"],
+        "device_name": "STM32L151CC",
+        "bootloader_supported": true
     }
 }
