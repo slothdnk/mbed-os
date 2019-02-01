@@ -81,13 +81,13 @@ typedef enum {
     PB30  = 62,
     PB31  = 63,
 
-    USBTX = PA22,
-    USBRX = PA23,
+    USBTX = PA04,
+    USBRX = PA05,
 
-    LED1 = PB10,
-    LED2 = PB10,
-    LED3 = PB10,
-    LED4 = PB10,
+    LED1 = PA19,
+    LED2 = PA19,
+    LED3 = PA19,
+    LED4 = PA19,
 
     // Not connected
     NC = (int)0xFFFFFFFF
