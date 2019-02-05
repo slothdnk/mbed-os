@@ -517,6 +517,15 @@ public:
      */
     uint32_t get_rx_time_on_air(uint8_t modem, uint16_t pkt_len);
 
+    /**
+     * @brief update_rejoin_params Update Rejoin parameters
+     * @param max_time Maximum time in seconds between Rejoin requests
+     * @param max_count Maximum amount of messages allowed to be sent between Rejoin requests
+     * @return 1 If device supports a time variable, 0 otherwise.
+     *         Currently we always support time!
+     */
+    uint8_t update_rejoin_params(uint32_t max_time, uint32_t max_count);
+
 public: //Verifiers
 
     /**

@@ -330,6 +330,36 @@ public:
     void setup_link_check_request();
 
     /**
+     * @brief setup_device_time_request Adds device time request command
+     * to be put on next outgoing message (when it fits)
+     */
+    lorawan_status_t setup_device_time_request(mbed::Callback<void(void)> notify);
+
+    /**
+     * @brief setup_reset_indication Adds reset indication command
+     * to be put on next uplink message
+     */
+    void setup_reset_indication();
+
+    /**
+     * @brief setup_rekey_indication Adds rekey indication command
+     * to be put on next uplink message
+     */
+    void setup_rekey_indication();
+
+    /**
+     * @brief setup_device_mode_indication Adds Device mode indication command
+     * to be put on next uplink message
+     */
+    void setup_device_mode_indication(uint8_t classType);
+
+    /**
+     * @brief get_server_type Gets the server's type (Supported LoRaWAN spec version)
+     * @return Server type
+     */
+    server_type_t get_server_type();
+
+    /**
      * @brief prepare_join prepares arguments to be ready for join() call.
      * @param params Join parameters to use, if NULL, the default will be used.
      * @param is_otaa True if joining is to be done using OTAA, false for ABP.

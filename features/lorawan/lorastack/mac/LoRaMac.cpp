@@ -1602,9 +1602,24 @@ void LoRaMac::setup_link_check_request()
 {
     reset_mlme_confirmation();
 
-    _mlme_confirmation.req_type = MLME_LINK_CHECK;
-    _mlme_confirmation.pending = true;
-    _mac_commands.add_link_check_req();
+lorawan_status_t LoRaMac::setup_device_time_request(mbed::Callback<void(void)> notify)
+{
+    return _mac_commands.add_device_time_req(notify);
+}
+
+void LoRaMac::setup_reset_indication()
+{
+    _mac_commands.add_reset_ind(1);
+}
+
+void LoRaMac::setup_rekey_indication()
+{
+    _mac_commands.add_rekey_ind(1);
+}
+
+void LoRaMac::setup_device_mode_indication(uint8_t classType)
+{
+    _mac_commands.add_device_mode_indication(classType);
 }
 
 lorawan_status_t LoRaMac::prepare_join(const lorawan_connect_t *params, bool is_otaa)

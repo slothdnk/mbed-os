@@ -132,6 +132,41 @@ public:
     lorawan_status_t add_link_check_req();
 
     /**
+     * @brief add_reset_ind Adds a ResetInd MAC command to be sent.
+     *
+     * @param version LoRaWAN version of the stack
+     * @return status  Function status: LORAWAN_STATUS_OK: OK,
+     *                                  LORAWAN_STATUS_LENGTH_ERROR: Buffer full
+     */
+    lorawan_status_t add_reset_ind(uint8_t version);
+
+    /**
+     * @brief add_rekey_ind Adds a RekeyInd MAC command to be sent.
+     *
+     * @param version LoRaWAN version of the stack
+     * @return status  Function status: LORAWAN_STATUS_OK: OK,
+     *                                  LORAWAN_STATUS_LENGTH_ERROR: Buffer full
+     */
+    lorawan_status_t add_rekey_ind(uint8_t version);
+
+    /**
+     * @brief add_device_mode_indication Adds a DeviceModeInd MAC command to be sent.
+     * @param classType Class type that is used from now on
+     * @return status  Function status: LORAWAN_STATUS_OK: OK,
+     *                                  LORAWAN_STATUS_LENGTH_ERROR: Buffer full
+     */
+    lorawan_status_t add_device_mode_indication(uint8_t classType);
+
+    /**
+     * @brief add_device_time_req Adds DeviceTimeReq MAC command to be sent.
+     *        Requests server's current time. 'notify' is the callback function
+     *        that will handle the event generation for the application.
+     * @return status  Function status: LORAWAN_STATUS_OK: OK,
+     *                                  LORAWAN_STATUS_LENGTH_ERROR: Buffer full
+     */
+    lorawan_status_t add_device_time_req(mbed::Callback<void(void)> notify);
+
+    /**
      * @brief Set battery level query callback method
      *        If callback is not set, BAT_LEVEL_NO_MEASURE is returned.
      */
@@ -248,6 +283,7 @@ private:
     uint8_t mac_cmd_buffer_to_repeat[LORA_MAC_COMMAND_MAX_LENGTH];
 
     mbed::Callback<uint8_t(void)> _battery_level_cb;
+    mbed::Callback<void(void)> _time_sync_cb;
 };
 
 #endif //__LORAMACCOMMAND_H__

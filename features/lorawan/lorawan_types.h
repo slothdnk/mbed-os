@@ -217,8 +217,17 @@ typedef struct lorawan_connect {
  * RX_ERROR             - A general RX error
  * JOIN_FAILURE         - When all Joining retries are exhausted
  * UPLINK_REQUIRED      - Stack indicates application that some uplink needed
- * AUTOMATIC_UPLINK_ERROR - Stack tried automatically send uplink but some error occurred.
- *                          Application should initiate uplink as soon as possible.
+ * AUTOMATIC_UPLINK_ERROR
+ *                      - Stack tried automatically send uplink but some error occurred.
+ *                        Application should initiate uplink as soon as possible.
+ * CLASS_CHANGED        - When the device has changed class
+ * SERVER_ACCEPTED_CLASS_IN_USE
+ *                      - When the NS accepts the device class change
+ * SERVER_DOES_NOT_SUPPORT_CLASS_IN_USE
+ *                      - When the NS rejects the device class change, i.e., NS doesn't support
+ *                        a particular device class
+ * DEVICE_TIME_SYNCHED  - When the device has received and applied the current time and date
+ *                        indicated by the network
  *
  */
 typedef enum lora_events {
@@ -236,6 +245,10 @@ typedef enum lora_events {
     JOIN_FAILURE,
     UPLINK_REQUIRED,
     AUTOMATIC_UPLINK_ERROR,
+    CLASS_CHANGED, //only in Lorawan 1.1 (ch 18.1)
+    SERVER_ACCEPTED_CLASS_IN_USE, //only in Lorawan 1.1 (ch 18.1)
+    SERVER_DOES_NOT_SUPPORT_CLASS_IN_USE, //only in Lorawan 1.1 (ch 18.1)
+    DEVICE_TIME_SYNCHED // only in LoRaWAN v1.0.3 and v1.1.x
 } lorawan_event_t;
 
 /**
