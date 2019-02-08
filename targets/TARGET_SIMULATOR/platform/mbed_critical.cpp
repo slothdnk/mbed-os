@@ -10,6 +10,8 @@ bool core_util_is_isr_active(void) {
 
 void core_util_critical_section_enter(void) {}
 
+void core_util_critical_section_exit(void) {}
+
 /**
  * Atomic test and set.
  *
@@ -32,5 +34,3 @@ bool core_util_atomic_flag_test_and_set(volatile core_util_atomic_flag *flagPtr)
 void core_util_atomic_flag_clear(volatile core_util_atomic_flag *flagPtr) {
     flagPtr->_flag = false;
 }
-
-
