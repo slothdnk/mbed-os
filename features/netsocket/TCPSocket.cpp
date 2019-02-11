@@ -32,14 +32,6 @@ TCPSocket::TCPSocket(TCPSocket *parent, nsapi_socket_t socket, SocketAddress add
     _socket_stats.stats_new_socket_entry(this);
     _event = mbed::Callback<void()>(this, &TCPSocket::event);
     _stack->socket_attach(socket, &mbed::Callback<void()>::thunk, &_event);
-
-    printf("TCPSocket ctor socket is %p\n", _socket);
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_socket;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
-
 }
 
 TCPSocket::~TCPSocket()
@@ -106,14 +98,6 @@ nsapi_error_t TCPSocket::connect(const SocketAddress &address)
         _event_flag.set(FINISHED_FLAG);
 #endif
     }
-
-    printf("TCPSocket::connect\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_socket;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
-
 
     /* Non-blocking connect gives "EISCONN" once done - convert to OK for blocking mode if we became connected during this call */
     if (ret == NSAPI_ERROR_IS_CONNECTED && blocking_connect_in_progress) {

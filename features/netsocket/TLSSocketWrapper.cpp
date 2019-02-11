@@ -54,8 +54,6 @@ TLSSocketWrapper::TLSSocketWrapper(Socket *transport, const char *hostname, cont
     mbedtls_pk_init(&_pkctx);
 #endif
 
-    printf("TLSSocketWrapper ctor?\n");
-
     if (hostname) {
         set_hostname(hostname);
     }
@@ -192,14 +190,6 @@ nsapi_error_t TLSSocketWrapper::start_handshake(bool first_call)
         print_mbedtls_error("mbedtls_ssl_setup", ret);
         return NSAPI_ERROR_PARAMETER;
     }
-
-
-    printf("Before set blocking etc\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
 
     _transport->set_blocking(false);
     _transport->sigio(mbed::callback(this, &TLSSocketWrapper::event));
@@ -477,13 +467,6 @@ int TLSSocketWrapper::ssl_recv(void *ctx, unsigned char *buf, size_t len)
         return NSAPI_ERROR_NO_SOCKET;
     }
 
-    printf("Before ssl recv\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)my->_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
-
     recv = my->_transport->recv(buf, len);
 
     if (NSAPI_ERROR_WOULD_BLOCK == recv) {
@@ -503,13 +486,6 @@ int TLSSocketWrapper::ssl_send(void *ctx, const unsigned char *buf, size_t len)
     if (!my->_transport) {
         return NSAPI_ERROR_NO_SOCKET;
     }
-
-    printf("Before ssl send etc\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)my->_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
 
     size = my->_transport->send(buf, len);
 
@@ -642,25 +618,12 @@ nsapi_error_t TLSSocketWrapper::connect(const SocketAddress &address)
         return NSAPI_ERROR_NO_SOCKET;
     }
 
-    printf("Before connect\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
-
     if (!is_handshake_started() && _connect_transport) {
         ret = _transport->connect(address);
         if (ret && ret != NSAPI_ERROR_IS_CONNECTED) {
             return ret;
         }
     }
-    printf("After connect\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
 
     return start_handshake(ret == NSAPI_ERROR_OK);
 }
@@ -686,13 +649,6 @@ void TLSSocketWrapper::set_timeout(int timeout)
         // After connection is initiated, it is already set to non blocking mode
         _transport->set_timeout(timeout);
     }
-
-    printf("After settimeout\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
 }
 
 void TLSSocketWrapper::sigio(mbed::Callback<void()> func)
@@ -709,20 +665,7 @@ nsapi_error_t TLSSocketWrapper::setsockopt(int level, int optname, const void *o
     if (!_transport) {
         return NSAPI_ERROR_NO_SOCKET;
     }
-    printf("Before setsocketopt\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
     nsapi_error_t r = _transport->setsockopt(level, optname, optval, optlen);
-
-    printf("After setsocketopt\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
 }
 
 nsapi_error_t TLSSocketWrapper::getsockopt(int level, int optname, void *optval, unsigned *optlen)
@@ -730,12 +673,6 @@ nsapi_error_t TLSSocketWrapper::getsockopt(int level, int optname, void *optval,
     if (!_transport) {
         return NSAPI_ERROR_NO_SOCKET;
     }
-    printf("Before getsocketopt\n");
-    for (size_t ix = 0; ix < 20; ix++) {
-        uint8_t *s = (uint8_t*)_transport;
-        printf("%02x ", s[ix]);
-    }
-    printf("\n");
     return _transport->getsockopt(level, optname, optval, optlen);
 }
 
