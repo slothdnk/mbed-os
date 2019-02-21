@@ -144,9 +144,9 @@ clk_sync_response_t *ClockSyncControlPackage::parse(const uint8_t *payload,
                 token_ans = _inbound_buf[i++] & 0x0F;
 
                 if (token_ans != _clock_sync_token_req) {
-                    tr_error("Token doesn't match - Dropping %d, token_req %d",
+                    tr_warn("Token doesn't match - Dropping %d, token_req %d",
                              token_ans, _clock_sync_token_req);
-                    break;
+                    // break;
                 }
 
                 // Apply time correction
