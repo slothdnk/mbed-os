@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#ifndef _MBED_LORAWAN_UPDATE_CLIENT_FRAGMENTATION_BDWRAPPER
-#define _MBED_LORAWAN_UPDATE_CLIENT_FRAGMENTATION_BDWRAPPER
+#ifndef MBED_OS_FEATURES_LORAWAN_PLUGINS_BDWRAPPER
+#define MBED_OS_FEATURES_LORAWAN_PLUGINS_BDWRAPPER
 
 /**
  * This is a class that wraps around a block device and allows for unaligned
@@ -88,4 +88,4 @@ private:
     uint32_t        _last_page;
 };
 
-#endif // _MBED_LORAWAN_UPDATE_CLIENT_FRAGMENTATION_BDWRAPPER
+#endif //  MBED_OS_FEATURES_LORAWAN_PLUGINS_BDWRAPPER
