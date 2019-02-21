@@ -171,6 +171,8 @@ frag_ctrl_response_t *FragmentationControlPackage::parse(const uint8_t *payload,
         return &_resp;
     }
 
+    i = 0;
+
     while (size > i) {
         switch (payload[i++]) {
             case FRAG_PACKAGE_VERSION: {
@@ -224,11 +226,11 @@ frag_ctrl_response_t *FragmentationControlPackage::parse(const uint8_t *payload,
 
                 uint8_t control = payload[i++];
 
-                if ((control >> 3) != FEC_FRAG_ALGO) {
+                if ((control >> 3 & 0b111) != FEC_FRAG_ALGO) {
                     tr_error("Encoding unsupported, only FEC_FRAG_ALGO is supported");
                     SET_BIT(status_bit_mask, 0);
                 } else {
-                    _session_ctx.frag_session[frag_index].frag_algo = control >> 3;
+                    _session_ctx.frag_session[frag_index].frag_algo = control >> 3 & 0b111;
                     _session_ctx.frag_session[frag_index].block_ack_delay = control & 0x07;
                 }
 

@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#include <math.h>
 #include <string.h>
 #include <time.h>
 #include "mbedtls/aes.h"
@@ -187,7 +188,7 @@ mcast_ctrl_response_t *MulticastControlPackage::parse(const uint8_t *payload,
                 // derive mcast_key for the group
                 memset(_sessions_ctx.mcast_session[group_id].mcast_key, 0, 16);
                 if (mcast_crypt(_inbound_buf + i, 16, _mc_kekey, 16,
-                                _sessions_ctx.mcast_session[group_id].mcast_key, 0) < 0) {
+                                _sessions_ctx.mcast_session[group_id].mcast_key, 1) < 0) {
                     tr_error("Crypto error");
                     return NULL;
                 }
@@ -286,7 +287,7 @@ mcast_ctrl_response_t *MulticastControlPackage::parse(const uint8_t *payload,
                     _sessions_ctx.mcast_session[group_id].mcast_session_class = CLASS_C;
                     _sessions_ctx.mcast_session[group_id].session_time = read_four_bytes(_inbound_buf + i);
                     i += 4;
-                    _sessions_ctx.mcast_session[group_id].session_timeout = (1 << (_inbound_buf[i++] & 0x0F));
+                    _sessions_ctx.mcast_session[group_id].session_timeout = pow(2.0f, static_cast<int>(_inbound_buf[i++] & 0b1111));
 
                     _sessions_ctx.mcast_session[group_id].dl_freq = (uint32_t)_inbound_buf[i++];
                     _sessions_ctx.mcast_session[group_id].dl_freq |= (uint32_t)(_inbound_buf[i++] << 8);

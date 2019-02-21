@@ -63,7 +63,7 @@ typedef struct {
     /**
      * Length of time in seconds for which the session will remain active.
      */
-    uint8_t session_timeout;
+    uint32_t session_timeout;
 
     /**
      * Data rate associated with the session
@@ -149,7 +149,7 @@ typedef struct {
      * switch to along-with the exact time when to switch and associated parameters
      * like, life-time, channel frequency and data rate.
      */
-    mbed::Callback<void(uint8_t device_class,
+    mbed::Callback<void(uint32_t device_class,
                         uint32_t time_to_switch,
                         uint8_t life_time,
                         uint8_t dr,
