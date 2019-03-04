@@ -77,6 +77,22 @@ typedef enum {
     LED3 = PA19,
     LED4 = PA19,
 
+    // LoRa
+    LORA_RESET  = PB15,
+    LORA_RXCTL  = PA14,
+    LORA_DIO0   = PB16,
+    LORA_DIO1   = PA11,
+    LORA_DIO2   = PA12,
+    LORA_DIO3   = PB17,
+    LORA_DIO4   = PA10,
+    LORA_DIO5   = PB00,
+    LORA_TCXO   = PA28,
+
+    LORA_NSS    = PB31,
+    LORA_SCK    = PC18,
+    LORA_MISO   = PC19,
+    LORA_MOSI   = PB30,
+
     // Not connected
     NC = (int)0xFFFFFFFF
 } PinName;
