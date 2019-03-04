@@ -6490,7 +6490,7 @@
         "release_versions": ["2"],
         "device_name": "ATSAMD21G18A"
     },
-    "SAML21J18A": {
+    "SAML21J18": {
         "inherits": ["Target"],
         "core": "Cortex-M0+",
         "components_add": ["FLASHIAP"],
@@ -8303,5 +8303,11 @@
 		"detect_code": ["8013"],
 		"release_versions": ["5"],
 		"bootloader_supported": true
+    },
+    "SAML21J18A": {
+        "inherits": ["SAML21J18"]
+    },
+    "SAMR34_XPLAINED_PRO": {
+        "inherits": ["SAML21J18"]
     }
 }

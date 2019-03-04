@@ -43,9 +43,13 @@ void analogout_init(dac_t *obj, PinName pin)
     MBED_ASSERT(dacperipheral != NC);
     obj->pin = pin;
     obj->dac = dacperipheral;
+#ifdef TARGET_SAML21J18A
     if (pin == PA02) {
         ch_index = 0;
     } else if (pin == PA05) {
+#else
+    if (pin == PA05) {
+#endif
         ch_index = 1;
     } else { /*Only 2 pins for DAC*/
         return 0;

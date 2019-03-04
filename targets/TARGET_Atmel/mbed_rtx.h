@@ -19,7 +19,7 @@
 
 #ifndef INITIAL_SP
 
-#if (defined(TARGET_SAML21J18A))
+#if (defined(TARGET_SAML21J18))
 #define INITIAL_SP              (0x20008000UL)
 #else
 #error "INITIAL_SP is not defined for this target in the mbed_rtx.h file"
