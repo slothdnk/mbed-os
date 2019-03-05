@@ -90,6 +90,8 @@ typedef enum {
     LED3 = PB10,
     LED4 = PB10,
 
+    BUTTON1 = PA02,
+
     // Not connected
     NC = (int)0xFFFFFFFF
 } PinName;
