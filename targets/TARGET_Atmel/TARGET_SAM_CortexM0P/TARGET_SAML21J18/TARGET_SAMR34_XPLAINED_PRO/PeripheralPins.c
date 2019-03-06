@@ -18,13 +18,22 @@
 
 /************ADC***************/
 const PinMap PinMap_ADC[] = {
+    {PA02, ADC_0, 1},
+    {PA03, ADC_1, 1},
+    {PB08, ADC_2, 1},
+    {PB09, ADC_3, 1},
     {PA04, ADC_4, 1},
     {PA05, ADC_5, 1},
     {PA06, ADC_6, 1},
     {PA07, ADC_7, 1},
     {PB00, ADC_8, 1},
+    {PB01, ADC_9, 1},
     {PB02, ADC_10, 1},
     {PB03, ADC_11, 1},
+    {PB04, ADC_12, 1},
+    {PB05, ADC_13, 1},
+    {PB06, ADC_14, 1},
+    {PB07, ADC_15, 1},
     {PA08, ADC_16, 1},
     {PA09, ADC_17, 1},
     {PA10, ADC_18, 1},
@@ -36,6 +45,7 @@ const PinMap PinMap_ADC[] = {
 
 /************DAC***************/
 const PinMap PinMap_DAC[] = {
+    {PA02, DAC_0, 1},
     {PA05, DAC_0, 1},
 
     /* Not connected */
@@ -67,18 +77,29 @@ const PinMap PinMap_SERCOM_PAD[] = {
     {PA22, SERCOM3_PAD0, 2},
     {PA27, SERCOM3_PAD0, 5},
     {PA23, SERCOM3_PAD1, 2},
+    {PA20, SERCOM3_PAD2, 3},
     {PA24, SERCOM3_PAD2, 2},
+    {PA21, SERCOM3_PAD3, 3},
     {PA25, SERCOM3_PAD3, 2},
     {PC19, SERCOM4_PAD0, 5},
+    {PB08, SERCOM4_PAD0, 3},
+    {PB12, SERCOM4_PAD0, 2},
+    {PB09, SERCOM4_PAD1, 3},
+    {PB13, SERCOM4_PAD1, 2},
     {PB31, SERCOM4_PAD1, 5},
+    {PB10, SERCOM4_PAD2, 3},
+    {PB14, SERCOM4_PAD2, 2},
     {PB30, SERCOM4_PAD2, 5},
     {PC18, SERCOM4_PAD3, 5},
+    {PB11, SERCOM4_PAD3, 3},
+    {PB15, SERCOM4_PAD3, 2},
     {PB02, SERCOM5_PAD0, 3},
     {PB16, SERCOM5_PAD0, 2},
     {PB03, SERCOM5_PAD1, 3},
     {PB17, SERCOM5_PAD1, 2},
     {PB00, SERCOM5_PAD2, 3},
     {PB22, SERCOM5_PAD2, 3},
+    {PB01, SERCOM5_PAD3, 3},
     {PB23, SERCOM5_PAD3, 3},
 
     /* Not connected */
@@ -101,7 +122,9 @@ const PinMap PinMap_SERCOM_PADEx[] = {
     {PA15, SERCOM4_PAD3, 3},
     {PA22, SERCOM5_PAD0, 3},
     {PA23, SERCOM5_PAD1, 3},
+    {PA20, SERCOM5_PAD2, 2},
     {PA24, SERCOM5_PAD2, 3},
+    {PA21, SERCOM5_PAD3, 2},
     {PA25, SERCOM5_PAD3, 3},
     {PB31, SERCOM5_PAD1, 3},
     {PB30, SERCOM5_PAD0, 3},
@@ -126,15 +149,21 @@ const PinMap PinMap_PWM[] = {
     {PA11, PWM_0, 5},
     {PA19, PWM_0, 5},
     {PA22, PWM_0, 5},
+    {PB10, PWM_0, 5},
     {PB16, PWM_0, 5},
     {PA14, PWM_0, 5},
     {PA15, PWM_0, 5},
     {PA23, PWM_0, 5},
+    {PB11, PWM_0, 5},
     {PB17, PWM_0, 5},
     {PA12, PWM_0, 5},
     {PA16, PWM_0, 5},
+    {PA20, PWM_0, 5},
+    {PB12, PWM_0, 5},
     {PA13, PWM_0, 5},
     {PA17, PWM_0, 5},
+    {PA21, PWM_0, 5},
+    {PB13, PWM_0, 5},
     {PA06, PWM_1, 4},
     {PA10, PWM_1, 4},
     {PA30, PWM_1, 4},
@@ -166,41 +195,59 @@ const PinMap PinMap_EXTINT[] = {
     {PA00, EXTINT_0, 0},
 
     {PA17, EXTINT_1, 0},
+    {PB01, EXTINT_1, 0},
     {PB17, EXTINT_1, 0},
     {PA01, EXTINT_1, 0},
 
+    {PA02, EXTINT_2, 0},
     {PA18, EXTINT_2, 0},
     {PB02, EXTINT_2, 0},
 
+    {PA03, EXTINT_3, 0},
     {PA19, EXTINT_3, 0},
     {PB03, EXTINT_3, 0},
 
     {PA04, EXTINT_4, 0},
+    {PA20, EXTINT_4, 0},
+    {PB04, EXTINT_4, 0},
 
     {PA05, EXTINT_5, 0},
+    {PA21, EXTINT_5, 0},
+    {PB05, EXTINT_5, 0},
 
     {PA06, EXTINT_6, 0},
     {PA22, EXTINT_6, 0},
+    {PB06, EXTINT_6, 0},
     {PB22, EXTINT_6, 0},
 
     {PA07, EXTINT_7, 0},
     {PA23, EXTINT_7, 0},
+    {PB07, EXTINT_7, 0},
     {PB23, EXTINT_7, 0},
 
+    {PB08, EXTINT_8, 0},
+    {PA28, EXTINT_8, 0},
+
     {PA09, EXTINT_9, 0},
+    {PB09, EXTINT_9, 0},
 
     {PA10, EXTINT_10, 0},
     {PA30, EXTINT_10, 0},
+    {PB10, EXTINT_10, 0},
 
     {PA11, EXTINT_11, 0},
     {PA31, EXTINT_11, 0},
+    {PB11, EXTINT_11, 0},
 
     {PA12, EXTINT_12, 0},
     {PA24, EXTINT_12, 0},
+    {PB12, EXTINT_12, 0},
 
     {PA13, EXTINT_13, 0},
     {PA25, EXTINT_13, 0},
+    {PB13, EXTINT_13, 0},
 
+    {PB14, EXTINT_14, 0},
     {PB30, EXTINT_14, 0},
     {PA14, EXTINT_14, 0},
 
@@ -227,15 +274,21 @@ const struct pwm_pin_channel pwn_pins[] = {
     {PA11, PWM_0, 3},
     {PA19, PWM_0, 3},
     {PA22, PWM_0, 4},
+    {PB10, PWM_0, 4},
     {PB16, PWM_0, 4},
     {PA14, PWM_0, 4},
     {PA15, PWM_0, 5},
     {PA23, PWM_0, 5},
+    {PB11, PWM_0, 5},
     {PB17, PWM_0, 5},
     {PA12, PWM_0, 6},
     {PA16, PWM_0, 6},
+    {PA20, PWM_0, 6},
+    {PB12, PWM_0, 6},
     {PA13, PWM_0, 7},
     {PA17, PWM_2, 1},
+    {PA21, PWM_0, 7},
+    {PB13, PWM_0, 7},
     {PA06, PWM_1, 0},
     {PA10, PWM_1, 0},
     {PA30, PWM_1, 0},
@@ -258,4 +311,3 @@ const struct pwm_pin_channel pwn_pins[] = {
     /* Not connected */
     {NC  , NC   , NC}
 };
-
