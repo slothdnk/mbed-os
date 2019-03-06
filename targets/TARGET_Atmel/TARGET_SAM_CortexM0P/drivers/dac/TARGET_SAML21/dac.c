@@ -460,12 +460,12 @@ void dac_chan_set_config(
 
     if(channel == DAC_CHANNEL_0) {
         /* Set up the DAC VOUT0 pin */
-        pin_conf.mux_position = MUX_PA02B_DAC_VOUT0;
-        system_pinmux_pin_set_config(PIN_PA02B_DAC_VOUT0, &pin_conf);
+        // pin_conf.mux_position = MUX_PA02B_DAC_VOUT0;
+        // system_pinmux_pin_set_config(PIN_PA02B_DAC_VOUT0, &pin_conf);
     } else if(channel == DAC_CHANNEL_1) {
         /* Set up the DAC VOUT1 pin */
-        pin_conf.mux_position = MUX_PA05B_DAC_VOUT1;
-        system_pinmux_pin_set_config(PIN_PA05B_DAC_VOUT1, &pin_conf);
+        // pin_conf.mux_position = MUX_PA05B_DAC_VOUT1;
+        // system_pinmux_pin_set_config(PIN_PA05B_DAC_VOUT1, &pin_conf);
     }
 
     Dac *const dac_module = module_inst->hw;

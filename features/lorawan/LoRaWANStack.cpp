@@ -511,6 +511,7 @@ lorawan_status_t LoRaWANStack::acquire_backoff_metadata(int &backoff)
 void LoRaWANStack::tx_interrupt_handler(void)
 {
     _tx_timestamp = _loramac.get_current_time();
+    // tr_info("tx_timestamp %lu", _tx_timestamp);
     const int ret = _queue->call(this, &LoRaWANStack::process_transmission);
     MBED_ASSERT(ret != 0);
     (void)ret;

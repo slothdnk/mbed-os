@@ -653,10 +653,12 @@ void LoRaMac::on_radio_tx_done(lorawan_time_t timestamp)
 
     if (_params.is_rx_window_enabled == true) {
         lorawan_time_t time_diff = _lora_time.get_current_time() - timestamp;
+        // tr_debug("starting rx1 delay: %lu, time_diff: %lu", _params.rx_window1_delay, time_diff);
         // start timer after which rx1_window will get opened
         _lora_time.start(_params.timers.rx_window1_timer,
                          _params.rx_window1_delay - time_diff);
 
+        // tr_debug("starting rx2 delay: %lu, time_diff: %lu", _params.rx_window2_delay, time_diff);
         // start timer after which rx2_window will get opened
         _lora_time.start(_params.timers.rx_window2_timer,
                          _params.rx_window2_delay - time_diff);

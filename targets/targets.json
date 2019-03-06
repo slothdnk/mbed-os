@@ -8305,9 +8305,11 @@
 		"bootloader_supported": true
     },
     "SAML21J18A": {
-        "inherits": ["SAML21J18"]
+        "inherits": ["SAML21J18"],
+        "macros_add": ["SAMR34"]
     },
     "SAMR34_XPLAINED_PRO": {
-        "inherits": ["SAML21J18"]
+        "inherits": ["SAML21J18"],
+        "macros_add": ["SAMR34"]
     }
 }

@@ -3,45 +3,35 @@
  *
  * \brief SAM External Interrupt Driver
  *
- * Copyright (C) 2014-2015 Atmel Corporation. All rights reserved.
+ * Copyright (c) 2014-2018 Microchip Technology Inc. and its subsidiaries.
  *
  * \asf_license_start
  *
  * \page License
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * Subject to your compliance with these terms, you may use Microchip
+ * software and any derivatives exclusively with Microchip products.
+ * It is your responsibility to comply with third party license terms applicable
+ * to your use of third party software (including open source software) that
+ * may accompany Microchip software.
  *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. The name of Atmel may not be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * 4. This software may only be redistributed and used in connection with an
- *    Atmel microcontroller product.
- *
- * THIS SOFTWARE IS PROVIDED BY ATMEL "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT ARE
- * EXPRESSLY AND SPECIFICALLY DISCLAIMED. IN NO EVENT SHALL ATMEL BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS SUPPLIED BY MICROCHIP "AS IS". NO WARRANTIES,
+ * WHETHER EXPRESS, IMPLIED OR STATUTORY, APPLY TO THIS SOFTWARE,
+ * INCLUDING ANY IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY,
+ * AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT WILL MICROCHIP BE
+ * LIABLE FOR ANY INDIRECT, SPECIAL, PUNITIVE, INCIDENTAL OR CONSEQUENTIAL
+ * LOSS, DAMAGE, COST OR EXPENSE OF ANY KIND WHATSOEVER RELATED TO THE
+ * SOFTWARE, HOWEVER CAUSED, EVEN IF MICROCHIP HAS BEEN ADVISED OF THE
+ * POSSIBILITY OR THE DAMAGES ARE FORESEEABLE.  TO THE FULLEST EXTENT
+ * ALLOWED BY LAW, MICROCHIP'S TOTAL LIABILITY ON ALL CLAIMS IN ANY WAY
+ * RELATED TO THIS SOFTWARE WILL NOT EXCEED THE AMOUNT OF FEES, IF ANY,
+ * THAT YOU HAVE PAID DIRECTLY TO MICROCHIP FOR THIS SOFTWARE.
  *
  * \asf_license_stop
  *
  */
 /*
- * Support and FAQ: visit <a href="http://www.atmel.com/design-support/">Atmel Support</a>
+ * Support and FAQ: visit <a href="https://www.microchip.com/support/">Microchip Support</a>
  */
 #include <system.h>
 #include <system_interrupt.h>
@@ -83,10 +73,10 @@ struct _extint_module _extint_dev;
  * \param[in] detection_criteria  Edge detection mode to use (\ref extint_detect)
  */
 #define _extint_is_gclk_required(filter_input_signal, detection_criteria) \
-		((filter_input_signal) ? true : (\
-			(EXTINT_DETECT_RISING == (detection_criteria)) ? true : (\
-			(EXTINT_DETECT_FALLING == (detection_criteria)) ? true : (\
-			(EXTINT_DETECT_BOTH == (detection_criteria)) ? true : false))))
+        ((filter_input_signal) ? true : (\
+            (EXTINT_DETECT_RISING == (detection_criteria)) ? true : (\
+            (EXTINT_DETECT_FALLING == (detection_criteria)) ? true : (\
+            (EXTINT_DETECT_BOTH == (detection_criteria)) ? true : false))))
 
 static void _extint_enable(void);
 static void _extint_disable(void);
@@ -111,7 +101,7 @@ static inline bool extint_is_syncing(void)
 
     for (uint32_t i = 0; i < EIC_INST_NUM; i++) {
         if((eics[i]->SYNCBUSY.reg & EIC_SYNCBUSY_ENABLE)
-                || (eics[i]->SYNCBUSY.reg & EIC_SYNCBUSY_SWRST)) {
+         || (eics[i]->SYNCBUSY.reg & EIC_SYNCBUSY_SWRST)){
             return true;
         }
     }
@@ -247,7 +237,7 @@ void _extint_disable(void)
  * \param[out] config  Configuration structure to initialize to default values
  */
 void extint_chan_get_config_defaults(
-    struct extint_chan_conf *const config)
+        struct extint_chan_conf *const config)
 {
     /* Sanity check arguments */
     Assert(config);
@@ -273,8 +263,8 @@ void extint_chan_get_config_defaults(
 
  */
 void extint_chan_set_config(
-    const uint8_t channel,
-    const struct extint_chan_conf *const config)
+        const uint8_t channel,
+        const struct extint_chan_conf *const config)
 {
     /* Sanity check arguments */
     Assert(config);
@@ -282,8 +272,8 @@ void extint_chan_set_config(
 #if(EXTINT_CLOCK_SELECTION == EXTINT_CLK_GCLK)
     /* Sanity check clock requirements */
     Assert(!(!system_gclk_gen_is_enabled(EXTINT_CLOCK_SOURCE) &&
-             _extint_is_gclk_required(config->filter_input_signal,
-                                      config->detection_criteria)));
+        _extint_is_gclk_required(config->filter_input_signal,
+            config->detection_criteria)));
 #endif
     struct system_pinmux_config pinmux_config;
     system_pinmux_get_config_defaults(&pinmux_config);
@@ -310,16 +300,24 @@ void extint_chan_set_config(
     /* Clear the existing and set the new channel configuration */
     EIC_module->CONFIG[channel / 8].reg
         = (EIC_module->CONFIG[channel / 8].reg &
-           ~((EIC_CONFIG_SENSE0_Msk | EIC_CONFIG_FILTEN0) << config_pos)) |
-          (new_config << config_pos);
-
+            ~((EIC_CONFIG_SENSE0_Msk | EIC_CONFIG_FILTEN0) << config_pos)) |
+            (new_config << config_pos);
+#if (SAML22) || (SAML21XXXB) || (SAMC20) || (SAMR30) || (SAMR34) || (SAMR35)
     /* Config asynchronous edge detection */
     if (config->enable_async_edge_detection) {
         EIC_module->ASYNCH.reg |= (1UL << channel);
     } else {
         EIC_module->ASYNCH.reg &= (EIC_ASYNCH_MASK & (~(1UL << channel)));
     }
-
+#endif
+#if (SAMC21)
+    /* Config asynchronous edge detection */
+    if (config->enable_async_edge_detection) {
+        EIC_module->EIC_ASYNCH.reg |= (1UL << channel);
+    } else {
+        EIC_module->EIC_ASYNCH.reg &= (EIC_EIC_ASYNCH_MASK & (~(1UL << channel)));
+    }
+#endif
     _extint_enable();
 }
 
@@ -339,16 +337,16 @@ void extint_chan_set_config(
  * \retval  STATUS_ERR_BAD_FORMAT       An invalid detection mode was requested
  */
 enum status_code extint_nmi_set_config(
-    const uint8_t nmi_channel,
-    const struct extint_nmi_conf *const config)
+        const uint8_t nmi_channel,
+        const struct extint_nmi_conf *const config)
 {
     /* Sanity check arguments */
     Assert(config);
 
     /* Sanity check clock requirements */
     Assert(!(!system_gclk_gen_is_enabled(EXTINT_CLOCK_SOURCE) &&
-             _extint_is_gclk_required(config->filter_input_signal,
-                                      config->detection_criteria)));
+        _extint_is_gclk_required(config->filter_input_signal,
+            config->detection_criteria)));
 
     struct system_pinmux_config pinmux_config;
     system_pinmux_get_config_defaults(&pinmux_config);
@@ -372,10 +370,12 @@ enum status_code extint_nmi_set_config(
         new_config |= EIC_NMICTRL_NMIFILTEN;
     }
 
+#if (SAML21XXXB) || (SAML22) || (SAMC21) || (SAMR30) || (SAMR34) || (SAMR35)
     /* Enable asynchronous edge detection if requested in the config */
     if (config->enable_async_edge_detection) {
         new_config |= EIC_NMICTRL_NMIASYNCH;
     }
+#endif
 
     /* Disable EIC and general clock to configure NMI */
     _extint_disable();
@@ -383,7 +383,7 @@ enum status_code extint_nmi_set_config(
     system_gclk_chan_disable(EIC_GCLK_ID);
 #else
     Eic *const eics[EIC_INST_NUM] = EIC_INSTS;
-    for (uint32_t i = 0; i < EIC_INST_NUM; i++) {
+    for (uint32_t i = 0; i < EIC_INST_NUM; i++){
         eics[i]->CTRLA.bit.CKSEL = EXTINT_CLK_GCLK;
         system_gclk_chan_disable(EIC_GCLK_ID);
     }
@@ -395,7 +395,7 @@ enum status_code extint_nmi_set_config(
 #if(EXTINT_CLOCK_SELECTION == EXTINT_CLK_GCLK)
     system_gclk_chan_enable(EIC_GCLK_ID);
 #else
-    for (uint32_t i = 0; i < EIC_INST_NUM; i++) {
+    for (uint32_t i = 0; i < EIC_INST_NUM; i++){
         eics[i]->CTRLA.bit.CKSEL = EXTINT_CLK_ULP32K;
     }
 #endif
@@ -415,7 +415,7 @@ enum status_code extint_nmi_set_config(
  *  \param[in] events    Struct containing flags of events to enable
  */
 void extint_enable_events(
-    struct extint_events *const events)
+        struct extint_events *const events)
 {
     /* Sanity check arguments */
     Assert(events);
@@ -453,7 +453,7 @@ void extint_enable_events(
  *  \param[in] events    Struct containing flags of events to disable
  */
 void extint_disable_events(
-    struct extint_events *const events)
+        struct extint_events *const events)
 {
     /* Sanity check arguments */
     Assert(events);

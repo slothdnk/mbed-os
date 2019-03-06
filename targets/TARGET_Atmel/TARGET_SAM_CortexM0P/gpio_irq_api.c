@@ -76,6 +76,10 @@ int gpio_irq_init(gpio_irq_t *obj, PinName pin, gpio_irq_handler handler, uint32
     pEXT_CONF(obj).detection_criteria = EXTINT_DETECT_NONE;
 
     int_channel = pinmap_find_peripheral(pin, PinMap_EXTINT);
+
+    printf("Setting gpio_irq_api, pin=%lu, mux=%lu, int_channel=%d, pull=PULL_UP, detection=NONE\n",
+        pEXT_CONF(obj).gpio_pin, pEXT_CONF(obj).gpio_pin_mux, int_channel);
+
     if (int_channel == NC) {
         return -1;
     }

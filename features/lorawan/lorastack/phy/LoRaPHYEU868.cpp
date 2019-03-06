@@ -142,7 +142,7 @@
 /*!
  * Join accept delay 1
  */
-#define EU868_JOIN_ACCEPT_DELAY1                    5000
+#define EU868_JOIN_ACCEPT_DELAY1                    4000
 
 /*!
  * Join accept delay 2
