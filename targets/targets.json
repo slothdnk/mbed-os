@@ -8308,6 +8308,7 @@
         "inherits": ["SAML21J18"]
     },
     "SAMR34_XPLAINED_PRO": {
-        "inherits": ["SAML21J18"]
+        "inherits": ["SAML21J18"],
+        "macros_add": ["SAMR34"]
     }
 }
