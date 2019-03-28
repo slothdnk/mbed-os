@@ -69,7 +69,11 @@ EventQueue *mbed_event_queue()
 #ifdef MBED_CONF_RTOS_PRESENT
 EventQueue *mbed_highprio_event_queue()
 {
+#if MBED_CONF_EVENTS_ENABLE_HIGHPRIO_QUEUE == 1
     return do_shared_event_queue_with_thread<osPriorityHigh, MBED_CONF_EVENTS_SHARED_HIGHPRIO_EVENTSIZE, MBED_CONF_EVENTS_SHARED_HIGHPRIO_STACKSIZE>("shared_highprio_event_queue");
+#else
+    return mbed_event_queue();
+#endif
 }
 #endif
 
