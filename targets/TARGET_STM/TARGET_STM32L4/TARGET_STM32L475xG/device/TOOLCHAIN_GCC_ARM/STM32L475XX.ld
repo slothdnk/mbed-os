@@ -16,7 +16,7 @@ M_CRASH_DATA_RAM_SIZE = 0x100;
 
 /* Linker script to configure memory regions. */
 MEMORY
-{ 
+{
   FLASH (rx)   : ORIGIN = MBED_APP_START, LENGTH = MBED_APP_SIZE
   SRAM2 (rwx)  : ORIGIN = 0x10000188, LENGTH = 32k - 0x188
   SRAM1 (rwx)  : ORIGIN = 0x20000000, LENGTH = 96k
@@ -26,7 +26,7 @@ MEMORY
  * with other linker script that defines memory regions FLASH and RAM.
  * It references following symbols, which must be defined in code:
  *   Reset_Handler : Entry of reset handler
- * 
+ *
  * It defines following symbols, which code can use without definition:
  *   __exidx_start
  *   __exidx_end
@@ -93,7 +93,7 @@ SECTIONS
 
     __etext = .;
     _sidata = .;
-    
+
     .crash_data_ram :
     {
         . = ALIGN(8);
@@ -140,7 +140,7 @@ SECTIONS
         __data_end__ = .;
         _edata = .;
 
-    } > SRAM1
+    } > SRAM2
 
     .bss :
     {
