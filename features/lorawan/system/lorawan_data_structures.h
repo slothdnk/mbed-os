@@ -44,6 +44,14 @@
 typedef uint32_t lorawan_time_t;
 #endif
 
+
+/*!
+ * \brief GPS time in milliseconds 
+ */
+#ifndef lorawan_gps_time_t
+typedef uint64_t lorawan_gps_time_t;
+#endif
+
 /*!
  * Sets the length of the LoRaMAC footer field.
  * Mainly indicates the MIC field length.
@@ -78,6 +86,12 @@ typedef uint32_t lorawan_time_t;
 #warning "Cannot set TX Max size more than MTU=255"
 #define MBED_CONF_LORA_TX_MAX_SIZE              255
 #endif
+
+/**
+ * 
+ * Network Beacon Gateway Specific field length
+ */
+#define LORAMAC_BEACON_GW_SPECIFIC_LEN          7
 
 /*!
  * LoRaMAC band parameters definition.
@@ -148,9 +162,22 @@ typedef enum {
      */
     RX_SLOT_WIN_CLASS_C,
     /*!
-     * LoRaMAC class b ping slot window
+     * LoRaMAC class b unicast ping slot window
      */
-    RX_SLOT_WIN_PING_SLOT
+    RX_SLOT_WIN_UNICAST_PING_SLOT,
+    /*!
+     * LoRaMAC class b multicast ping slot window
+     */
+    RX_SLOT_WIN_MULTICAST_PING_SLOT,
+    /*!
+     * LoRaMAC class b beacon window
+     */
+    RX_SLOT_BEACON,
+
+    /*!
+     * Put new slot types before here
+     */
+    RX_SLOT_MAX
 } rx_slot_t;
 
 typedef enum {
@@ -183,6 +210,31 @@ typedef enum {
     FRMPAYLOAD = 0,
     FOPTS
 } payload_type_t;
+
+/*!
+ * LoRaMAC ping slot parameters.
+ */
+typedef struct {
+    /*!
+     * Unicast ping slot periodicity
+     */
+    uint8_t periodicity;
+
+    /*!
+     * Number of ping slots per beacon period
+     */
+    uint8_t ping_nb;
+
+    /*
+     * Period of the device wake-up expressed in number of slots
+     */
+    uint16_t ping_period;
+
+    /*
+     * Randomized ping slot offset
+     */
+    uint16_t ping_offset;
+} ping_slot_params_t;
 
 /*!
  * The global MAC layer parameters.
@@ -260,6 +312,12 @@ typedef struct {
      * LoRaMac ADR control status
      */
     bool adr_on;
+
+    /*!
+     * Class B ping slot configuration
+     */
+    ping_slot_params_t ping_slot;
+
 } lora_mac_system_params_t;
 
 /*!
@@ -335,41 +393,82 @@ typedef enum {
  */
 typedef enum {
     /*!
+     * ResetInd
+     */
+    MOTE_MAC_RESET_IND                 = 0x01,
+    /*!
      * LinkCheckReq
      */
-    MOTE_MAC_LINK_CHECK_REQ          = 0x02,
+    MOTE_MAC_LINK_CHECK_REQ            = 0x02,
     /*!
      * LinkADRAns
      */
-    MOTE_MAC_LINK_ADR_ANS            = 0x03,
+    MOTE_MAC_LINK_ADR_ANS              = 0x03,
     /*!
      * DutyCycleAns
      */
-    MOTE_MAC_DUTY_CYCLE_ANS          = 0x04,
+    MOTE_MAC_DUTY_CYCLE_ANS            = 0x04,
     /*!
      * RXParamSetupAns
      */
-    MOTE_MAC_RX_PARAM_SETUP_ANS      = 0x05,
+    MOTE_MAC_RX_PARAM_SETUP_ANS        = 0x05,
     /*!
      * DevStatusAns
      */
-    MOTE_MAC_DEV_STATUS_ANS          = 0x06,
+    MOTE_MAC_DEV_STATUS_ANS            = 0x06,
     /*!
      * NewChannelAns
      */
-    MOTE_MAC_NEW_CHANNEL_ANS         = 0x07,
+    MOTE_MAC_NEW_CHANNEL_ANS           = 0x07,
     /*!
      * RXTimingSetupAns
      */
-    MOTE_MAC_RX_TIMING_SETUP_ANS     = 0x08,
+    MOTE_MAC_RX_TIMING_SETUP_ANS       = 0x08,
     /*!
      * TXParamSetupAns
      */
-    MOTE_MAC_TX_PARAM_SETUP_ANS      = 0x09,
+    MOTE_MAC_TX_PARAM_SETUP_ANS        = 0x09,
     /*!
      * DlChannelAns
      */
+<<<<<<< HEAD
     MOTE_MAC_DL_CHANNEL_ANS          = 0x0A
+=======
+    MOTE_MAC_DL_CHANNEL_ANS            = 0x0A,
+    /*!
+     * RekeyInd
+     */
+    MOTE_MAC_REKEY_IND                 = 0x0B,
+    /*!
+     * ADRParamSetupAns
+     */
+    MOTE_MAC_ADR_PARAM_SETUP_ANS       = 0x0C,
+    /*!
+     * DeviceTimeReq
+     */
+    MOTE_MAC_DEVICE_TIME_REQ           = 0x0D,
+    /*!
+     * RejoinParamSetupAns
+     */
+    MOTE_MAC_REJOIN_PARAM_SETUP_ANS    = 0x0F,
+    /*!
+     * PingSlotInfoReq
+     */
+    MOTE_MAC_PING_SLOT_INFO_REQ        = 0x10,
+    /*!
+     * PingSlotChannelAns
+     */
+    MOTE_MAC_PING_SLOT_CHANNEL_ANS     = 0x11,
+    /*!
+     * BeaconFreqAns
+     */
+    MOTE_MAC_BEACON_FREQ_ANS           = 0x13,
+
+    /*!
+     * DeviceModeInd
+     */
+    MOTE_DEVICE_MODE_IND             = 0x20
+>>>>>>> Switch to millisecond resolution  gps time
 } mote_mac_cmds_t;
 
 /*!
@@ -414,6 +513,45 @@ typedef enum {
      * DlChannelReq
      */
     SRV_MAC_DL_CHANNEL_REQ           = 0x0A,
+<<<<<<< HEAD
+=======
+    /*!
+     * RekeyConf
+     */
+    SRV_MAC_REKEY_CONF               = 0x0B,
+    /*!
+     * ADRParamSetupReq
+     */
+    SRV_MAC_ADR_PARAM_SETUP_REQ      = 0x0C,
+    /*!
+     * DeviceTimeAns
+     */
+    SRV_MAC_DEVICE_TIME_ANS          = 0x0D,
+    /*!
+     * ForceRejoinReq
+     */
+    SRV_MAC_FORCE_REJOIN_REQ         = 0x0E,
+    /*!
+     * RejoinParamSetupReq
+     */
+    SRV_MAC_REJOIN_PARAM_SETUP_REQ   = 0x0F,
+    /*!
+     * PingSlotInfoAns
+     */
+    SRV_MAC_PING_SLOT_INFO_ANS       = 0x10,
+    /*!
+     * PingSlotChannelReq
+     */
+    SRV_MAC_PING_SLOT_CHANNEL_REQ    = 0x11,
+    /*!
+     * BeaconFreqReq
+     */
+    SRV_MAC_BEACON_FREQ_REQ          = 0x13,
+    /*!
+     * DeviceModeConf
+     */
+    SRV_MAC_DEVICE_MODE_CONF          = 0x20
+>>>>>>> Switch to millisecond resolution  gps time
 } server_mac_cmds_t;
 
 /*!
@@ -486,9 +624,10 @@ typedef union {
          */
         uint8_t fopts_len : 4;
         /*!
-         * Frame pending bit.
+         * RFU (Used for downlink frame pending or uplink class b mode)
          */
-        uint8_t fpending : 1;
+        uint8_t rfu : 1;
+
         /*!
          * Message acknowledge bit.
          */
@@ -559,6 +698,11 @@ typedef enum {
      * Crypto methods failure
      */
     LORAMAC_EVENT_INFO_STATUS_CRYPTO_FAIL,
+
+    /*!
+     * Network Beacon not found
+     */
+    LORAMAC_EVENT_INFO_STATUS_BEACON_NOT_FOUND,
 } loramac_event_info_status_t;
 
 /*!
@@ -726,6 +870,7 @@ typedef struct {
  * \ref MLME_LINK_CHECK         | YES     | NO         | NO       | YES
  * \ref MLME_TXCW               | YES     | NO         | NO       | YES
  * \ref MLME_SCHEDULE_UPLINK    | NO      | YES        | NO       | NO
+ * \ref MLME_BEACON_ACQUISITION | YES     | NO         | NO       | YES
  *
  */
 typedef enum {
@@ -757,7 +902,29 @@ typedef enum {
      * Indicates that the application shall perform an uplink as
      * soon as possible.
      */
+<<<<<<< HEAD
     MLME_SCHEDULE_UPLINK
+=======
+    MLME_FORCE_REJOIN,
+
+    /*!
+     * Initiates network beacon acquisition
+     */
+    MLME_BEACON_ACQUISITION,
+
+    MLME_BEACON_LOCK,
+
+    MLME_BEACON_MISS,
+
+    /*!
+     * PingSlotInfoReq - Indicates ping unicast slot periodicity
+     *                   synchronized with the server
+     *
+     * LoRaWAN Specification V1.1, chapter 14.1
+     */
+    MLME_PING_SLOT_INFO
+
+>>>>>>> Switch to millisecond resolution  gps time
 } mlme_type_t;
 
 /*!
@@ -1336,7 +1503,38 @@ typedef struct {
      * \brief forced_datarate See ForceRejoinReq LW 1.1 spec ch 5.13
      */
     uint8_t forced_datarate;
-
 } loramac_protocol_params;
+
+
+/*!
+ * LoRaMAC beacon status
+ */
+typedef enum {
+    /*!
+     * Network beacon acquisition success
+     */
+    BEACON_STATUS_ACQUISITION_SUCCESS,
+    /*!
+     * Network beacon acquisition failed
+     */
+    BEACON_STATUS_ACQUISITION_FAILED,
+    /*!
+     * Network beacon received
+     */
+    BEACON_STATUS_LOCK,
+    /*!
+     * Network beacon not received (lock -> miss)
+     */
+    BEACON_STATUS_MISS,
+} loramac_beacon_status_t;
+
+/*!
+ * LoRaMAC beacon information
+ */
+typedef struct {
+    uint32_t time; // beacon time
+    uint32_t time_on_air;  // beacon frame time on air
+    uint8_t gw_specific[LORAMAC_BEACON_GW_SPECIFIC_LEN];  // info descriptior + info (15.3)
+} loramac_beacon_t;
 
 #endif /* LORAWAN_SYSTEM_LORAWAN_DATA_STRUCTURES_H_ */
