@@ -816,6 +816,8 @@ private:
     uint8_t _prev_qos_level;
 
     bool _demod_ongoing;
+
+    bool _mod_ongoing;
 };
 
 #endif // MBED_LORAWAN_MAC_H__
