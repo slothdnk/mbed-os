@@ -360,7 +360,7 @@ TEST_F(Test_LoRaMac, on_radio_rx_done)
 {
     uint8_t buf[16];
     memset(buf, 0, sizeof(buf));
-    object->on_radio_rx_done(buf, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(buf, 16, 0, 0, 0, my_cb);
 }
 
 TEST_F(Test_LoRaMac, on_radio_tx_timeout)
@@ -440,13 +440,13 @@ TEST_F(Test_LoRaMac, post_process_mcps_req)
 
     //address != _params.dev_addr
     payload[2] = 2;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
     object->post_process_mcps_req();
 
     payload[2] = 0;
     //mic failure
     payload[13] = 2;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
     object->post_process_mcps_req();
 
     payload[13] = 0;
@@ -455,7 +455,7 @@ TEST_F(Test_LoRaMac, post_process_mcps_req)
     LoRaMacCrypto_stub::int_table[0] = 4;
     LoRaMacCrypto_stub::int_table[1] = 4;
 //    LoRaPHY_stub::uint16_value = 0;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
     object->post_process_mcps_req();
 
     //process_mac_commands failure
@@ -463,7 +463,7 @@ TEST_F(Test_LoRaMac, post_process_mcps_req)
     LoRaMacCrypto_stub::int_table[0] = 0;
     LoRaMacCrypto_stub::int_table[1] = 0;
     payload[7] = 1;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
     object->post_process_mcps_req();
 
     //FOpts_len != 0
@@ -472,24 +472,24 @@ TEST_F(Test_LoRaMac, post_process_mcps_req)
     LoRaMacCommand_stub::status_value = LORAWAN_STATUS_OK;
     payload[0] = FRAME_TYPE_DATA_UNCONFIRMED_DOWN << 5;
 
-    object->on_radio_rx_done(payload, 13, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 13, 0, 0, 0, my_cb);
 
     //_mac_commands.process_mac_commands fails
     LoRaMacCommand_stub::status_value = LORAWAN_STATUS_DATARATE_INVALID;
-    object->on_radio_rx_done(payload, 13, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 13, 0, 0, 0, my_cb);
 
     object->post_process_mcps_req();
 
     payload[9] = 1;
     LoRaMacCommand_stub::status_value = LORAWAN_STATUS_OK;
     payload[0] = FRAME_TYPE_PROPRIETARY << 5;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
     object->post_process_mcps_req();
 
     payload[9] = 0;
     payload[5] = 1 << 5;
     LoRaMacCommand_stub::status_value = LORAWAN_STATUS_OK;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
     object->post_process_mcps_req();
 
     LoRaPHY_stub::bool_counter = 0;
@@ -521,25 +521,25 @@ TEST_F(Test_LoRaMac, handle_join_accept_frame)
     LoRaMacCrypto_stub::int_table[1] = 4;
     LoRaMacCrypto_stub::int_table[2] = 4;
     LoRaMacCrypto_stub::int_table[3] = 4;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
 
     LoRaMacCrypto_stub::int_table_idx_value = 0;
     LoRaMacCrypto_stub::int_table[0] = 0;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
 
     LoRaMacCrypto_stub::int_table_idx_value = 0;
     LoRaMacCrypto_stub::int_table[1] = 0;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
 
     //mic failure case
     payload[13] = 17;
     LoRaMacCrypto_stub::int_table_idx_value = 0;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
 
     payload[13] = 0;
     LoRaMacCrypto_stub::int_table_idx_value = 0;
     LoRaMacCrypto_stub::int_table[2] = 0;
-    object->on_radio_rx_done(payload, 16, 0, 0, my_cb);
+    object->on_radio_rx_done(payload, 16, 0, 0, 0, my_cb);
 }
 
 TEST_F(Test_LoRaMac, post_process_mcps_ind)
