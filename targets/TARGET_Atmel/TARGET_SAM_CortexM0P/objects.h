@@ -90,6 +90,7 @@ struct dac_s {
 
 struct pwmout_s {
     struct tcc_module tcc;
+    struct tc_module tc;
     PinName pin;
     uint32_t period;
     float duty_cycle;

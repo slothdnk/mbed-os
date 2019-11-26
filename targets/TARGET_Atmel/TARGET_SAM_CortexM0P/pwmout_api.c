@@ -85,8 +85,7 @@ bool pwmout_init_hw(pwmout_t* obj)
     uint32_t pwm = (uint32_t)NC;
     PinName pin;
     uint32_t ch_index = (uint32_t)NC;
-    struct tcc_config config_tcc;
-    uint32_t tcc_channel = (uint32_t)NC;
+    enum status_code ret;
 
     /* Sanity check arguments */
     MBED_ASSERT(obj);
@@ -101,31 +100,59 @@ bool pwmout_init_hw(pwmout_t* obj)
         /* Pin not supported */
         return 0;
     }
-    if ((ch_index == 0) || (ch_index == 4)) {
-        tcc_channel = 0;
-    } else if ((ch_index == 1) || (ch_index == 5)) {
-        tcc_channel = 1;
-    } else if ((ch_index == 2) || (ch_index == 6)) {
-        tcc_channel = 2;
-    } else if ((ch_index == 3) || (ch_index == 7)) {
-        tcc_channel = 3;
+
+    if(pwm<=PWM_2) {
+        struct tcc_config config_tcc;
+        uint32_t tcc_channel = (uint32_t)NC;
+        if ((ch_index == 0) || (ch_index == 4)) {
+    		tcc_channel = 0;
+    	} else if ((ch_index == 1) || (ch_index == 5)) {
+    		tcc_channel = 1;
+    	} else if ((ch_index == 2) || (ch_index == 6)) {
+    		tcc_channel = 2;
+    	} else if ((ch_index == 3) || (ch_index == 7)) {
+    		tcc_channel = 3;
+    	}
+
+    	tcc_get_config_defaults(&config_tcc, (Tcc*)pwm);
+
+    	config_tcc.counter.clock_source = obj->clock_source;
+    	config_tcc.counter.clock_prescaler = (enum tcc_clock_prescaler)obj->clock_prescaler;
+
+    	config_tcc.counter.period = obj->period;
+    	config_tcc.compare.wave_generation = TCC_WAVE_GENERATION_SINGLE_SLOPE_PWM;
+    	config_tcc.compare.match[tcc_channel] = obj->period * obj->duty_cycle;
+
+    	config_tcc.pins.enable_wave_out_pin[ch_index] = true;
+    	config_tcc.pins.wave_out_pin[ch_index]        = pin;
+    	config_tcc.pins.wave_out_pin_mux[ch_index]    = mux_func;
+    	ret = tcc_init(&obj->tcc, (Tcc*)pwm, &config_tcc);
+    	return (STATUS_OK == ret);
+    } else {
+    	struct tc_config config;
+    	tc_get_config_defaults(&config);
+    	config.clock_prescaler = (enum tcc_clock_prescaler)obj->clock_prescaler;
+    	config.clock_source = obj->clock_source;
+    	config.count_direction = TC_COUNT_DIRECTION_UP;
+    	config.counter_size = TC_COUNTER_SIZE_16BIT;
+    	//config.double_buffering_enabled = false;
+    	config.enable_capture_on_channel[0] = false;
+    	config.enable_capture_on_channel[1] = false;
+    	//config.enable_capture_on_IO = false;
+    	config.oneshot = false;
+    	config.pwm_channel[0].enabled = true;
+    	config.pwm_channel[0].pin_mux = mux_func;
+    	config.pwm_channel[0].pin_out = pin;
+    	config.run_in_standby = true;
+    	config.wave_generation = TC_WAVE_GENERATION_NORMAL_PWM;
+    	config.waveform_invert_output = 0b0;
+
+    	tc_init(&obj->tc, TC4, &config);
+    	tc_set_top_value(&obj->tc, obj->period);
+    	tc_set_compare_value(&obj->tc, TC_COMPARE_CAPTURE_CHANNEL_0, obj->period * obj->duty_cycle);
+    	tc_enable(&obj->tc);
     }
-
-    tcc_get_config_defaults(&config_tcc, (Tcc*)pwm);
-
-    config_tcc.counter.clock_source = obj->clock_source;
-    config_tcc.counter.clock_prescaler = (enum tcc_clock_prescaler)obj->clock_prescaler;
-
-    config_tcc.counter.period = obj->period;
-    config_tcc.compare.wave_generation = TCC_WAVE_GENERATION_SINGLE_SLOPE_PWM;
-    config_tcc.compare.match[tcc_channel] = obj->period * obj->duty_cycle;
-
-    config_tcc.pins.enable_wave_out_pin[ch_index] = true;
-    config_tcc.pins.wave_out_pin[ch_index]        = pin;
-    config_tcc.pins.wave_out_pin_mux[ch_index]    = mux_func;
-
-    return (STATUS_OK == tcc_init(&obj->tcc, (Tcc*)pwm, &config_tcc));
-
+    return (STATUS_OK == ret);
 }
 
 /** Initialize PWM Module

@@ -116,6 +116,10 @@ typedef enum {
     PWM_0 = (0x42001400UL), /**< \brief (TCC0) APB Base Address */
     PWM_1 = (0x42001800UL), /**< \brief (TCC1) APB Base Address */
     PWM_2 = (0x42001C00UL), /**< \brief (TCC2) APB Base Address */
+    PWM_3 = (0x42002000UL), /**< \brief (TC0) APB Base Address */
+    PWM_4 = (0x42002400UL), /**< \brief (TC1) APB Base Address */
+    PWM_5 = (0x43000800UL)  /**< \brief (TC4) APB Base Address */
+
 } PWMName;
 
 struct pwm_pin_channel {
