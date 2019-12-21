@@ -34,7 +34,9 @@
 
 #define FSST_DEFAULT_FOLDER_PATH "kvstore" //default FileSystemStore folder path on fs
 
-static const uint32_t supported_flags = mbed::KVStore::WRITE_ONCE_FLAG;
+// Only write once flag is supported, other two are kept in storage but ignored
+static const uint32_t supported_flags = mbed::KVStore::WRITE_ONCE_FLAG | mbed::KVStore::REQUIRE_CONFIDENTIALITY_FLAG |
+                                        mbed::KVStore::REQUIRE_REPLAY_PROTECTION_FLAG;
 
 using namespace mbed;
 
@@ -62,7 +64,8 @@ static char *string_ndup(const char *src, size_t size);
 
 // Class Functions
 FileSystemStore::FileSystemStore(FileSystem *fs) : _fs(fs),
-    _is_initialized(false)
+    _is_initialized(false), _cfg_fs_path(NULL), _cfg_fs_path_size(0),
+    _full_path_key(NULL), _cur_inc_data_size(0), _cur_inc_set_handle(NULL)
 {
 
 }
@@ -532,7 +535,7 @@ int FileSystemStore::iterator_next(iterator_t it, char *key, size_t key_size)
 
     key_it = (key_iterator_handle_t *)it;
 
-    if (key_name_size < strlen(key_it->prefix)) {
+    if ((key_it->prefix != NULL) && (key_name_size < strlen(key_it->prefix))) {
         status = MBED_ERROR_INVALID_SIZE;
         goto exit_point;
     }
@@ -577,9 +580,8 @@ int FileSystemStore::iterator_close(iterator_t it)
         delete[] key_it->prefix;
     }
 
-    ((Dir *)(key_it->dir_handle))->close();
-
     if (key_it->dir_handle != NULL) {
+        ((Dir *)(key_it->dir_handle))->close();
         delete ((Dir *)(key_it->dir_handle));
     }
     delete key_it;

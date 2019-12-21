@@ -24,7 +24,7 @@
 #include "PeripheralNames.h"
 
 
-// //*** I2C ***
+//*** I2C ***
 #if DEVICE_I2C
 extern const PinMap PinMap_I2C_SDA[];
 extern const PinMap PinMap_I2C_SCL[];
@@ -59,6 +59,16 @@ extern const PinMap PinMap_ADC[];
 //*** DAC ***
 #if DEVICE_ANALOGOUT
 extern const PinMap PinMap_DAC[];
+#endif
+
+//*** QSPI ***
+#if DEVICE_QSPI
+extern const PinMap PinMap_QSPI_SCLK[];
+extern const PinMap PinMap_QSPI_SSEL[];
+extern const PinMap PinMap_QSPI_DATA0[];
+extern const PinMap PinMap_QSPI_DATA1[];
+extern const PinMap PinMap_QSPI_DATA2[];
+extern const PinMap PinMap_QSPI_DATA3[];
 #endif
 
 #endif

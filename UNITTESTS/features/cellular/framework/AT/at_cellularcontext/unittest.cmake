@@ -15,8 +15,6 @@ set(unittest-includes ${unittest-includes}
 # Source files
 set(unittest-sources
   ../features/cellular/framework/AT/AT_CellularContext.cpp
-  ../features/cellular/framework/AT/ATHandler_factory.cpp
-  ../features/cellular/framework/common/CellularUtil.cpp
 )
 
 # Test files
@@ -41,4 +39,9 @@ set(unittest-test-sources
   stubs/us_ticker_stub.cpp
   stubs/UARTSerial_stub.cpp
   stubs/SerialBase_stub.cpp
+  stubs/CellularContext_stub.cpp
+  stubs/CellularUtil_stub.cpp
+  stubs/SocketAddress_stub.cpp
+  stubs/ConditionVariable_stub.cpp
+  stubs/Mutex_stub.cpp
 )

@@ -32,12 +32,9 @@
 #define FWH_NONCE_LENGTH              32
 #define EUI64_LEN                     8
 #define SEC_TOTAL_TIMEOUT             30 * 60 * 10 // 30 minutes
+#define SEC_INIT_TIMEOUT              60 * 10      // 60 seconds
 #define SEC_FINISHED_TIMEOUT          5 * 10       // 5 seconds
 
-#define KEY_INFO_INSTALL              0x01
-#define KEY_INFO_KEY_ACK              0x02
-#define KEY_INFO_KEY_MIC              0x04
-#define KEY_INFO_SECURED_KEY_FRAME    0x08
 
 // Common data shared between security protocols needing general timers and state machines
 typedef struct {
@@ -139,12 +136,12 @@ uint8_t *sec_prot_lib_message_handle(uint8_t *ptk, uint16_t *kde_len, eapol_pdu_
  *
  * \param kde KDEs
  * \param kde_len length of the KDEs
- * \param gtks GTKs
+ * \param sec_keys security keys
  *
  * \return < 0 failure
  * \return >= 0 success
  */
-int8_t sec_prot_lib_gtk_read(uint8_t *kde, uint16_t kde_len, sec_prot_gtk_keys_t *gtks);
+int8_t sec_prot_lib_gtk_read(uint8_t *kde, uint16_t kde_len, sec_prot_keys_t *sec_keys);
 
 /**
  * sec_prot_lib_mic_validate validates MIC
@@ -158,15 +155,6 @@ int8_t sec_prot_lib_gtk_read(uint8_t *kde, uint16_t kde_len, sec_prot_gtk_keys_t
  * \return >= 0 success
  */
 int8_t sec_prot_lib_mic_validate(uint8_t *ptk, uint8_t *mic, uint8_t *pdu, uint8_t pdu_size);
-
-/**
- * sec_prot_lib_key_mask_get gets masked EAPOL-Key message bits
- *
- * \param eapol_pdu EAPOL PDU
- *
- * \return mask
- */
-uint8_t sec_prot_lib_key_mask_get(eapol_pdu_t *eapol_pdu);
 
 /**
  *  sec_prot_lib_pmkid_generate generate PMK ID from PMK
@@ -191,6 +179,26 @@ int8_t sec_prot_lib_pmkid_generate(sec_prot_t *prot, uint8_t *pmkid, bool is_aut
  * \return >= 0 success
  */
 int8_t sec_prot_lib_ptkid_generate(sec_prot_t *prot, uint8_t *ptkid, bool is_auth);
+
+/**
+ *  sec_prot_lib_gtkhash_generate generate GTK hash from GTK
+ *
+ * \param gtk GTK
+ * \param gtk_hash GTK hash
+ *
+ * \return < 0 failure
+ * \return >= 0 success
+ */
+int8_t sec_prot_lib_gtkhash_generate(uint8_t *gtk, uint8_t *gtk_hash);
+
+/**
+ * sec_prot_remote_eui_64_addr_get get remote EUI-64 (trusted EUI-64 from security keys)
+ *
+ * \param prot security protocol
+ *
+ * \return pointer to EUI-64 or NULL
+ */
+uint8_t *sec_prot_remote_eui_64_addr_get(sec_prot_t *prot);
 
 /**
  * sec_prot_init initiates common data
@@ -287,5 +295,13 @@ bool sec_prot_result_timeout_check(sec_prot_common_t *data);
  *
  */
 bool sec_prot_result_ok_check(sec_prot_common_t *data);
+
+/**
+ * sec_prot_default_timeout_set sets default timeout for protocol
+ *
+ * \param data common data
+ *
+ */
+void sec_prot_default_timeout_set(sec_prot_common_t *data);
 
 #endif /* SEC_PROT_LIB_H_ */

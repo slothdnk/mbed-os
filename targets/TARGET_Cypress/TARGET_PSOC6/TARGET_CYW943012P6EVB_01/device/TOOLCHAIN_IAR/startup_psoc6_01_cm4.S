@@ -1,5 +1,5 @@
 ;/**************************************************************************//**
-; * @file     startup_psoc6_01_cm4.s
+; * @file     startup_psoc6_01_cm4.S
 ; * @brief    CMSIS Core Device Startup File for
 ; *           ARMCM4 Device Series
 ; * @version  V5.00
@@ -78,7 +78,6 @@ __vector_table_0x1c
         DCD     0
         DCD     PendSV_Handler
         DCD     SysTick_Handler
-
 
         ; External interrupts                           Description
         DCD     ioss_interrupts_gpio_0_IRQHandler     ; GPIO Port Interrupt #0
@@ -310,10 +309,6 @@ intvec_copy
         LDR r1, =0xE000ED08
         STR r0, [r1]
         dsb
-
-        ; Enable the FPU if used
-        LDR     R0, =Cy_SystemInitFpuEnable
-        BLX     R0
 
         ; Initialize data sections
         LDR     R0, =__iar_data_init3

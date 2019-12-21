@@ -57,7 +57,7 @@ add_code                                                                        
     "#else\n"
 
 add_code                                                                                                       \
-    "#include \"check_config.h\"\n"                                                                            \
+    "#include \"mbedtls\/check_config.h\"\n"                                                                   \
     "\n"                                                                                                       \
     "#endif \/* !MBEDTLS_ENTROPY_HARDWARE_ALT && !MBEDTLS_TEST_NULL_ENTROPY && !MBEDTLS_ENTROPY_NV_SEED *\/\n" \
     "\n"                                                                                                       \
@@ -145,9 +145,3 @@ conf unset MBEDTLS_PLATFORM_TIME_TYPE_MACRO
 # Reduce the maximal MBEDTLS_MPI_MAX_SIZE to 512 bytes,
 # which should fit RSA 4096 bit keys.
 conf set MBEDTLS_MPI_MAX_SIZE     512
-
-# The following configurations are needed for Mbed Crypto.
-# They are related to the persistent key storage feature.
-conf set MBEDTLS_PSA_CRYPTO_STORAGE_C
-conf set MBEDTLS_PSA_CRYPTO_STORAGE_ITS_C
-conf unset MBEDTLS_PSA_CRYPTO_STORAGE_FILE_C

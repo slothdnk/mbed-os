@@ -19,7 +19,9 @@
 
 #include "CellularInterface.h"
 #include "CellularDevice.h"
+#include "CellularUtil.h"
 #include "ControlPlane_netif.h"
+#include "PinNames.h"
 
 /** @file CellularContext.h
  * @brief Cellular PDP context class
@@ -27,14 +29,6 @@
  */
 
 namespace mbed {
-
-typedef enum pdp_type {
-    DEFAULT_PDP_TYPE = DEFAULT_STACK,
-    IPV4_PDP_TYPE = IPV4_STACK,
-    IPV6_PDP_TYPE = IPV6_STACK,
-    IPV4V6_PDP_TYPE = IPV4V6_STACK,
-    NON_IP_PDP_TYPE
-} pdp_type_t;
 
 /**
  * @addtogroup cellular
@@ -53,7 +47,8 @@ public:
     enum AuthenticationType {
         NOAUTH = 0,
         PAP,
-        CHAP
+        CHAP,
+        AUTOMATIC
     };
 
     /*  whether the additional exception reports are allowed to be sent when the maximum uplink rate is reached */
@@ -121,6 +116,7 @@ public:
 protected:
     // friend of CellularDevice, so it's the only way to close or delete this class.
     friend class CellularDevice;
+    CellularContext();
     virtual ~CellularContext() {}
 public: // from NetworkInterface
     virtual nsapi_error_t set_blocking(bool blocking) = 0;
@@ -171,6 +167,11 @@ public: // from NetworkInterface
      */
     static CellularContext *get_default_nonip_instance();
 
+    /** Get pointer to CellularDevice instance. May be null if not AT-layer.
+     *
+     *  @return pointer to CellularDevice instance
+     */
+    CellularDevice *get_device() const;
 
 // Operations, can be sync/async. Also Connect() is this kind of operation, inherited from NetworkInterface above.
 
@@ -261,6 +262,7 @@ public: // from NetworkInterface
      */
     virtual void set_file_handle(FileHandle *fh) = 0;
 
+#if (DEVICE_SERIAL && DEVICE_INTERRUPTIN) || defined(DOXYGEN_ONLY)
     /** Set the UART serial used to communicate with the modem. Can be used to change default file handle.
      *  File handle set with this method will use data carrier detect to be able to detect disconnection much faster in PPP mode.
      *
@@ -269,10 +271,23 @@ public: // from NetworkInterface
      *  @param active_high  a boolean set to true if DCD polarity is active low
      */
     virtual void set_file_handle(UARTSerial *serial, PinName dcd_pin = NC, bool active_high = false) = 0;
+#endif // #if DEVICE_SERIAL
 
     /** Returns the control plane AT command interface
      */
     virtual ControlPlane_netif *get_cp_netif() = 0;
+
+    /** Get the pdp context id associated with this context.
+     *
+     *  @return cid
+     */
+    int get_cid() const;
+
+    /** Set the authentication type to be used in user authentication if user name and password are defined
+     *
+     *  @param type enum AuthenticationType
+     */
+    void set_authentication_type(AuthenticationType type);
 
 protected: // Device specific implementations might need these so protected
     enum ContextOperation {
@@ -306,6 +321,27 @@ protected: // Device specific implementations might need these so protected
      */
     void cp_data_received();
 
+    /** Retry logic after device attached to network. Retry to find and activate pdp context or in case
+     *  of PPP find correct pdp context and open data channel. Retry logic is the same which is used in
+     *  CellularStateMachine.
+     */
+    virtual void do_connect_with_retry();
+
+    /** Helper method to call callback function if it is provided
+     *
+     *  @param status connection status which is parameter in callback function
+     */
+    void call_network_cb(nsapi_connection_status_t status);
+
+    /** Find and activate pdp context or in case of PPP find correct pdp context and open data channel.
+     */
+    virtual void do_connect();
+
+    /** After we have connected successfully we must check that we have a valid IP address.
+     *  Some modems/networks don't give IP address right after connect so we must poll it for a while.
+     */
+    void validate_ip_address();
+
     // member variables needed in target override methods
     NetworkStack *_stack; // must be pointer because of PPP
     pdp_type_t _pdp_type;
@@ -324,6 +360,16 @@ protected: // Device specific implementations might need these so protected
     bool _active_high;
 
     ControlPlane_netif *_cp_netif;
+    uint16_t _retry_timeout_array[CELLULAR_RETRY_ARRAY_SIZE];
+    int _retry_array_length;
+    int _retry_count;
+    CellularDevice *_device;
+    CellularNetwork *_nw;
+    bool _is_blocking;
+    // flag indicating if Non-IP context was requested to be setup
+    bool _nonip_req;
+    // tells if CCIOTOPTI received green from network for CP optimization use
+    bool _cp_in_use;
 };
 
 /**

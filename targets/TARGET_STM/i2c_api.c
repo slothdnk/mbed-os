@@ -35,10 +35,12 @@
 
 #if DEVICE_I2C
 
+#include <string.h>
 #include "cmsis.h"
 #include "pinmap.h"
 #include "PeripheralPins.h"
 #include "i2c_device.h" // family specific defines
+#include "mbed_error.h"
 
 #ifndef DEBUG_STDIO
 #   define DEBUG_STDIO 0
@@ -78,6 +80,9 @@ static I2C_HandleTypeDef *i2c_handles[I2C_NUM];
    not remain stuck if the I2C communication is corrupted.
 */
 #define FLAG_TIMEOUT ((int)0x1000)
+
+/* Declare i2c_init_internal to be used in this file */
+void i2c_init_internal(i2c_t *obj, PinName sda, PinName scl);
 
 /* GENERIC INIT and HELPERS FUNCTIONS */
 
@@ -209,6 +214,11 @@ void i2c_hw_reset(i2c_t *obj)
     // wait before reset
     timeout = BYTE_TIMEOUT;
     while ((__HAL_I2C_GET_FLAG(handle, I2C_FLAG_BUSY)) && (--timeout != 0));
+#if defined(DUAL_CORE)
+    timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
 #if defined I2C1_BASE
     if (obj_s->i2c == I2C_1) {
         __HAL_RCC_I2C1_FORCE_RESET();
@@ -239,6 +249,9 @@ void i2c_hw_reset(i2c_t *obj)
         __HAL_RCC_FMPI2C1_RELEASE_RESET();
     }
 #endif
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
 }
 
 void i2c_sw_reset(i2c_t *obj)
@@ -260,7 +273,12 @@ void i2c_sw_reset(i2c_t *obj)
 
 void i2c_init(i2c_t *obj, PinName sda, PinName scl)
 {
+    memset(obj, 0, sizeof(*obj));
+    i2c_init_internal(obj, sda, scl);
+}
 
+void i2c_init_internal(i2c_t *obj, PinName sda, PinName scl)
+{
     struct i2c_s *obj_s = I2C_S(obj);
 
     // Determine the I2C to use
@@ -371,30 +389,43 @@ void i2c_frequency(i2c_t *obj, int hz)
 
     // Enable the Fast Mode Plus capability
     if (hz == 1000000) {
-#if defined(I2C1_BASE) && defined(__HAL_SYSCFG_FASTMODEPLUS_ENABLE) && defined (I2C_FASTMODEPLUS_I2C1)
+#if defined(I2C1_BASE) && defined(I2C_FASTMODEPLUS_I2C1)  // sometimes I2C_FASTMODEPLUS_I2Cx is define even if not supported by the chip
+#if defined(SYSCFG_CFGR1_I2C_FMP_I2C1) || defined(SYSCFG_CFGR1_I2C1_FMP) || defined(SYSCFG_PMC_I2C1_FMP) || defined(SYSCFG_PMCR_I2C1_FMP) || defined(SYSCFG_CFGR2_I2C1_FMP)
         if (obj_s->i2c == I2C_1) {
             HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C1);
         }
 #endif
-#if defined(I2C2_BASE) && defined(__HAL_SYSCFG_FASTMODEPLUS_ENABLE) && defined (I2C_FASTMODEPLUS_I2C2)
+#endif
+#if defined(I2C2_BASE) && defined(I2C_FASTMODEPLUS_I2C2)  // sometimes I2C_FASTMODEPLUS_I2Cx is define even if not supported by the chip
+#if defined(SYSCFG_CFGR1_I2C_FMP_I2C2) || defined(SYSCFG_CFGR1_I2C2_FMP) || defined(SYSCFG_PMC_I2C2_FMP) || defined(SYSCFG_PMCR_I2C2_FMP) || defined(SYSCFG_CFGR2_I2C2_FMP)
         if (obj_s->i2c == I2C_2) {
             HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C2);
         }
 #endif
-#if defined(I2C3_BASE) && defined(__HAL_SYSCFG_FASTMODEPLUS_ENABLE) && defined (I2C_FASTMODEPLUS_I2C3)
+#endif
+#if defined(I2C3_BASE) && defined (I2C_FASTMODEPLUS_I2C3)  // sometimes I2C_FASTMODEPLUS_I2Cx is define even if not supported by the chip
+#if defined(SYSCFG_CFGR1_I2C_FMP_I2C3) || defined(SYSCFG_CFGR1_I2C3_FMP) || defined(SYSCFG_PMC_I2C3_FMP) || defined(SYSCFG_PMCR_I2C3_FMP) || defined(SYSCFG_CFGR2_I2C3_FMP)
         if (obj_s->i2c == I2C_3) {
             HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C3);
         }
 #endif
-#if defined(I2C4_BASE) && defined(__HAL_SYSCFG_FASTMODEPLUS_ENABLE) && defined (I2C_FASTMODEPLUS_I2C4)
+#endif
+#if defined(I2C4_BASE) && defined (I2C_FASTMODEPLUS_I2C4)  // sometimes I2C_FASTMODEPLUS_I2Cx is define even if not supported by the chip
+#if defined(SYSCFG_CFGR1_I2C_FMP_I2C4) || defined(SYSCFG_CFGR1_I2C4_FMP) || defined(SYSCFG_PMC_I2C4_FMP) || defined(SYSCFG_PMCR_I2C4_FMP) || defined(SYSCFG_CFGR2_I2C4_FMP)
         if (obj_s->i2c == I2C_4) {
             HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C4);
         }
+#endif
 #endif
     }
 #endif //I2C_IP_VERSION_V2
 
     /*##-1- Configure the I2C clock source. The clock is derived from the SYSCLK #*/
+#if defined(DUAL_CORE)
+    timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
 #if defined(I2C1_BASE) && defined (__HAL_RCC_I2C1_CONFIG)
     if (obj_s->i2c == I2C_1) {
         __HAL_RCC_I2C1_CONFIG(I2CAPI_I2C1_CLKSRC);
@@ -415,6 +446,9 @@ void i2c_frequency(i2c_t *obj, int hz)
         __HAL_RCC_I2C4_CONFIG(I2CAPI_I2C4_CLKSRC);
     }
 #endif
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
 
 #ifdef I2C_ANALOGFILTER_ENABLE
     /* Enable the Analog I2C Filter */
@@ -454,7 +488,7 @@ void i2c_reset(i2c_t *obj)
     /*  As recommended in i2c_api.h, mainly send stop */
     i2c_stop(obj);
     /* then re-init */
-    i2c_init(obj, obj_s->sda, obj_s->scl);
+    i2c_init_internal(obj, obj_s->sda, obj_s->scl);
 }
 
 /*
@@ -508,7 +542,7 @@ int i2c_stop(i2c_t *obj)
      *  re-init HAL state
      */
     if (obj_s->XferOperation != I2C_FIRST_AND_LAST_FRAME) {
-        i2c_init(obj, obj_s->sda, obj_s->scl);
+        i2c_init_internal(obj, obj_s->sda, obj_s->scl);
     }
 
     return 0;
@@ -584,12 +618,10 @@ int i2c_stop(i2c_t *obj)
 #if DEVICE_I2CSLAVE
     if (obj_s->slave) {
         /*  re-init slave when stop is requested */
-        i2c_init(obj, obj_s->sda, obj_s->scl);
+        i2c_init_internal(obj, obj_s->sda, obj_s->scl);
         return 0;
     }
 #endif
-    // Disable reload mode
-    handle->Instance->CR2 &= (uint32_t)~I2C_CR2_RELOAD;
 
     // Ensure the transmission is started before sending a stop
     if ((handle->Instance->CR2 & (uint32_t)I2C_CR2_RD_WRN) == 0) {
@@ -602,7 +634,7 @@ int i2c_stop(i2c_t *obj)
     }
 
     // Generate the STOP condition
-    handle->Instance->CR2 |= I2C_CR2_STOP;
+    handle->Instance->CR2 = I2C_CR2_STOP;
 
     timeout = FLAG_TIMEOUT;
     while (!__HAL_I2C_GET_FLAG(handle, I2C_FLAG_STOPF)) {
@@ -627,7 +659,7 @@ int i2c_stop(i2c_t *obj)
     /*  In case of mixed usage of the APIs (unitary + SYNC)
      *  re-init HAL state */
     if (obj_s->XferOperation != I2C_FIRST_AND_LAST_FRAME) {
-        i2c_init(obj, obj_s->sda, obj_s->scl);
+        i2c_init_internal(obj, obj_s->sda, obj_s->scl);
     }
 
     return 0;
@@ -655,9 +687,16 @@ int i2c_byte_read(i2c_t *obj, int last)
         }
     }
 
-    /* Enable reload mode as we don't know how many bytes will be sent */
-    /* and set transfer size to 1 */
-    tmpreg |= I2C_CR2_RELOAD | (I2C_CR2_NBYTES & (1 << 16));
+    if (last) {
+        /* Disable Address Acknowledge */
+        tmpreg = tmpreg & (~I2C_CR2_RELOAD);
+        tmpreg |= I2C_CR2_NACK | (I2C_CR2_NBYTES & (1 << 16));
+    } else {
+        /* Enable reload mode as we don't know how many bytes will be sent */
+        /* and set transfer size to 1 */
+        tmpreg |= I2C_CR2_RELOAD | (I2C_CR2_NBYTES & (1 << 16));
+    }
+
     /* Set the prepared configuration */
     handle->Instance->CR2 = tmpreg;
 
@@ -670,11 +709,6 @@ int i2c_byte_read(i2c_t *obj, int last)
 
     /* Then Get Byte */
     data = handle->Instance->RXDR;
-
-    if (last) {
-        /* Disable Address Acknowledge */
-        handle->Instance->CR2 |= I2C_CR2_NACK;
-    }
 
     return data;
 }
@@ -751,7 +785,7 @@ int i2c_read(i2c_t *obj, int address, char *data, int length, int stop)
     I2C_HandleTypeDef *handle = &(obj_s->handle);
     int count = I2C_ERROR_BUS_BUSY, ret = 0;
     uint32_t timeout = 0;
-
+#if defined(I2C_IP_VERSION_V1)
     // Trick to remove compiler warning "left and right operands are identical" in some cases
     uint32_t op1 = I2C_FIRST_AND_LAST_FRAME;
     uint32_t op2 = I2C_LAST_FRAME;
@@ -769,6 +803,18 @@ int i2c_read(i2c_t *obj, int address, char *data, int length, int stop)
             obj_s->XferOperation = I2C_NEXT_FRAME;
         }
     }
+#elif defined(I2C_IP_VERSION_V2)
+    if ((obj_s->XferOperation == I2C_FIRST_FRAME) || (obj_s->XferOperation == I2C_FIRST_AND_LAST_FRAME) || (obj_s->XferOperation == I2C_LAST_FRAME)) {
+        if (stop) {
+            obj_s->XferOperation = I2C_FIRST_AND_LAST_FRAME;
+        } else {
+            obj_s->XferOperation = I2C_FIRST_FRAME;
+        }
+    } else {
+        // should not happend
+        error("I2C: abnormal case should not happend");
+    }
+#endif
 
     obj_s->event = 0;
 
@@ -791,7 +837,7 @@ int i2c_read(i2c_t *obj, int address, char *data, int length, int stop)
         if ((timeout == 0) || (obj_s->event != I2C_EVENT_TRANSFER_COMPLETE)) {
             DEBUG_PRINTF(" TIMEOUT or error in i2c_read\r\n");
             /* re-init IP to try and get back in a working state */
-            i2c_init(obj, obj_s->sda, obj_s->scl);
+            i2c_init_internal(obj, obj_s->sda, obj_s->scl);
         } else {
             count = length;
         }
@@ -809,6 +855,7 @@ int i2c_write(i2c_t *obj, int address, const char *data, int length, int stop)
     int count = I2C_ERROR_BUS_BUSY, ret = 0;
     uint32_t timeout = 0;
 
+#if defined(I2C_IP_VERSION_V1)
     // Trick to remove compiler warning "left and right operands are identical" in some cases
     uint32_t op1 = I2C_FIRST_AND_LAST_FRAME;
     uint32_t op2 = I2C_LAST_FRAME;
@@ -826,6 +873,18 @@ int i2c_write(i2c_t *obj, int address, const char *data, int length, int stop)
             obj_s->XferOperation = I2C_NEXT_FRAME;
         }
     }
+#elif defined(I2C_IP_VERSION_V2)
+    if ((obj_s->XferOperation == I2C_FIRST_FRAME) || (obj_s->XferOperation == I2C_FIRST_AND_LAST_FRAME) || (obj_s->XferOperation == I2C_LAST_FRAME)) {
+        if (stop) {
+            obj_s->XferOperation = I2C_FIRST_AND_LAST_FRAME;
+        } else {
+            obj_s->XferOperation = I2C_FIRST_FRAME;
+        }
+    } else {
+        // should not happend
+        error("I2C: abnormal case should not happend");
+    }
+#endif
 
     obj_s->event = 0;
 
@@ -845,7 +904,7 @@ int i2c_write(i2c_t *obj, int address, const char *data, int length, int stop)
         if ((timeout == 0) || (obj_s->event != I2C_EVENT_TRANSFER_COMPLETE)) {
             DEBUG_PRINTF(" TIMEOUT or error in i2c_write\r\n");
             /* re-init IP to try and get back in a working state */
-            i2c_init(obj, obj_s->sda, obj_s->scl);
+            i2c_init_internal(obj, obj_s->sda, obj_s->scl);
         } else {
             count = length;
         }
@@ -865,11 +924,19 @@ void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
 #if DEVICE_I2C_ASYNCH
     /* Handle potential Tx/Rx use case */
     if ((obj->tx_buff.length) && (obj->rx_buff.length)) {
+#if defined(I2C_IP_VERSION_V1)
         if (obj_s->stop) {
             obj_s->XferOperation = I2C_LAST_FRAME;
         } else {
             obj_s->XferOperation = I2C_NEXT_FRAME;
         }
+#elif defined(I2C_IP_VERSION_V2)
+        if (obj_s->stop) {
+            obj_s->XferOperation = I2C_FIRST_AND_LAST_FRAME;
+        } else {
+            obj_s->XferOperation = I2C_FIRST_FRAME;
+        }
+#endif
 
         HAL_I2C_Master_Sequential_Receive_IT(hi2c, obj_s->address, (uint8_t *)obj->rx_buff.buffer, obj->rx_buff.length, obj_s->XferOperation);
     } else
@@ -907,7 +974,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
     DEBUG_PRINTF("HAL_I2C_ErrorCallback:%d, index=%d\r\n", (int) hi2c->ErrorCode, obj_s->index);
 
     /* re-init IP to try and get back in a working state */
-    i2c_init(obj, obj_s->sda, obj_s->scl);
+    i2c_init_internal(obj, obj_s->sda, obj_s->scl);
 
 #if DEVICE_I2CSLAVE
     /*  restore slave address */
@@ -1134,6 +1201,7 @@ void i2c_transfer_asynch(i2c_t *obj, const void *tx, size_t tx_length, void *rx,
 
     /* Set operation step depending if stop sending required or not */
     if ((tx_length && !rx_length) || (!tx_length && rx_length)) {
+#if defined(I2C_IP_VERSION_V1)
         // Trick to remove compiler warning "left and right operands are identical" in some cases
         uint32_t op1 = I2C_FIRST_AND_LAST_FRAME;
         uint32_t op2 = I2C_LAST_FRAME;
@@ -1151,7 +1219,18 @@ void i2c_transfer_asynch(i2c_t *obj, const void *tx, size_t tx_length, void *rx,
                 obj_s->XferOperation = I2C_NEXT_FRAME;
             }
         }
-
+#elif defined(I2C_IP_VERSION_V2)
+        if ((obj_s->XferOperation == I2C_FIRST_FRAME) || (obj_s->XferOperation == I2C_FIRST_AND_LAST_FRAME) || (obj_s->XferOperation == I2C_LAST_FRAME)) {
+            if (stop) {
+                obj_s->XferOperation = I2C_FIRST_AND_LAST_FRAME;
+            } else {
+                obj_s->XferOperation = I2C_FIRST_FRAME;
+            }
+        } else {
+            // should not happend
+            error("I2C: abnormal case should not happend");
+        }
+#endif
         if (tx_length > 0) {
             HAL_I2C_Master_Sequential_Transmit_IT(handle, address, (uint8_t *)tx, tx_length, obj_s->XferOperation);
         }
@@ -1160,6 +1239,7 @@ void i2c_transfer_asynch(i2c_t *obj, const void *tx, size_t tx_length, void *rx,
         }
     } else if (tx_length && rx_length) {
         /* Two steps operation, don't modify XferOperation, keep it for next step */
+#if defined(I2C_IP_VERSION_V1)
         // Trick to remove compiler warning "left and right operands are identical" in some cases
         uint32_t op1 = I2C_FIRST_AND_LAST_FRAME;
         uint32_t op2 = I2C_LAST_FRAME;
@@ -1169,6 +1249,9 @@ void i2c_transfer_asynch(i2c_t *obj, const void *tx, size_t tx_length, void *rx,
                    (obj_s->XferOperation == I2C_NEXT_FRAME)) {
             HAL_I2C_Master_Sequential_Transmit_IT(handle, address, (uint8_t *)tx, tx_length, I2C_NEXT_FRAME);
         }
+#elif defined(I2C_IP_VERSION_V2)
+        HAL_I2C_Master_Sequential_Transmit_IT(handle, address, (uint8_t *)tx, tx_length, I2C_FIRST_FRAME);
+#endif
     }
 }
 

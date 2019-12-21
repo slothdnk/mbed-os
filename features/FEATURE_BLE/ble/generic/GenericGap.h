@@ -30,7 +30,8 @@
 #include "ble/pal/ConnectionEventMonitor.h"
 #include "ble/pal/Deprecated.h"
 
-#include "drivers/Timeout.h"
+#include "drivers/LowPowerTimeout.h"
+#include "drivers/LowPowerTicker.h"
 #include "platform/mbed_error.h"
 
 namespace ble {
@@ -182,14 +183,14 @@ public:
      */
     ble_error_t setAdvertisingPayload_(
         advertising_handle_t handle,
-        mbed::Span<const uint8_t> payload
+        Span<const uint8_t> payload
     );
 
     /** @copydoc Gap::setAdvertisingScanResponse
      */
     ble_error_t setAdvertisingScanResponse_(
         advertising_handle_t handle,
-        mbed::Span<const uint8_t> response
+        Span<const uint8_t> response
     );
 
     /** @copydoc Gap::startAdvertising
@@ -221,7 +222,7 @@ public:
      */
     ble_error_t setPeriodicAdvertisingPayload_(
         advertising_handle_t handle,
-        mbed::Span<const uint8_t> payload
+        Span<const uint8_t> payload
     );
 
     /** @copydoc Gap::startPeriodicAdvertising
@@ -625,7 +626,7 @@ public:
 private:
     ble_error_t setAdvertisingData(
         advertising_handle_t handle,
-        mbed::Span<const uint8_t> payload,
+        Span<const uint8_t> payload,
         bool minimiseFragmentation,
         bool scan_response
     );
@@ -781,7 +782,7 @@ private:
     );
 
     void on_scan_timeout_();
-
+    void process_legacy_scan_timeout();
 
 private:
     pal::EventQueue &_event_queue;
@@ -802,9 +803,9 @@ private:
     bool _random_address_rotating;
 
     bool _scan_enabled;
-    mbed::Timeout _advertising_timeout;
-    mbed::Timeout _scan_timeout;
-    mbed::Ticker _address_rotation_ticker;
+    mbed::LowPowerTimeout _advertising_timeout;
+    mbed::LowPowerTimeout _scan_timeout;
+    mbed::LowPowerTicker _address_rotation_ticker;
 
     template<size_t bit_size>
     struct BitArray {

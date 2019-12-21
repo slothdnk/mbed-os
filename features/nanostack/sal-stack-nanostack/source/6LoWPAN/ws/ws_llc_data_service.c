@@ -36,6 +36,8 @@
 #include "6LoWPAN/ws/ws_llc.h"
 #include "6LoWPAN/ws/ws_mpx_header.h"
 #include "6LoWPAN/ws/ws_pae_controller.h"
+#include "Security/PANA/pana_eap_header.h"
+#include "Security/eapol/eapol_helper.h"
 #include "Service_Libs/etx/etx.h"
 #include "fhss_ws_extension.h"
 
@@ -93,18 +95,29 @@ typedef struct {
 
 typedef NS_LIST_HEAD(llc_message_t, link) llc_message_list_t;
 
+#define MAX_NEIGH_TEMPORRY_MULTICAST_SIZE 5
+
+typedef struct {
+    ws_neighbor_temp_class_t        neighbour_temporary_table[MAX_NEIGH_TEMPORRY_MULTICAST_SIZE];
+    ws_neighbor_temp_list_t         active_temp_neigh;
+    ws_neighbor_temp_list_t         free_temp_neigh;
+} temp_entriest_t;
+
 typedef struct {
     uint8_t                         mac_handle_base;                /**< Mac handle id base this will be updated by 1 after use */
     uint8_t                         llc_message_list_size;          /**< llc_message_list list size */
     mpx_class_t                     mpx_data_base;                  /**< MPX data be including USER API Class and user call backs */
     llc_message_list_t              llc_message_list;               /**< Active Message list */
     llc_ie_params_t                 ie_params;                      /**< LLC IE header and Payload data configuration */
+    temp_entriest_t                 *temp_entries;
+
     ws_asynch_ind                   *asynch_ind;                    /**< LLC Asynch data indication call back configured by user */
     ws_asynch_confirm               *asynch_confirm;                /**< LLC Asynch data confirmation call back configured by user */
     ws_neighbor_info_request        *ws_neighbor_info_request_cb;   /**< LLC Neighbour discover API*/
     uint8_t                         ws_enhanced_ack_elements[WH_IE_ELEMENT_HEADER_LENGTH + 4 + WH_IE_ELEMENT_HEADER_LENGTH + 1];
     ns_ie_iovec_t                   ws_header_vector;
     protocol_interface_info_entry_t *interface_ptr;                 /**< List link entry */
+
     ns_list_link_t                  link;                           /**< List link entry */
 } llc_data_base_t;
 
@@ -135,6 +148,9 @@ static int8_t ws_llc_mpx_data_cb_register(const mpx_api_t *api, mpx_data_confirm
 static uint16_t ws_llc_mpx_header_size_get(const mpx_api_t *api, uint16_t user_id);
 static uint8_t ws_llc_mpx_data_purge_request(const mpx_api_t *api, struct mcps_purge_s *purge, uint16_t user_id);
 static void ws_llc_mpx_init(mpx_class_t *mpx_class);
+
+static void ws_llc_temp_neigh_info_table_reset(temp_entriest_t *base);
+static ws_neighbor_temp_class_t *ws_allocate_multicast_temp_entry(temp_entriest_t *base, const uint8_t *mac64);
 
 /** Discover Message by message handle id */
 static llc_message_t *llc_message_discover_by_mac_handle(uint8_t handle, llc_message_list_t *list)
@@ -350,12 +366,19 @@ static mpx_user_t *ws_llc_mpx_user_discover(mpx_class_t *mpx_class, uint16_t use
 
 static llc_data_base_t *ws_llc_base_allocate(void)
 {
-    llc_data_base_t *base = ns_dyn_mem_temporary_alloc(sizeof(llc_data_base_t));
-    if (!base) {
+    llc_data_base_t *base = ns_dyn_mem_alloc(sizeof(llc_data_base_t));
+    temp_entriest_t *temp_entries = ns_dyn_mem_alloc(sizeof(temp_entriest_t));
+    if (!base || !temp_entries) {
+        ns_dyn_mem_free(base);
+        ns_dyn_mem_free(temp_entries);
         return NULL;
     }
     memset(base, 0, sizeof(llc_data_base_t));
+    memset(temp_entries, 0, sizeof(temp_entriest_t));
+    ns_list_init(&temp_entries->active_temp_neigh);
+    ns_list_init(&temp_entries->free_temp_neigh);
 
+    base->temp_entries = temp_entries;
 
     ns_list_init(&base->llc_message_list);
     ns_list_add_to_end(&llc_data_base_list, base);
@@ -461,8 +484,7 @@ static void ws_llc_ack_data_req_ext(const mac_api_t *api, mcps_ack_data_payload_
     //Write Data to block
     uint8_t *ptr = base->ws_enhanced_ack_elements;
     ptr = ws_wh_utt_write(ptr, WS_FT_ACK);
-    uint8_t rsl = ws_neighbor_class_rssi_from_dbm_calculate(rssi);
-    ws_wh_rsl_write(ptr, rsl);
+    ws_wh_rsl_write(ptr, ws_neighbor_class_rsl_from_dbm_calculate(rssi));
 }
 
 /** WS LLC MAC data extension indication  */
@@ -492,6 +514,7 @@ static void ws_llc_mac_indication_cb(const mac_api_t *api, const mcps_data_ind_t
             return;
         }
 
+        mpx_user_t *user_cb;
         mac_payload_IE_t mpx_ie;
         mpx_ie.id = MAC_PAYLOAD_MPX_IE_GROUP_ID;
         if (mac_ie_payload_discover(ie_ext->payloadIeList, ie_ext->payloadIeListLength, &mpx_ie) < 1) {
@@ -511,21 +534,46 @@ static void ws_llc_mac_indication_cb(const mac_api_t *api, const mcps_data_ind_t
         mac_payload_IE_t ws_wp_nested;
         ws_us_ie_t us_ie;
         bool us_ie_inline = false;
+        bool bs_ie_inline = false;
         ws_wp_nested.id = WS_WP_NESTED_IE;
+        ws_bs_ie_t ws_bs_ie;
         if (mac_ie_payload_discover(ie_ext->payloadIeList, ie_ext->payloadIeListLength, &ws_wp_nested) > 2) {
             us_ie_inline = ws_wp_nested_us_read(ws_wp_nested.content_ptr, ws_wp_nested.length, &us_ie);
+            bs_ie_inline = ws_wp_nested_bs_read(ws_wp_nested.content_ptr, ws_wp_nested.length, &ws_bs_ie);
         }
 
         llc_neighbour_req_t neighbor_info;
+        bool multicast;
+        bool request_new_entry;
+        if (data->DstAddrMode == ADDR_802_15_4_LONG) {
+            multicast = false;
+            request_new_entry = us_ie_inline;
+        } else {
+            multicast = true;
+            request_new_entry = false;
+        }
 
-        if (!base->ws_neighbor_info_request_cb(interface, data->SrcAddr, &neighbor_info, us_ie_inline)) {
-            tr_debug("Drop message no neighbor");
-            return;
+        if (!base->ws_neighbor_info_request_cb(interface, data->SrcAddr, &neighbor_info, request_new_entry)) {
+            if (!multicast || ws_utt.message_type == WS_FT_EAPOL) {
+                tr_debug("Drop message no neighbor");
+                return;
+            } else {
+                //Allocate temporary entry
+                ws_neighbor_temp_class_t *temp_entry = ws_allocate_multicast_temp_entry(base->temp_entries, data->SrcAddr);
+                neighbor_info.ws_neighbor = &temp_entry->neigh_info_list;
+                //Storage Signal info for future ETX update possibility
+                temp_entry->mpduLinkQuality = data->mpduLinkQuality;
+                temp_entry->signal_dbm = data->signal_dbm;
+            }
         }
 
         ws_neighbor_class_neighbor_unicast_time_info_update(neighbor_info.ws_neighbor, &ws_utt, data->timestamp);
         if (us_ie_inline) {
             ws_neighbor_class_neighbor_unicast_schedule_set(neighbor_info.ws_neighbor, &us_ie);
+        }
+        //Update BS if it is part of message
+        if (bs_ie_inline) {
+            ws_neighbor_class_neighbor_broadcast_schedule_set(neighbor_info.ws_neighbor, &ws_bs_ie);
         }
 
         if (ws_utt.message_type == WS_FT_EAPOL) {
@@ -536,35 +584,48 @@ static void ws_llc_mac_indication_cb(const mac_api_t *api, const mcps_data_ind_t
             }
         }
 
+
         //Update BT if it is part of message
         ws_bt_ie_t ws_bt;
         if (ws_wh_bt_read(ie_ext->headerIeList, ie_ext->headerIeListLength, &ws_bt)) {
             ws_neighbor_class_neighbor_broadcast_time_info_update(neighbor_info.ws_neighbor, &ws_bt, data->timestamp);
-            if (neighbor_info.neighbor->link_role == PRIORITY_PARENT_NEIGHBOUR) {
-                // We have broadcast schedule set up set the broadcast parent schedule
-                ns_fhss_ws_set_parent(interface->ws_info->fhss_api, neighbor_info.neighbor->mac64, &neighbor_info.ws_neighbor->fhss_data.bc_timing_info, false);
+            if (neighbor_info.neighbor) {
+                if (neighbor_info.neighbor->link_role == PRIORITY_PARENT_NEIGHBOUR) {
+                    // We have broadcast schedule set up set the broadcast parent schedule
+                    ns_fhss_ws_set_parent(interface->ws_info->fhss_api, neighbor_info.neighbor->mac64, &neighbor_info.ws_neighbor->fhss_data.bc_timing_info, false);
+                } else if (ws_utt.message_type == WS_FT_EAPOL) {
+                    ws_bootstrap_eapol_parent_synch(interface, &neighbor_info);
+                }
             }
         }
 
-        //Refresh Neighbor if unicast
-        if (ws_utt.message_type == WS_FT_DATA && data->DstAddrMode == ADDR_802_15_4_LONG) {
-            neighbor_info.neighbor->lifetime = neighbor_info.neighbor->link_lifetime;
-            etx_lqi_dbm_update(interface->id, data->mpduLinkQuality, data->signal_dbm, neighbor_info.neighbor->index);
-        }
         if (ws_utt.message_type == WS_FT_DATA) {
+
+            if (data->DstAddrMode == ADDR_802_15_4_LONG) {
+                neighbor_info.ws_neighbor->unicast_data_rx = true;
+            }
+
             // Calculate RSL for all UDATA packages heard
             ws_neighbor_class_rsl_in_calculate(neighbor_info.ws_neighbor, data->signal_dbm);
 
-            if (data->Key.SecurityLevel) {
-                //SET trusted state
-                mac_neighbor_table_trusted_neighbor(mac_neighbor_info(interface), neighbor_info.neighbor, true);
+            if (neighbor_info.neighbor) {
+                //Refresh ETX dbm
+                etx_lqi_dbm_update(interface->id, data->mpduLinkQuality, data->signal_dbm, neighbor_info.neighbor->index);
+                if (data->Key.SecurityLevel) {
+                    //SET trusted state
+                    mac_neighbor_table_trusted_neighbor(mac_neighbor_info(interface), neighbor_info.neighbor, true);
+                }
             }
         }
 
+
         // Discover MPX
-        mpx_user_t *user_cb = ws_llc_mpx_user_discover(&base->mpx_data_base, mpx_frame.multiplex_id);
+        user_cb = ws_llc_mpx_user_discover(&base->mpx_data_base, mpx_frame.multiplex_id);
         if (user_cb && user_cb->data_ind) {
             mcps_data_ind_t data_ind = *data;
+            if (!neighbor_info.neighbor) {
+                data_ind.Key.SecurityLevel = 0; //Mark unknow device
+            }
             data_ind.msdu_ptr = mpx_frame.frame_ptr;
             data_ind.msduLength = mpx_frame.frame_length;
             user_cb->data_ind(&base->mpx_data_base.mpx_api, &data_ind);
@@ -607,7 +668,7 @@ static uint16_t ws_mpx_header_size_get(llc_data_base_t *base, uint16_t user_id)
         }
 
         //Dynamic length
-        header_size += 2 + WS_WP_SUB_IE_ELEMENT_HEADER_LENGTH + ws_wp_nested_hopping_schedule_length(base->ie_params.hopping_schedule, true);
+        header_size += 2 + WS_WP_SUB_IE_ELEMENT_HEADER_LENGTH + ws_wp_nested_hopping_schedule_length(base->ie_params.hopping_schedule, true) + ws_wp_nested_hopping_schedule_length(base->ie_params.hopping_schedule, false);
 
     } else if (MPX_KEY_MANAGEMENT_ENC_USER_ID) {
         header_size += 7 + 5 + 2;
@@ -615,6 +676,37 @@ static uint16_t ws_mpx_header_size_get(llc_data_base_t *base, uint16_t user_id)
         header_size += 2 + WS_WP_SUB_IE_ELEMENT_HEADER_LENGTH + ws_wp_nested_hopping_schedule_length(base->ie_params.hopping_schedule, true);
     }
     return header_size;
+}
+
+static bool ws_eapol_handshake_first_msg(uint8_t *pdu, uint16_t length, protocol_interface_info_entry_t *cur)
+{
+    if (!ws_eapol_relay_state_active(cur)) {
+        return false;
+    }
+
+    eapol_pdu_t eapol_pdu;
+    uint8_t kmp_type = *pdu++;
+    length--;
+    if (!eapol_parse_pdu_header(pdu, length, &eapol_pdu)) {
+        return false;
+    }
+    if (eapol_pdu.packet_type == EAPOL_EAP_TYPE) {
+        if (eapol_pdu.msg.eap.eap_code == EAP_REQ && eapol_pdu.msg.eap.type == EAP_IDENTITY) {
+            return true;
+        }
+    } else {
+
+        uint8_t key_mask = eapol_pdu_key_mask_get(&eapol_pdu);
+        if (kmp_type == 6 && key_mask == KEY_INFO_KEY_ACK) {
+            //FWK first message validation
+            return true;
+        } else if (kmp_type == 7 && key_mask == (KEY_INFO_KEY_ACK | KEY_INFO_KEY_MIC | KEY_INFO_SECURED_KEY_FRAME)) {
+            //GWK first message validation
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static void ws_llc_mpx_data_request(const mpx_api_t *api, const struct mcps_data_req_s *data, uint16_t user_id)
@@ -645,12 +737,15 @@ static void ws_llc_mpx_data_request(const mpx_api_t *api, const struct mcps_data
         if (base->ie_params.vendor_payload_length) {
             nested_wp_id.vp_ie = true;
         }
-    } else if (user_id == MPX_KEY_MANAGEMENT_ENC_USER_ID) {
 
-        if (*data->msdu == 1) { //Only when KMP_ID is 1
-            ie_header_mask.ea_ie = ws_eapol_relay_state_active(base->interface_ptr);
-            ie_header_mask.bt_ie = ie_header_mask.ea_ie;
+        if (!data->TxAckReq) {
+            nested_wp_id.bs_ie = true;
         }
+
+    } else if (user_id == MPX_KEY_MANAGEMENT_ENC_USER_ID) {
+        ie_header_mask.bt_ie = ws_eapol_relay_state_active(base->interface_ptr);
+        ie_header_mask.ea_ie = ws_eapol_handshake_first_msg(data->msdu, data->msduLength, base->interface_ptr);
+        nested_wp_id.bs_ie = ie_header_mask.ea_ie;
 
     }
 
@@ -735,6 +830,11 @@ static void ws_llc_mpx_data_request(const mpx_api_t *api, const struct mcps_data
         ptr = ws_wp_base_write(ptr, nested_ie_length);
         //Write unicast schedule
         ptr = ws_wp_nested_hopping_schedule_write(ptr, base->ie_params.hopping_schedule, true);
+
+        if (nested_wp_id.bs_ie) {
+            //Write Broadcastcast schedule
+            ptr = ws_wp_nested_hopping_schedule_write(ptr, base->ie_params.hopping_schedule, false);
+        }
     }
 
 
@@ -822,6 +922,82 @@ static void ws_llc_clean(llc_data_base_t *base)
 
     }
     memset(&base->ie_params, 0, sizeof(llc_ie_params_t));
+
+    ws_llc_temp_neigh_info_table_reset(base->temp_entries);
+}
+
+static void ws_llc_temp_neigh_info_table_reset(temp_entriest_t *base)
+{
+    //Empty active list
+    ns_list_init(&base->active_temp_neigh);
+    ns_list_init(&base->free_temp_neigh);
+
+    //Add to free list to full
+    for (int i = 0; i < MAX_NEIGH_TEMPORRY_MULTICAST_SIZE; i++) {
+        ns_list_add_to_end(&base->free_temp_neigh, &base->neighbour_temporary_table[i]);
+    }
+}
+
+static ws_neighbor_temp_class_t *ws_llc_discover_temp_entry(temp_entriest_t *base, const uint8_t *mac64)
+{
+    ns_list_foreach_safe(ws_neighbor_temp_class_t, entry, &base->active_temp_neigh) {
+        if (memcmp(entry->mac64, mac64, 8) == 0) {
+            return entry;
+        }
+    }
+    return NULL;
+}
+
+ws_neighbor_temp_class_t *ws_llc_get_multicast_temp_entry(protocol_interface_info_entry_t *interface, const uint8_t *mac64)
+{
+    llc_data_base_t *base = ws_llc_discover_by_interface(interface);
+    if (!base) {
+        return NULL;
+    }
+
+    return ws_llc_discover_temp_entry(base->temp_entries, mac64);
+}
+
+
+
+
+static ws_neighbor_temp_class_t *ws_allocate_multicast_temp_entry(temp_entriest_t *base, const uint8_t *mac64)
+{
+
+    ws_neighbor_temp_class_t *entry = ws_llc_discover_temp_entry(base, mac64);
+    if (entry) {
+        ns_list_remove(&base->active_temp_neigh, entry);
+        ns_list_add_to_start(&base->active_temp_neigh, entry);
+        return entry;
+    }
+
+    entry = ns_list_get_first(&base->free_temp_neigh);
+
+    if (entry) {
+        ns_list_remove(&base->free_temp_neigh, entry);
+    } else {
+        //Replace last entry and put it to first
+        entry = ns_list_get_last(&base->active_temp_neigh);
+        ns_list_remove(&base->active_temp_neigh, entry);
+    }
+    //Add to list
+    ns_list_add_to_start(&base->active_temp_neigh, entry);
+    //Clear Old data
+    memset(&entry->neigh_info_list, 0, sizeof(ws_neighbor_class_entry_t));
+    entry->neigh_info_list.rsl_in = RSL_UNITITIALIZED;
+    entry->neigh_info_list.rsl_out = RSL_UNITITIALIZED;
+    memcpy(entry->mac64, mac64, 8);
+    return entry;
+}
+
+void ws_llc_free_multicast_temp_entry(protocol_interface_info_entry_t *cur, ws_neighbor_temp_class_t *neighbor)
+{
+    llc_data_base_t *base = ws_llc_discover_by_interface(cur);
+    if (!base) {
+        return;
+    }
+    ns_list_remove(&base->temp_entries->active_temp_neigh, neighbor);
+    ns_list_add_to_end(&base->temp_entries->free_temp_neigh, neighbor);
 }
 
 
@@ -847,6 +1023,7 @@ int8_t ws_llc_create(struct protocol_interface_info_entry *interface, ws_asynch_
     base->interface_ptr->mac_api->mac_mcps_extension_enable(base->interface_ptr->mac_api, &ws_llc_mac_indication_cb, &ws_llc_mac_confirm_cb, &ws_llc_ack_data_req_ext);
     //Init MPX class
     ws_llc_mpx_init(&base->mpx_data_base);
+    ws_llc_temp_neigh_info_table_reset(base->temp_entries);
     return 0;
 }
 
@@ -862,6 +1039,7 @@ int8_t ws_llc_delete(struct protocol_interface_info_entry *interface)
     ns_list_remove(&llc_data_base_list, base);
     //Disable Mac extension
     base->interface_ptr->mac_api->mac_mcps_extension_enable(base->interface_ptr->mac_api, NULL, NULL, NULL);
+    ns_dyn_mem_free(base->temp_entries);
     ns_dyn_mem_free(base);
     return 0;
 }

@@ -19,7 +19,7 @@
     !defined(MBED_CONF_APP_ECHO_SERVER_TRACE) || \
     !defined(MBED_CONF_APP_WIFI_SCAN)
 #error [NOT_SUPPORTED] Requires parameters from mbed_app.json
-#endif
+#else
 
 #define ETHERNET 1
 #define WIFI 2
@@ -27,10 +27,10 @@
 #if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE != ETHERNET && \
     MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE != WIFI
 #error [NOT_SUPPORTED] Either wifi or ethernet testing need to be enabled
-#endif
+#else
 
-#if MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI
-#if !defined(TARGET_UBLOX_EVK_ODIN_W2)      && \
+#if (MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI) && \
+    !defined(TARGET_UBLOX_EVK_ODIN_W2)      && \
     !defined(TARGET_REALTEK_RTL8195AM)      && \
     !defined(TARGET_MTB_ADV_WISE_1530)      && \
     !defined(TARGET_MTB_USI_WM_BN_BM_22)    && \
@@ -38,8 +38,9 @@
     !defined(TARGET_MTB_UBLOX_ODIN_W2)      && \
     !defined(TARGET_UNO_91H)
 #error [NOT_SUPPORTED] Wifi tests are not valid for the target
-#endif
-#endif
+#else
+
+
 
 #include "greentea-client/test_env.h"
 #include "unity.h"
@@ -71,7 +72,10 @@ Case cases[] = {
     Case("EMAC unicast frame length", test_emac_unicast_frame_len),
     Case("EMAC unicast burst", test_emac_unicast_burst),
     Case("EMAC unicast long", test_emac_unicast_long),
+#if !((MBED_CONF_NETWORK_EMAC_NO_SUPPORT_FOR_MULTICAST_FILTER == 1) && \
+    (MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI))
     Case("EMAC multicast filter", test_emac_multicast_filter),
+#endif // !(MBED_CONF_NETWORK_EMAC_NO_SUPPORT_FOR_MULTICAST_FILTER == 1)
     Case("EMAC memory", test_emac_memory)
 };
 
@@ -82,3 +86,7 @@ int main()
     return !Harness::run(specification);
 }
 
+#endif // (MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI) && !defined(TARGET_*
+
+#endif // MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE != ETHERNET && MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE != WIFI
+#endif // !defined(MBED_CONF_APP_ECHO_SERVER) || !defined(MBED_CONF_APP_ECHO_SERVER_TRACE) || !defined(MBED_CONF_APP_WIFI_SCAN)

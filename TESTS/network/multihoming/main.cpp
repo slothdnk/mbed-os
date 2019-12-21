@@ -19,12 +19,19 @@
 #if !defined(MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE) || \
     (MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI && !defined(MBED_CONF_NSAPI_DEFAULT_WIFI_SSID))
 #error [NOT_SUPPORTED] No network configuration found for this target.
-#endif
+#else
 #ifndef MBED_CONF_APP_ECHO_SERVER_ADDR
 #error [NOT_SUPPORTED] Requires parameters from mbed_app.json
-#endif
+#else
 
-#include "mbed.h"
+#if !defined(DEVICE_EMAC) || \
+    (!defined(MBED_CONF_APP_WIFI_SECURE_SSID) && !defined(MBED_CONF_APP_WIFI_UNSECURE_SSID))
+#error [NOT_SUPPORTED] Both Wifi and Ethernet devices are required for multihoming tests.
+#else
+
+#define STRING_VERIFY(str) (str != NULL ? str : "not supported")
+
+
 #include "greentea-client/test_env.h"
 #include "unity/unity.h"
 #include "utest.h"
@@ -34,7 +41,8 @@
 using namespace utest::v1;
 
 namespace {
-NetworkInterface *net;
+EthInterface *eth;
+WiFiInterface *wifi;
 }
 
 char interface_name[MBED_CONF_MULTIHOMING_MAX_INTERFACES_NUM][INTERFACE_NAME_LEN];
@@ -48,26 +56,27 @@ mbed_stats_socket_t udp_stats[MBED_CONF_NSAPI_SOCKET_STATS_MAX_COUNT];
 #define SSID_MAX_LEN 32
 #define PWD_MAX_LEN 64
 
-WiFiInterface *wifi;
 #endif
 
-NetworkInterface *get_interface()
+NetworkInterface *get_interface(int interface_index)
 {
-    return net;
+    if (interface_index == ETH_INTERFACE) {
+        return eth;
+    } else if (interface_index == WIFI_INTERFACE) {
+        return wifi;
+    }
+    return NULL;
 }
 
 static void _ifup()
 {
-
-#if DEVICE_EMAC
-    net = EthInterface::get_default_instance();
-    nsapi_error_t err = net->connect();
-    net->get_interface_name(interface_name[0]);
-    interface_num++;
+    eth = EthInterface::get_default_instance();
+    nsapi_error_t err = eth->connect();
+    eth->get_interface_name(interface_name[interface_num]);
     TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, err);
-    printf("MBED: IP address is '%s' interface name %s\n", net->get_ip_address(), interface_name[0]);
-#endif
-#if defined(MBED_CONF_APP_WIFI_SECURE_SSID) || defined(MBED_CONF_APP_WIFI_UNSECURE_SSID)
+    printf("MBED: IP address is '%s' interface name %s\n", eth->get_ip_address(), interface_name[interface_num]);
+    interface_num++;
+
     wifi = WiFiInterface::get_default_instance();
 
     if (wifi) {
@@ -88,27 +97,28 @@ static void _ifup()
             TEST_FAIL_MESSAGE("Wifi connection error!");
             return;
         }
-        wifi->get_interface_name(interface_name[1]);
-        interface_num++;
-        printf("MAC: %s\n", wifi->get_mac_address());
-        printf("IP: %s\n", wifi->get_ip_address());
-        printf("Netmask: %s\n", wifi->get_netmask());
-        printf("Gateway: %s\n", wifi->get_gateway());
+        printf("Wifi interface name: %s\n\n", STRING_VERIFY(wifi->get_interface_name(interface_name[interface_num])));
+        printf("MAC: %s\n", STRING_VERIFY(wifi->get_mac_address()));
+        printf("IP: %s\n", STRING_VERIFY(wifi->get_ip_address()));
+        printf("Netmask: %s\n", STRING_VERIFY(wifi->get_netmask()));
+        printf("Gateway: %s\n", STRING_VERIFY(wifi->get_gateway()));
         printf("RSSI: %d\n\n", wifi->get_rssi());
-        printf("Wifi interface name: %s\n\n", interface_name[1]);
-
+        interface_num++;
     } else {
         TEST_FAIL_MESSAGE("ERROR: No WiFiInterface found!");
     }
-#endif
 }
 
 static void _ifdown()
 {
     interface_num = 0;
-    net->disconnect();
+    if (eth != NULL) {
+        eth->disconnect();
+    }
 #if defined(MBED_CONF_APP_WIFI_SECURE_SSID) || defined(MBED_CONF_APP_WIFI_UNSECURE_SSID)
-    wifi->disconnect();
+    if (wifi != NULL) {
+        wifi->disconnect();
+    }
 #endif
     printf("MBED: ifdown\n");
 }
@@ -154,3 +164,7 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // !defined(DEVICE_EMAC) || (!defined(MBED_CONF_APP_WIFI_SECURE_SSID) && !defined(MBED_CONF_APP_WIFI_UNSECURE_SSID))
+#endif // MBED_CONF_APP_ECHO_SERVER_ADDR
+#endif // !defined(MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE) || (MBED_CONF_TARGET_NETWORK_DEFAULT_INTERFACE_TYPE == WIFI && !defined(MBED_CONF_NSAPI_DEFAULT_WIFI_SSID))

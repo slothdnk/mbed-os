@@ -16,7 +16,7 @@
   *
   ******************************************************************************
   */
-#if 1 // MBED PATCH defined(USE_FULL_LL_DRIVER)
+#if defined(USE_FULL_LL_DRIVER)
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32h7xx_ll_hrtim.h"
@@ -54,7 +54,7 @@
   *          - SUCCESS: HRTIMx registers are de-initialized
   *          - ERROR: invalid HRTIMx instance
   */
-ErrorStatus LL_HRTIM_DeInit(HRTIM_TypeDef* HRTIMx)
+ErrorStatus LL_HRTIM_DeInit(HRTIM_TypeDef *HRTIMx)
 {
   ErrorStatus result = SUCCESS;
 

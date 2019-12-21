@@ -1,13 +1,5 @@
-
-/** \addtogroup platform */
-/** @{*/
-/**
- * \defgroup platform_wait_api wait_api functions
- * @{
- */
-
 /* mbed Microcontroller Library
- * Copyright (c) 2006-2013 ARM Limited
+ * Copyright (c) 2006-2019 ARM Limited
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,9 +17,21 @@
 #ifndef MBED_WAIT_API_H
 #define MBED_WAIT_API_H
 
+#include "platform/mbed_toolchain.h"
+#include "platform/mbed_atomic.h"
+#include "device.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** \addtogroup platform-public-api */
+/** @{*/
+
+/**
+ * \defgroup platform_wait_api wait_api functions
+ * @{
+ */
 
 /** Generic wait functions.
  *
@@ -59,7 +63,16 @@ extern "C" {
  *    If the RTOS is present, this function spins to get the exact number of microseconds for
  *    microsecond precision up to 10 milliseconds. If delay is larger than 10 milliseconds and not in ISR, it is the same as
  *    `wait_ms`. We recommend `wait_us` and `wait_ms` over `wait`.
+ *
+ *  @deprecated
+ *    'wait' is deprecated in favor of explicit sleep functions. To sleep, 'wait' should be replaced by
+ *    'ThisThread::sleep_for' (C++) or 'thread_sleep_for' (C). If you wish to wait (without sleeping), call
+ *    'wait_us'. 'wait_us' is safe to call from ISR context.
  */
+MBED_DEPRECATED_SINCE("mbed-os-5.14",
+                      "'wait' is deprecated in favor of explicit sleep functions. To sleep, 'wait' should be replaced by "
+                      "'ThisThread::sleep_for' (C++) or 'thread_sleep_for' (C). If you wish to wait (without sleeping), call "
+                      "'wait_us'. 'wait_us' is safe to call from ISR context.")
 void wait(float s);
 
 /** Waits a number of milliseconds.
@@ -69,7 +82,16 @@ void wait(float s);
  *  @note
  *    If the RTOS is present, it calls ThisThread::sleep_for(), which is same as CMSIS osDelay().
  *    You can't call this from interrupts, and it doesn't lock hardware sleep.
+ *
+ *  @deprecated
+ *    'wait_ms' is deprecated in favor of explicit sleep functions. To sleep, 'wait_ms' should be replaced by
+ *    'ThisThread::sleep_for' (C++) or 'thread_sleep_for' (C). If you wish to wait (without sleeping), call
+ *    'wait_us'. 'wait_us' is safe to call from ISR context.
  */
+MBED_DEPRECATED_SINCE("mbed-os-5.14",
+                      "'wait_ms' is deprecated in favor of explicit sleep functions. To sleep, 'wait_ms' should be replaced by "
+                      "'ThisThread::sleep_for' (C++) or 'thread_sleep_for' (C). If you wish to wait (without sleeping), call "
+                      "'wait_us'. 'wait_us' is safe to call from ISR context.")
 void wait_ms(int ms);
 
 /** Waits a number of microseconds.
@@ -79,7 +101,7 @@ void wait_ms(int ms);
  *  @note
  *    This function always spins to get the exact number of microseconds.
  *    This will affect power and multithread performance. Therefore, spinning for
- *    millisecond wait is not recommended, and wait_ms() should
+ *    millisecond wait is not recommended, and ThisThread::sleep_for should
  *    be used instead.
  *
  *  @note You may call this function from ISR context, but large delays may
@@ -114,6 +136,48 @@ void wait_us(int us);
  *
  */
 void wait_ns(unsigned int ns);
+
+/* Optimize if we know the rate */
+#if DEVICE_USTICKER && defined US_TICKER_PERIOD_NUM
+void _wait_us_ticks(uint32_t ticks);
+void _wait_us_generic(unsigned int us);
+
+/* Further optimization if we know us_ticker is always running */
+#if MBED_CONF_TARGET_INIT_US_TICKER_AT_BOOT
+#define _us_ticker_is_initialized true
+#else
+extern bool _us_ticker_initialized;
+#define _us_ticker_is_initialized core_util_atomic_load_bool(&_us_ticker_initialized)
+#endif
+
+#if US_TICKER_PERIOD_DEN == 1 && (US_TICKER_MASK * US_TICKER_PERIOD_NUM) >= 0xFFFFFFFF
+/* Ticker is wide and slow enough to have full 32-bit range - can always use it directly */
+#define _us_is_small_enough(us) true
+#else
+/* Threshold is determined by specification of us_ticker_api.h - smallest possible
+ * time range for the us_ticker is 16-bit 8MHz, which gives 8192us. This also leaves
+ * headroom for the multiplication in 32 bits.
+ */
+#define _us_is_small_enough(us) ((us) < 8192)
+#endif
+
+/* Speed optimisation for small wait_us. Care taken to preserve binary compatibility */
+inline void _wait_us_inline(unsigned int us)
+{
+    /* Threshold is determined by specification of us_ticker_api.h - smallest possible
+     * time range for the us_ticker is 16-bit 8MHz, which gives 8192us. This also leaves
+     * headroom for the multiplication in 32 bits.
+     */
+    if (_us_is_small_enough(us) && _us_ticker_is_initialized) {
+        const uint32_t ticks = ((us * US_TICKER_PERIOD_DEN) + US_TICKER_PERIOD_NUM - 1) / US_TICKER_PERIOD_NUM;
+        _wait_us_ticks(ticks);
+    } else {
+        _wait_us_generic(us);
+    }
+}
+
+#define wait_us(us) _wait_us_inline(us)
+#endif // Known-rate, initialised timer
 
 #ifdef __cplusplus
 }

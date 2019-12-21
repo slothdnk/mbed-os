@@ -17,7 +17,7 @@
 
 #ifndef COMPONENT_PSA_SRV_IPC
 #error [NOT_SUPPORTED] SPM tests can run only on SPM-enabled targets
-#endif // COMPONENT_PSA_SRV_IPC
+#else
 
 #include "mbed.h"
 #include "greentea-client/test_env.h"
@@ -28,7 +28,7 @@
 #include "psa_manifest/sid.h"
 
 #if defined(TARGET_TFM)
-#include "psa/service.h"
+#define PSA_MAX_IOVEC 4
 #endif
 
 using namespace utest::v1;
@@ -213,9 +213,7 @@ utest::v1::status_t spm_setup(const size_t number_of_cases)
         error("Could not open a connection with SERVER_TESTS_PART1_CONTROL ROT_SRV");
     }
 
-#ifndef NO_GREENTEA
     GREENTEA_SETUP(60, "default_auto");
-#endif
     return greentea_test_setup_handler(number_of_cases);
 }
 
@@ -264,7 +262,9 @@ Case cases[] = {
     SPM_UTEST_CASE("Try to skip more bytes than left while reading", skip_more_than_left),
     SPM_UTEST_CASE("Test rhandle implementation by calculating the factorial function", rhandle_factorial),
     SPM_UTEST_CASE("Test a call flow between 2 secure partitions", cross_partition_call),
+#if defined TARGET_MBED_SPM // TF-M issue: https://developer.trustedfirmware.org/T273
     SPM_UTEST_CASE("Test a common DOORBELL scenario", doorbell_test),
+#endif
 };
 
 //Declare your test specification with a custom setup handler
@@ -275,3 +275,5 @@ int main(int, char **)
     Harness::run(specification);
     return 0;
 }
+
+#endif // COMPONENT_PSA_SRV_IPC

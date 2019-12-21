@@ -39,6 +39,8 @@ public:
     AT_CellularDevice(FileHandle *fh);
     virtual ~AT_CellularDevice();
 
+    virtual nsapi_error_t clear();
+
     virtual nsapi_error_t hard_power_on();
 
     virtual nsapi_error_t hard_power_off();
@@ -53,7 +55,9 @@ public:
 
     virtual CellularContext *create_context(FileHandle *fh = NULL, const char *apn = NULL, bool cp_req = false, bool nonip_req = false);
 
+#if (DEVICE_SERIAL && DEVICE_INTERRUPTIN) || defined(DOXYGEN_ONLY)
     virtual CellularContext *create_context(UARTSerial *serial, const char *const apn, PinName dcd_pin = NC, bool active_high = false, bool cp_req = false, bool nonip_req = false);
+#endif // #if DEVICE_SERIAL
 
     virtual void delete_context(CellularContext *context);
 
@@ -138,6 +142,21 @@ public:
     int _default_timeout;
     bool _modem_debug_on;
     ATHandler *_at;
+
+protected:
+    virtual void cellular_callback(nsapi_event_t ev, intptr_t ptr, CellularContext *ctx = NULL);
+    void send_disconnect_to_context(int cid);
+    // Sets commonly used URCs
+    void set_at_urcs();
+    // To be used for setting target specific URCs
+    virtual void set_at_urcs_impl();
+    // Sets up parameters for AT handler, for now only the send delay and URCs.
+    // This kind of routine is needed for initialisation routines that are virtual and therefore cannot be called from constructor.
+    void setup_at_handler();
+
+private:
+    void urc_nw_deact();
+    void urc_pdn_deact();
 };
 
 } // namespace mbed

@@ -16,7 +16,7 @@
   *
   ******************************************************************************
   */
-#if 1 // MBED PATCH defined(USE_FULL_LL_DRIVER)
+#if defined(USE_FULL_LL_DRIVER)
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32h7xx_ll_spi.h"
@@ -28,7 +28,7 @@
 #ifdef  USE_FULL_ASSERT
 #include "stm32_assert.h"
 #else
-#define assert_param(expr) ((void)0)
+#define assert_param(expr) ((void)0U)
 #endif
 
 /** @addtogroup STM32H7xx_LL_Driver

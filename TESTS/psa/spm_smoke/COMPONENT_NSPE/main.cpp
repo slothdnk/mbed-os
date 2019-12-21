@@ -18,7 +18,7 @@
 
 #ifndef COMPONENT_PSA_SRV_IPC
 #error [NOT_SUPPORTED] SPM tests can run only on SPM-enabled targets
-#endif // COMPONENT_PSA_SRV_IPC
+#else
 
 /* -------------------------------------- Includes ----------------------------------- */
 
@@ -29,7 +29,7 @@
 #include "psa_manifest/sid.h"
 
 #if defined(TARGET_TFM)
-#include "psa/service.h"
+#define PSA_MAX_IOVEC 4
 #endif
 
 using namespace utest::v1;
@@ -74,10 +74,7 @@ void example_main(void)
 
 utest::v1::status_t greentea_setup(const size_t number_of_cases)
 {
-#ifndef NO_GREENTEA
     GREENTEA_SETUP(20, "default_auto");
-#endif
-    // Call the default reporting function
     return greentea_test_setup_handler(number_of_cases);
 }
 
@@ -94,3 +91,5 @@ int main(int, char **)
     Harness::run(specification);
     return 0;
 }
+
+#endif // COMPONENT_PSA_SRV_IPC

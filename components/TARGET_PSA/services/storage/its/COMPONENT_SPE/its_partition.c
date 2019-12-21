@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
+#include <stdlib.h>
 #include <string.h>
 #include "psa/client.h"
 #include "psa/service.h"
-#include "psa_its_partition.h"
+#include "mbed_spm_partitions.h"
 #include "psa/internal_trusted_storage.h"
 #include "pits_impl.h"
 #include "mbed_error.h"
 
 #if defined(TARGET_MBED_SPM)
 #include "kv_config.h"
+#else
+int kv_init_storage_config();
 #endif
 
 #ifdef   __cplusplus
@@ -73,8 +76,11 @@ static psa_status_t storage_get(psa_msg_t *msg)
 {
     psa_storage_uid_t key = 0;
     uint32_t offset = 0;
+    size_t actual_size;
 
-    if ((msg->in_size[0] != sizeof(key)) || (msg->in_size[1] != sizeof(offset))) {
+    if ((msg->in_size[0] != sizeof(key)) ||
+            (msg->in_size[1] != sizeof(offset)) ||
+            (msg->out_size[1] != sizeof(actual_size))) {
         return PSA_DROP_CONNECTION;
     }
 
@@ -91,9 +97,10 @@ static psa_status_t storage_get(psa_msg_t *msg)
         return PSA_ERROR_STORAGE_FAILURE;
     }
 
-    psa_status_t status = psa_its_get_impl(msg->client_id, key, offset, msg->out_size[0], data);
+    psa_status_t status = psa_its_get_impl(msg->client_id, key, offset, msg->out_size[0], data, &actual_size);
     if (status == PSA_SUCCESS) {
-        psa_write(msg->handle, 0, data, msg->out_size[0]);
+        psa_write(msg->handle, 0, data, actual_size);
+        psa_write(msg->handle, 1, &actual_size, sizeof(actual_size));
     }
 
     memset(data, 0, msg->out_size[0]);

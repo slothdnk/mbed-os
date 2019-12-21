@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "mbed_shared_queues.h"
-#include "EventQueue.h"
+#include "events/EventQueue.h"
 #include "OnboardNetworkStack.h"
 #include "Kernel.h"
 #include "PlatformMutex.h"
@@ -89,6 +89,7 @@ struct DNS_QUERY {
 
 static void nsapi_dns_cache_add(const char *host, nsapi_addr_t *address, uint32_t ttl);
 static nsapi_size_or_error_t nsapi_dns_cache_find(const char *host, nsapi_version_t version, nsapi_addr_t *address);
+static void nsapi_dns_cache_reset();
 
 static nsapi_error_t nsapi_dns_get_server_addr(NetworkStack *stack, uint8_t *index, uint8_t *total_attempts, uint8_t *send_success, SocketAddress *dns_addr, const char *interface_name);
 
@@ -105,10 +106,10 @@ static void nsapi_dns_query_async_initiate_next(void);
 // *INDENT-OFF*
 static nsapi_addr_t dns_servers[DNS_SERVERS_SIZE] = {
     {NSAPI_IPv4, {8, 8, 8, 8}},                             // Google
-    {NSAPI_IPv4, {209, 244, 0, 3}},                         // Level 3
-    {NSAPI_IPv4, {84, 200, 69, 80}},                        // DNS.WATCH
     {NSAPI_IPv6, {0x20,0x01, 0x48,0x60, 0x48,0x60, 0,0,     // Google
                   0,0, 0,0, 0,0, 0x88,0x88}},
+    {NSAPI_IPv4, {209, 244, 0, 3}},                         // Level 3
+    {NSAPI_IPv4, {84, 200, 69, 80}},                        // DNS.WATCH
     {NSAPI_IPv6, {0x20,0x01, 0x16,0x08, 0,0x10, 0,0x25,     // DNS.WATCH
                   0,0, 0,0, 0x1c,0x04, 0xb1,0x2f}},
 };
@@ -131,6 +132,13 @@ static bool dns_timer_running = false;
 // DNS server configuration
 extern "C" nsapi_error_t nsapi_dns_add_server(nsapi_addr_t addr, const char *interface_name)
 {
+    // check if addr was already added
+    for (int i = 0; i < DNS_SERVERS_SIZE; i++) {
+        if (memcmp(&addr, &dns_servers[i], sizeof(nsapi_addr_t)) == 0) {
+            return NSAPI_ERROR_OK;
+        }
+    }
+
     memmove(&dns_servers[1], &dns_servers[0],
             (DNS_SERVERS_SIZE - 1)*sizeof(nsapi_addr_t));
 
@@ -396,6 +404,22 @@ static nsapi_error_t nsapi_dns_cache_find(const char *host, nsapi_version_t vers
     return ret_val;
 }
 
+static void nsapi_dns_cache_reset()
+{
+#if (MBED_CONF_NSAPI_DNS_CACHE_SIZE > 0)
+    dns_cache_mutex->lock();
+    for (int i = 0; i < MBED_CONF_NSAPI_DNS_CACHE_SIZE; i++) {
+        if (dns_cache[i]) {
+            delete dns_cache[i]->host;
+            dns_cache[i]->host = NULL;
+            delete dns_cache[i];
+            dns_cache[i] = NULL;
+        }
+    }
+    dns_cache_mutex->unlock();
+#endif
+}
+
 static nsapi_error_t nsapi_dns_get_server_addr(NetworkStack *stack, uint8_t *index, uint8_t *total_attempts, uint8_t *send_success, SocketAddress *dns_addr, const char *interface_name)
 {
     bool dns_addr_set = false;
@@ -611,6 +635,11 @@ void nsapi_dns_call_in_set(call_in_callback_cb_t callback)
     *dns_call_in.get() = callback;
 }
 
+void nsapi_dns_reset()
+{
+    nsapi_dns_cache_reset();
+}
+
 nsapi_error_t nsapi_dns_call_in(call_in_callback_cb_t cb, int delay, mbed::Callback<void()> func)
 {
     if (*dns_call_in.get()) {
@@ -717,8 +746,9 @@ nsapi_value_or_error_t nsapi_dns_query_multiple_async(NetworkStack *stack, const
 
     if (!dns_timer_running) {
         if (nsapi_dns_call_in(query->call_in_cb, DNS_TIMER_TIMEOUT, mbed::callback(nsapi_dns_query_async_timeout)) != NSAPI_ERROR_OK) {
-            delete query->host;
+            delete[] query->host;
             delete query;
+            dns_query_queue[index] = NULL;
             dns_mutex->unlock();
             return NSAPI_ERROR_NO_MEMORY;
         }
@@ -1021,7 +1051,14 @@ static void nsapi_dns_query_async_send(void *ptr)
         err = query->socket->sendto(dns_addr, packet, len);
 
         if (err < 0) {
-            query->dns_server++;
+            if (err == NSAPI_ERROR_WOULD_BLOCK) {
+                nsapi_dns_call_in(query->call_in_cb, DNS_TIMER_TIMEOUT, mbed::callback(nsapi_dns_query_async_send, ptr));
+                free(packet);
+                dns_mutex->unlock();
+                return; // Timeout handler will retry the connection if possible
+            } else {
+                query->dns_server++;
+            }
         } else {
             break;
         }

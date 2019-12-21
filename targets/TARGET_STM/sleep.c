@@ -37,6 +37,7 @@
 
 extern void save_timer_ctx(void);
 extern void restore_timer_ctx(void);
+extern void SetSysClock(void);
 
 /*  Wait loop - assuming tick is 1 us */
 static void wait_loop(uint32_t timeout)
@@ -56,6 +57,11 @@ static void ForcePeriphOutofDeepSleep(void)
     uint32_t pFLatency = 0;
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
     /* Get the Clocks configuration according to the internal RCC registers */
     HAL_RCC_GetClockConfig(&RCC_ClkInitStruct, &pFLatency);
 
@@ -80,6 +86,9 @@ static void ForcePeriphOutofDeepSleep(void)
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, pFLatency) != HAL_OK) {
         error("ForcePeriphOutofDeepSleep clock issue\r\n");
     }
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
 }
 
 
@@ -90,6 +99,11 @@ static void ForceOscOutofDeepSleep(void)
     /* Enable Power Control clock */
     __HAL_RCC_PWR_CLK_ENABLE();
 
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
     /* Get the Oscillators configuration according to the internal RCC registers */
     HAL_RCC_GetOscConfig(&RCC_OscInitStruct);
 
@@ -109,6 +123,9 @@ static void ForceOscOutofDeepSleep(void)
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
         error("ForceOscOutofDeepSleep clock issue\r\n");
     }
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
 }
 
 
@@ -145,7 +162,12 @@ void hal_sleep(void)
 extern int serial_is_tx_ongoing(void);
 extern int mbed_sdk_inited;
 
-void hal_deepsleep(void)
+/*  Most of STM32 targets can have the same generic deep sleep
+ *  function, but a few targets might need very specific sleep
+ *  mode management, so this function is defined as WEAK.
+ *  Check for alternative hal_deepsleep specific implementation
+ *  in targets folders in case of doubt */
+__WEAK void hal_deepsleep(void)
 {
     /*  WORKAROUND:
      *  MBED serial driver does not handle deepsleep lock
@@ -206,6 +228,7 @@ void hal_deepsleep(void)
      *  HW Flag. At least this ensures proper operation out of
      *  deep sleep */
     wait_loop(500);
+
 
     restore_timer_ctx();
 

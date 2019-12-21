@@ -21,10 +21,11 @@
 #include "lp_ticker_api_tests.h"
 #include "hal/lp_ticker_api.h"
 #include "hal/mbed_lp_ticker_wrapper.h"
+#include "hal/us_ticker_api.h"
 
 #if !DEVICE_LPTICKER
 #error [NOT_SUPPORTED] Low power timer not supported for this target
-#endif
+#else
 
 using namespace utest::v1;
 
@@ -85,7 +86,7 @@ void overflow_protect()
         return;
     }
 
-    while (lp_ticker_read() > ticks_now);
+    while (lp_ticker_read() >= ticks_now);
 }
 
 void ticker_event_handler_stub(const ticker_data_t *const ticker)
@@ -204,3 +205,5 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // !DEVICE_LPTICKER

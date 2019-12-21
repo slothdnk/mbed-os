@@ -90,10 +90,17 @@ void can_init_freq(can_t *obj, PinName rd, PinName td, int hz)
     RCC_PeriphCLKInitTypeDef RCC_PeriphClkInit;
     RCC_PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_FDCAN;
     RCC_PeriphClkInit.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL; // 10 MHz (RCC_OscInitStruct.PLL.PLLQ = 80)
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
     if (HAL_RCCEx_PeriphCLKConfig(&RCC_PeriphClkInit) != HAL_OK) {
         error("HAL_RCCEx_PeriphCLKConfig error\n");
     }
-
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
     // Configure CAN pins
     pinmap_pinout(rd, PinMap_CAN_RD);
     pinmap_pinout(td, PinMap_CAN_TD);
@@ -182,8 +189,16 @@ void can_irq_free(can_t *obj)
 
 void can_free(can_t *obj)
 {
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
     __HAL_RCC_FDCAN_FORCE_RESET();
     __HAL_RCC_FDCAN_RELEASE_RESET();
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
     __HAL_RCC_FDCAN_CLK_DISABLE();
 }
 
@@ -513,6 +528,7 @@ void can_irq_set(can_t *obj, CanIrqType type, uint32_t enable)
 #include "can_device.h" // Specific to STM32 serie
 #include <math.h>
 #include <string.h>
+#include <inttypes.h>
 
 static uint32_t can_irq_ids[CAN_NUM] = {0};
 static can_irq_handler irq_handler;
@@ -621,6 +637,11 @@ void can_irq_free(can_t *obj)
 void can_free(can_t *obj)
 {
     CANName can = (CANName) obj->CanHandle.Instance;
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
     // Reset CAN and disable clock
     if (can == CAN_1) {
         __HAL_RCC_CAN1_FORCE_RESET();
@@ -641,6 +662,9 @@ void can_free(can_t *obj)
         __HAL_RCC_CAN3_CLK_DISABLE();
     }
 #endif
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
 }
 
 // The following table is used to program bit_timing. It is an adjustment of the sample
@@ -743,7 +767,7 @@ int can_frequency(can_t *obj, int f)
                 }
             }
             if (status == 0) {
-                error("can ESR  0x%04x.%04x + timeout status %d", (can->ESR & 0xFFFF0000) >> 16, (can->ESR & 0xFFFF), status);
+                error("can ESR  0x%04" PRIx32 ".%04" PRIx32 " + timeout status %d", (can->ESR & 0xFFFF0000) >> 16, (can->ESR & 0xFFFF), status);
             }
         } else {
             error("can init request timeout\n");

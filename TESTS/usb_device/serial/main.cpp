@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, ARM Limited, All Rights Reserved
+ * Copyright (c) 2018-2019, ARM Limited, All Rights Reserved
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -16,7 +16,7 @@
  */
 #if !defined(DEVICE_USBDEVICE) || !DEVICE_USBDEVICE
 #error [NOT_SUPPORTED] USB Device not supported for this target
-#endif
+#else
 
 #include "greentea-client/test_env.h"
 #include "utest/utest.h"
@@ -26,6 +26,7 @@
 #include "usb_phy_api.h"
 #include "USBCDC.h"
 #include "USBSerial.h"
+#include "hal/us_ticker_api.h"
 
 #define USB_CDC_VID 0x1f00
 #define USB_CDC_PID 0x2013
@@ -845,3 +846,5 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // !defined(DEVICE_USBDEVICE) || !DEVICE_USBDEVICE

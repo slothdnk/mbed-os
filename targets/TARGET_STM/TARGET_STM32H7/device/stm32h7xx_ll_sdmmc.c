@@ -139,7 +139,8 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2017 STMicroelectronics</center></h2>
+  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
+  * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
   * the "License"; You may not use this file except in compliance with the
@@ -300,10 +301,6 @@ HAL_StatusTypeDef SDMMC_PowerState_ON(SDMMC_TypeDef *SDMMCx)
 {
   /* Set power state to ON */
   SDMMCx->POWER |= SDMMC_POWER_PWRCTRL;
-
-  /* 1ms: required power up waiting time before starting the SD initialization
-  sequence */
-  HAL_Delay(2);
 
   return HAL_OK;
 }
@@ -740,7 +737,7 @@ uint32_t SDMMC_CmdErase(SDMMC_TypeDef *SDMMCx)
   uint32_t errorstate;
 
   /* Set Block Size for Card */
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_ERASE;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_SHORT;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -764,7 +761,7 @@ uint32_t SDMMC_CmdStopTransfer(SDMMC_TypeDef *SDMMCx)
   uint32_t errorstate;
 
   /* Send CMD12 STOP_TRANSMISSION  */
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_STOP_TRANSMISSION;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_SHORT;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -818,7 +815,7 @@ uint32_t SDMMC_CmdGoIdleState(SDMMC_TypeDef *SDMMCx)
   SDMMC_CmdInitTypeDef  sdmmc_cmdinit;
   uint32_t errorstate;
 
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_GO_IDLE_STATE;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_NO;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -948,7 +945,7 @@ uint32_t SDMMC_CmdSendSCR(SDMMC_TypeDef *SDMMCx)
   uint32_t errorstate;
 
   /* Send CMD51 SD_APP_SEND_SCR */
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_SD_APP_SEND_SCR;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_SHORT;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -972,7 +969,7 @@ uint32_t SDMMC_CmdSendCID(SDMMC_TypeDef *SDMMCx)
   uint32_t errorstate;
 
   /* Send CMD2 ALL_SEND_CID */
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_ALL_SEND_CID;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_LONG;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -1022,7 +1019,7 @@ uint32_t SDMMC_CmdSetRelAdd(SDMMC_TypeDef *SDMMCx, uint16_t *pRCA)
   uint32_t errorstate;
 
   /* Send CMD3 SD_CMD_SET_REL_ADDR */
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_SET_REL_ADDR;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_SHORT;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -1069,7 +1066,7 @@ uint32_t SDMMC_CmdStatusRegister(SDMMC_TypeDef *SDMMCx)
   SDMMC_CmdInitTypeDef  sdmmc_cmdinit;
   uint32_t errorstate;
 
-  sdmmc_cmdinit.Argument         = 0;
+  sdmmc_cmdinit.Argument         = 0U;
   sdmmc_cmdinit.CmdIndex         = SDMMC_CMD_SD_APP_STATUS;
   sdmmc_cmdinit.Response         = SDMMC_RESPONSE_SHORT;
   sdmmc_cmdinit.WaitForInterrupt = SDMMC_WAIT_NO;
@@ -1085,7 +1082,7 @@ uint32_t SDMMC_CmdStatusRegister(SDMMC_TypeDef *SDMMCx)
 /**
   * @brief  Sends host capacity support information and activates the card's
   *         initialization process. Send SDMMC_CMD_SEND_OP_COND command
-  * @param  SDIOx: Pointer to SDIO register base
+  * @param  SDMMCx: Pointer to SDMMC register base
   * @parame Argument: Argument used for the command
   * @retval HAL status
   */
@@ -1109,7 +1106,7 @@ uint32_t SDMMC_CmdOpCondition(SDMMC_TypeDef *SDMMCx, uint32_t Argument)
 
 /**
   * @brief  Checks switchable function and switch card function. SDMMC_CMD_HS_SWITCH comand
-  * @param  SDIOx: Pointer to SDIO register base
+  * @param  SDMMCx: Pointer to SDMMC register base
   * @parame Argument: Argument used for the command
   * @retval HAL status
   */
@@ -1201,7 +1198,7 @@ static uint32_t SDMMC_GetCmdError(SDMMC_TypeDef *SDMMCx)
 {
   /* 8 is the number of required instructions cycles for the below loop statement.
   The SDMMC_CMDTIMEOUT is expressed in ms */
-  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
+  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemD1Clock / 8U /1000U);
 
   do
   {
@@ -1231,7 +1228,7 @@ static uint32_t SDMMC_GetCmdResp1(SDMMC_TypeDef *SDMMCx, uint8_t SD_CMD, uint32_
 
   /* 8 is the number of required instructions cycles for the below loop statement.
   The Timeout is expressed in ms */
-  register uint32_t count = Timeout * (SystemCoreClock / 8U /1000U);
+  register uint32_t count = Timeout * (SystemD1Clock / 8U /1000U);
 
   do
   {
@@ -1364,7 +1361,7 @@ static uint32_t SDMMC_GetCmdResp2(SDMMC_TypeDef *SDMMCx)
   uint32_t sta_reg;
   /* 8 is the number of required instructions cycles for the below loop statement.
   The SDMMC_CMDTIMEOUT is expressed in ms */
-  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
+  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemD1Clock / 8U /1000U);
 
   do
   {
@@ -1408,7 +1405,7 @@ static uint32_t SDMMC_GetCmdResp3(SDMMC_TypeDef *SDMMCx)
   uint32_t sta_reg;
   /* 8 is the number of required instructions cycles for the below loop statement.
   The SDMMC_CMDTIMEOUT is expressed in ms */
-  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
+  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemD1Clock / 8U /1000U);
 
   do
   {
@@ -1450,7 +1447,7 @@ static uint32_t SDMMC_GetCmdResp6(SDMMC_TypeDef *SDMMCx, uint8_t SD_CMD, uint16_
 
   /* 8 is the number of required instructions cycles for the below loop statement.
   The SDMMC_CMDTIMEOUT is expressed in ms */
-  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
+  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemD1Clock / 8U /1000U);
 
   do
   {
@@ -1521,7 +1518,7 @@ static uint32_t SDMMC_GetCmdResp7(SDMMC_TypeDef *SDMMCx)
   uint32_t sta_reg;
   /* 8 is the number of required instructions cycles for the below loop statement.
   The SDMMC_CMDTIMEOUT is expressed in ms */
-  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemCoreClock / 8U /1000U);
+  register uint32_t count = SDMMC_CMDTIMEOUT * (SystemD1Clock / 8U /1000U);
 
   do
   {

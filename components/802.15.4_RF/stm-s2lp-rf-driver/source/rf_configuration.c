@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#if defined(MBED_CONF_NANOSTACK_CONFIGURATION) && DEVICE_SPI && DEVICE_INTERRUPTIN && defined(MBED_CONF_RTOS_PRESENT)
+
 #include "nanostack/platform/arm_hal_phy.h"
 #include "rf_configuration.h"
 
@@ -31,6 +34,10 @@
 #define DEF_2EXP15  32768
 // Use multiplier for better resolution
 #define RESOLUTION_MULTIPLIER   1000000
+
+// RSSI_TH is a 8-bit register which can be converted to dBm using formula RSSI_TH-146
+#define MIN_RSSI_THRESHOLD  -146
+#define MAX_RSSI_THRESHOLD  109
 
 void rf_conf_calculate_datarate_registers(uint32_t datarate, uint16_t *datarate_mantissa, uint8_t *datarate_exponent)
 {
@@ -148,6 +155,12 @@ void rf_conf_calculate_rx_filter_bandwidth_registers(uint32_t rx_bandwidth, uint
     *chflt_e = chflt_e_tmp;
 }
 
+int16_t rf_conf_cca_threshold_percent_to_rssi(uint8_t percent)
+{
+    uint8_t step = (MAX_RSSI_THRESHOLD-MIN_RSSI_THRESHOLD);
+    return MIN_RSSI_THRESHOLD + (step * percent) / 100;
+}
+
 void rf_conf_calculate_rssi_threshold_registers(int16_t rssi_threshold, uint8_t *rssi_th)
 {
     *rssi_th = rssi_threshold + RSSI_OFFSET;
@@ -161,9 +174,12 @@ uint32_t rf_conf_calculate_deviation(phy_modulation_index_e modulation_index, ui
 {
     uint32_t deviation = 0;
     if (modulation_index == MODULATION_INDEX_0_5) {
-        deviation = datarate/4;
+        deviation = datarate / 4;
     } else if (modulation_index == MODULATION_INDEX_1_0) {
-        deviation = datarate/2;
+        deviation = datarate / 2;
     }
     return deviation;
 }
+
+#endif // MBED_CONF_NANOSTACK_CONFIGURATION && DEVICE_SPI && DEVICE_INTERRUPTIN && defined(MBED_CONF_RTOS_PRESENT)
+

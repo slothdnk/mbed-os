@@ -92,7 +92,8 @@ void init_spi(spi_t *obj)
     }
 }
 
-SPIName spi_get_peripheral_name(PinName mosi, PinName miso, PinName sclk) {
+SPIName spi_get_peripheral_name(PinName mosi, PinName miso, PinName sclk)
+{
     SPIName spi_mosi = (SPIName)pinmap_peripheral(mosi, PinMap_SPI_MOSI);
     SPIName spi_miso = (SPIName)pinmap_peripheral(miso, PinMap_SPI_MISO);
     SPIName spi_sclk = (SPIName)pinmap_peripheral(sclk, PinMap_SPI_SCLK);
@@ -181,8 +182,14 @@ void spi_init(spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel
     if (ssel != NC) {
         pinmap_pinout(ssel, PinMap_SPI_SSEL);
         handle->Init.NSS = SPI_NSS_HARD_OUTPUT;
+#if defined(SPI_NSS_PULSE_ENABLE)
+        handle->Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+#endif
     } else {
         handle->Init.NSS = SPI_NSS_SOFT;
+#if defined(SPI_NSS_PULSE_DISABLE)
+        handle->Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+#endif
     }
 
     /* Fill default value */
@@ -205,10 +212,15 @@ void spi_init(spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel
     handle->Init.TIMode            = SPI_TIMODE_DISABLE;
 
 #if TARGET_STM32H7
-    handle->Init.NSSPMode          = SPI_NSS_PULSE_DISABLE;
     handle->Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_ENABLE;
     handle->Init.FifoThreshold     = SPI_FIFO_THRESHOLD_01DATA;
 #endif
+
+    /*
+    * According the STM32 Datasheet for SPI peripheral we need to PULLDOWN
+    * or PULLUP the SCK pin according the polarity used.
+    */
+    pin_mode(spiobj->pin_sclk, (handle->Init.CLKPolarity == SPI_POLARITY_LOW) ? PullDown : PullUp);
 
     init_spi(obj);
 }
@@ -223,6 +235,11 @@ void spi_free(spi_t *obj)
     __HAL_SPI_DISABLE(handle);
     HAL_SPI_DeInit(handle);
 
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
 #if defined SPI1_BASE
     // Reset SPI and disable clock
     if (spiobj->spi == SPI_1) {
@@ -270,7 +287,9 @@ void spi_free(spi_t *obj)
         __HAL_RCC_SPI6_CLK_DISABLE();
     }
 #endif
-
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
     // Configure GPIOs
     pin_function(spiobj->pin_miso, STM_PIN_DATA(STM_MODE_INPUT, GPIO_NOPULL, 0));
     pin_function(spiobj->pin_mosi, STM_PIN_DATA(STM_MODE_INPUT, GPIO_NOPULL, 0));
@@ -284,6 +303,7 @@ void spi_format(spi_t *obj, int bits, int mode, int slave)
 {
     struct spi_s *spiobj = SPI_S(obj);
     SPI_HandleTypeDef *handle = &(spiobj->handle);
+    PinMode pull = PullNone;
 
     DEBUG_PRINTF("spi_format, bits:%d, mode:%d, slave?:%d\r\n", bits, mode, slave);
 
@@ -324,6 +344,13 @@ void spi_format(spi_t *obj, int bits, int mode, int slave)
         debug("3 wires SPI slave not supported - slave will only read\r\n");
         handle->Init.Direction = SPI_DIRECTION_2LINES;
     }
+
+    /*
+    * According the STM32 Datasheet for SPI peripheral we need to PULLDOWN
+    * or PULLUP the SCK pin according the polarity used.
+    */
+    pull = (handle->Init.CLKPolarity == SPI_POLARITY_LOW) ? PullDown : PullUp;
+    pin_mode(spiobj->pin_sclk, pull);
 
     init_spi(obj);
 }
@@ -474,9 +501,8 @@ int spi_master_block_write(spi_t *obj, const char *tx_buffer, int tx_length,
     struct spi_s *spiobj = SPI_S(obj);
     SPI_HandleTypeDef *handle = &(spiobj->handle);
     int total = (tx_length > rx_length) ? tx_length : rx_length;
-    int i = 0;
     if (handle->Init.Direction == SPI_DIRECTION_2LINES) {
-        for (i = 0; i < total; i++) {
+        for (int i = 0; i < total; i++) {
             char out = (i < tx_length) ? tx_buffer[i] : write_fill;
             char in = spi_master_write(obj, out);
             if (i < rx_length) {
@@ -641,7 +667,7 @@ static int spi_master_start_asynch_transfer(spi_t *obj, transfer_type_t transfer
         case SPI_TRANSFER_TYPE_RX:
             // the receive function also "transmits" the receive buffer so in order
             // to guarantee that 0xff is on the line, we explicitly memset it here
-            memset(rx, SPI_FILL_WORD, length);
+            memset(rx, SPI_FILL_CHAR, length);
             rc = HAL_SPI_Receive_IT(handle, (uint8_t *)rx, words);
             break;
         default:
@@ -733,7 +759,7 @@ inline uint32_t spi_irq_handler_asynch(spi_t *obj)
             // else we're done
             event = SPI_EVENT_COMPLETE | SPI_EVENT_INTERNAL_TRANSFER_COMPLETE;
         }
-        // enable the interrupt
+        // disable the interrupt
         NVIC_DisableIRQ(obj->spi.spiIRQ);
         NVIC_ClearPendingIRQ(obj->spi.spiIRQ);
     }

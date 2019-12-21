@@ -44,10 +44,7 @@ MBED_DEPRECATED("ITS specific types should not be used")
 typedef psa_storage_uid_t psa_its_uid_t;
 
 MBED_DEPRECATED("ITS specific types should not be used")
-struct psa_its_info_t {
-    uint32_t size;
-    psa_its_create_flags_t flags;
-};
+#define psa_its_info_t psa_storage_info_t
 
 // These defines should also be deprecated
 #define PSA_ITS_SUCCESS                     PSA_SUCCESS
@@ -68,10 +65,8 @@ typedef psa_storage_uid_t psa_ps_uid_t;
 MBED_DEPRECATED("PS specific types should not be used")
 typedef psa_storage_create_flags_t psa_ps_create_flags_t;
 MBED_DEPRECATED("PS specific types should not be used")
-struct psa_ps_info_t {
-    uint32_t size;
-    psa_ps_create_flags_t flags;
-};
+#define psa_ps_info_t psa_storage_info_t
+
 #define PSA_PS_SUCCESS                     PSA_SUCCESS
 #define PSA_PS_ERROR_UID_NOT_FOUND         PSA_ERROR_DOES_NOT_EXIST
 #define PSA_PS_ERROR_STORAGE_FAILURE       PSA_ERROR_STORAGE_FAILURE
@@ -102,7 +97,7 @@ struct psa_ps_info_t {
  *                                               is invalid, for example is `NULL` or references memory the caller cannot access
  */
 psa_status_t psa_its_set(psa_storage_uid_t uid,
-                         uint32_t data_length,
+                         size_t data_length,
                          const void *p_data,
                          psa_storage_create_flags_t create_flags);
 
@@ -113,6 +108,7 @@ psa_status_t psa_its_set(psa_storage_uid_t uid,
  * \param[in] data_offset       The starting offset of the data requested
  * \param[in] data_length       the amount of data requested (and the minimum allocated size of the `p_data` buffer)
  * \param[out] p_data           The buffer where the data will be placed upon successful completion
+ * \param[out] p_data_length    The actual amount of data returned
 
  *
  * \return      A status indicating the success/failure of the operation
@@ -125,9 +121,10 @@ psa_status_t psa_its_set(psa_storage_uid_t uid,
  *                                           is invalid. For example is `NULL` or references memory the caller cannot access
  */
 psa_status_t psa_its_get(psa_storage_uid_t uid,
-                         uint32_t data_offset,
-                         uint32_t data_length,
-                         void *p_data);
+                         size_t data_offset,
+                         size_t data_length,
+                         void *p_data,
+                         size_t *p_data_length);
 
 /**
  * \brief Retrieve the metadata about the provided uid

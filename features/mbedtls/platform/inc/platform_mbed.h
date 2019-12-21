@@ -33,6 +33,10 @@
 #define MBEDTLS_PLATFORM_NV_SEED_WRITE_MACRO mbed_default_seed_write
 #endif
 
+/* Automatically enable the Mbed Crypto entropy injection API if
+ * MBEDTLS_ENTROPY_NV_SEED is enabled. */
+#define MBEDTLS_PSA_INJECT_ENTROPY
+
 #endif  // (defined(TARGET_PSA) && defined(MBEDTLS_ENTROPY_NV_SEED))
 
 #if DEVICE_TRNG
@@ -41,6 +45,15 @@
 
 #if defined(MBEDTLS_CONFIG_HW_SUPPORT)
 #include "mbedtls_device.h"
+#endif
+
+#if defined(TARGET_PSA)
+/* The following configurations are a needed for Mbed Crypto submodule.
+ * They are related to the persistent key storage feature.
+ */
+#define MBEDTLS_PSA_CRYPTO_STORAGE_C
+#define MBEDTLS_PSA_CRYPTO_STORAGE_ITS_C
+#undef MBEDTLS_PSA_CRYPTO_STORAGE_FILE_C
 #endif
 
 /*

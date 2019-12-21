@@ -441,7 +441,7 @@ void recv_dhcp_relay_msg(void *cb_res)
         }
         uint8_t gp_address[16];
         //Get blobal address from interface
-        if (arm_net_address_get(sckt_data->interface_id, ADDR_IPV6_GP, gp_address) != 0) {
+        if (addr_interface_select_source(interface_ptr, gp_address, relay_srv->server_address, 0) != 0) {
             // No global prefix available
             tr_error("No GP address");
             goto cleanup;
@@ -609,11 +609,21 @@ uint16_t dhcp_service_init(int8_t interface_id, dhcp_instance_type_e instance_ty
 
 void dhcp_service_relay_instance_enable(uint16_t instance, uint8_t *server_address)
 {
-    relay_instance_t *realay_srv = dhcp_service_relay_find(instance);
-    if (realay_srv) {
-        realay_srv->relay_activated = true;
-        memcpy(realay_srv->server_address, server_address, 16);
+    relay_instance_t *relay_srv = dhcp_service_relay_find(instance);
+    if (relay_srv) {
+        relay_srv->relay_activated = true;
+        memcpy(relay_srv->server_address, server_address, 16);
     }
+}
+
+uint8_t *dhcp_service_relay_global_addres_get(uint16_t instance)
+{
+    relay_instance_t *relay_srv = dhcp_service_relay_find(instance);
+    if (!relay_srv || !relay_srv->relay_activated) {
+        return NULL;
+    }
+
+    return relay_srv->server_address;
 }
 
 void dhcp_service_delete(uint16_t instance)
@@ -669,6 +679,7 @@ void dhcp_service_delete(uint16_t instance)
 
 int dhcp_service_send_resp(uint32_t msg_tr_id, uint8_t options, uint8_t *msg_ptr, uint16_t msg_len)
 {
+    tr_debug("Send DHCPv6 response");
     msg_tr_t *msg_tr_ptr;
     server_instance_t *srv_instance;
     msg_tr_ptr = dhcp_tr_find(msg_tr_id);
@@ -696,6 +707,7 @@ int dhcp_service_send_resp(uint32_t msg_tr_id, uint8_t options, uint8_t *msg_ptr
 }
 uint32_t dhcp_service_send_req(uint16_t instance_id, uint8_t options, void *ptr, const uint8_t addr[static 16], uint8_t *msg_ptr, uint16_t msg_len, dhcp_service_receive_resp_cb *receive_resp_cb)
 {
+    tr_debug("Send DHCPv6 request");
     msg_tr_t *msg_tr_ptr;
     server_instance_t *srv_ptr;
     srv_ptr = dhcp_service_client_find(instance_id);
@@ -739,12 +751,33 @@ void dhcp_service_set_retry_timers(uint32_t msg_tr_id, uint16_t timeout_init, ui
     return;
 }
 
+void dhcp_service_update_server_address(uint32_t msg_tr_id, uint8_t *server_address)
+{
+    msg_tr_t *msg_tr_ptr;
+    msg_tr_ptr = dhcp_tr_find(msg_tr_id);
+
+    if (msg_tr_ptr != NULL) {
+        memcpy(msg_tr_ptr->addr.address, server_address, 16);
+    }
+}
+
 void dhcp_service_req_remove(uint32_t msg_tr_id)
 {
     if (dhcp_service) {
         dhcp_tr_delete(dhcp_tr_find(msg_tr_id));
     }
     return;
+}
+
+void dhcp_service_req_remove_all(void *msg_class_ptr)
+{
+    if (dhcp_service) {
+        ns_list_foreach_safe(msg_tr_t, cur_ptr, &dhcp_service->tr_list) {
+            if (cur_ptr->client_obj_ptr == msg_class_ptr) {
+                dhcp_tr_delete(cur_ptr);
+            }
+        }
+    }
 }
 
 void dhcp_service_send_message(msg_tr_t *msg_tr_ptr)
@@ -808,6 +841,8 @@ void dhcp_service_send_message(msg_tr_t *msg_tr_ptr)
     }
     if (retval != 0) {
         tr_warn("dhcp service socket_sendto fails: %i", retval);
+    } else {
+        tr_debug("dhcp service socket_sendto %s", trace_ipv6(msg_tr_ptr->addr.address));
     }
 }
 bool dhcp_service_timer_tick(uint16_t ticks)
@@ -906,6 +941,11 @@ bool dhcp_service_timer_tick(uint16_t ticks)
 {
     (void)ticks;
     return false;
+}
+
+void dhcp_service_req_remove_all(void *msg_class_ptr)
+{
+    (void)msg_class_ptr;
 }
 
 #endif

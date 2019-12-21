@@ -27,7 +27,6 @@
 #include "ble/generic/GenericGap.h"
 
 #include "drivers/Timeout.h"
-#include "platform/Span.h"
 
 #include "ble/pal/Deprecated.h"
 
@@ -457,17 +456,6 @@ GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandler>::
     _random_static_identity_address = _pal_gap.get_random_address();
 
     _pal_gap.set_event_handler(this);
-
-#if BLE_FEATURE_EXTENDED_ADVERTISING
-    if (is_extended_advertising_available()) {
-        setExtendedAdvertisingParameters(
-            LEGACY_ADVERTISING_HANDLE,
-            AdvertisingParameters()
-        );
-    }
-
-    _existing_sets.set(LEGACY_ADVERTISING_HANDLE);
-#endif // BLE_FEATURE_EXTENDED_ADVERTISING
 }
 
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
@@ -1018,7 +1006,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
             return BLE_ERROR_INVALID_PARAM;
         }
 
-        ArrayView<uint8_t> name(deviceName, *lengthP);
+        Span<uint8_t> name(deviceName, *lengthP);
         err = _gap_service.get_device_name(name);
         if (err) {
             return err;
@@ -1435,6 +1423,17 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
         return err;
     }
 
+#if defined(TARGET_CORDIO_LL)
+    // TODO: fix advertising set creation in the link layer.
+    // The Cordio link layer implements legacy API on top of extended advertising
+    // and has an issue that no advertising set is created until we set parameters.
+    // As a workaround, set advertising data again to ensure it takes effect.
+    err = setAdvertisingData_(this->_advPayload, this->_scanResponse);
+    if (err) {
+        return err;
+    }
+#endif
+
     err = _pal_gap.advertising_enable(true);
     if (err) {
         return err;
@@ -1465,6 +1464,11 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
 #if BLE_ROLE_OBSERVER
     _scan_timeout.detach();
 #endif
+
+    if (_deprecated_scan_api_used == true) {
+    	return BLE_ERROR_NONE;
+    }
+
 #if BLE_FEATURE_EXTENDED_ADVERTISING
     if (is_extended_advertising_available()) {
         /* stop all advertising sets */
@@ -1600,21 +1604,36 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
         return;
     }
 
-    /* if timeout happened on a 4.2 chip we need to stop the scan manually */
-    if (!is_extended_advertising_available()) {
-        _pal_gap.scan_enable(false, false);
-#if BLE_FEATURE_PRIVACY
-        set_random_address_rotation(false);
-#endif
-    }
-
     _scan_enabled = false;
 
-    if (!_eventHandler) {
-        return;
+    if (!is_extended_advertising_available()) {
+        /* if timeout happened on a 4.2 chip this means legacy scanning and a timer timeout
+         * but we need to handle the event from user context - use the event queue to handle it */
+        _event_queue.post(
+            mbed::callback(
+                this,
+                &GenericGap::process_legacy_scan_timeout
+            )
+        );
+    } else {
+        if (_eventHandler) {
+            _eventHandler->onScanTimeout(ScanTimeoutEvent());
+        }
     }
+}
 
-    _eventHandler->onScanTimeout(ScanTimeoutEvent());
+template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
+void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandler>::process_legacy_scan_timeout()
+{
+    /* legacy scanning timed out is based on timer so we need to stop the scan manually */
+    _pal_gap.scan_enable(false, false);
+#if BLE_FEATURE_PRIVACY
+    set_random_address_rotation(false);
+#endif
+
+    if (_eventHandler) {
+        _eventHandler->onScanTimeout(ScanTimeoutEvent());
+    }
 }
 
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
@@ -1748,7 +1767,7 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
                     /* NO PERIODIC ADVERTISING */ 0,
                     peer_address_type_t::ANONYMOUS,
                     ble::address_t (),
-                    mbed::Span<const uint8_t>(advertising.data.data(), advertising.data.size())
+                    Span<const uint8_t>(advertising.data.data(), advertising.data.size())
                 )
             );
         }
@@ -1868,6 +1887,19 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
         address = _pal_gap.get_random_address();
     }
 
+    // legacy process event
+    processConnectionEvent(
+        e.connection_handle,
+        e.role.value() == e.role.CENTRAL ? LegacyGap::CENTRAL : LegacyGap::PERIPHERAL,
+        e.peer_address_type,
+        e.peer_address.data(),
+        _address_type,
+        address.data(),
+        &connection_params,
+        e.local_resolvable_private_address.data(),
+        e.peer_resolvable_private_address.data()
+    );
+
     // new process event
     if (_eventHandler) {
         _eventHandler->onConnectionComplete(
@@ -1886,19 +1918,6 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
             )
         );
     }
-
-    // legacy process event
-    processConnectionEvent(
-        e.connection_handle,
-        e.role.value() == e.role.CENTRAL ? LegacyGap::CENTRAL : LegacyGap::PERIPHERAL,
-        e.peer_address_type,
-        e.peer_address.data(),
-        _address_type,
-        address.data(),
-        &connection_params,
-        e.local_resolvable_private_address.data(),
-        e.peer_resolvable_private_address.data()
-    );
 
 #if BLE_FEATURE_SECURITY
     // Now starts pairing or authentication procedures if required
@@ -2414,7 +2433,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
 ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandler>::setAdvertisingPayload_(
     advertising_handle_t handle,
-    mbed::Span<const uint8_t> payload
+    Span<const uint8_t> payload
 )
 {
     useVersionTwoAPI();
@@ -2430,7 +2449,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
 ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandler>::setAdvertisingScanResponse_(
     advertising_handle_t handle,
-    mbed::Span<const uint8_t> response
+    Span<const uint8_t> response
 )
 {
     useVersionTwoAPI();
@@ -2446,7 +2465,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
 ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandler>::setAdvertisingData(
     advertising_handle_t handle,
-    mbed::Span<const uint8_t> payload,
+    Span<const uint8_t> payload,
     bool minimiseFragmentation,
     bool scan_response
 )
@@ -2542,7 +2561,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
         }
 
         // extract the payload
-        mbed::Span<const uint8_t> sub_payload = payload.subspan(
+        Span<const uint8_t> sub_payload = payload.subspan(
             i,
             std::min(hci_length, (end - i))
         );
@@ -2730,7 +2749,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
 ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandler>::setPeriodicAdvertisingPayload_(
     advertising_handle_t handle,
-    mbed::Span<const uint8_t> payload
+    Span<const uint8_t> payload
 )
 {
     useVersionTwoAPI();
@@ -2770,7 +2789,7 @@ ble_error_t GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEve
         }
 
         // extract the payload
-        mbed::Span<const uint8_t> sub_payload = payload.subspan(
+        Span<const uint8_t> sub_payload = payload.subspan(
             i,
             std::min(hci_length, (end - i))
         );
@@ -2921,28 +2940,77 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
     const uint8_t *data
 )
 {
-    if (!_eventHandler) {
+#if BLE_FEATURE_PRIVACY
+    // Check if the address hasn't been resolved
+    if (_privacy_enabled &&
+        _central_privacy_configuration.resolution_strategy == CentralPrivacyConfiguration_t::RESOLVE_AND_FILTER &&
+        address_type != NULL &&
+        *address_type == pal::connection_peer_address_type_t::RANDOM_ADDRESS &&
+        is_random_private_resolvable_address(address.data())
+    ) {
         return;
     }
+#endif // BLE_FEATURE_PRIVACY
 
-    _eventHandler->onAdvertisingReport(
-        AdvertisingReportEvent(
-            event_type,
-            address_type ?
-                (peer_address_type_t::type) address_type->value() :
-                peer_address_type_t::ANONYMOUS,
-            (BLEProtocol::AddressBytes_t &) address,
-            primary_phy,
-            secondary_phy ? *secondary_phy : phy_t::NONE,
-            advertising_sid,
-            tx_power,
+    if (_deprecated_scan_api_used == false) {
+        // report in new event handler
+        if (!_eventHandler) {
+            return;
+        }
+        _eventHandler->onAdvertisingReport(
+            AdvertisingReportEvent(
+                event_type,
+                address_type ?
+                    (peer_address_type_t::type) address_type->value() :
+                    peer_address_type_t::ANONYMOUS,
+                (BLEProtocol::AddressBytes_t &) address,
+                primary_phy,
+                secondary_phy ? *secondary_phy : phy_t::NONE,
+                advertising_sid,
+                tx_power,
+                rssi,
+                periodic_advertising_interval,
+                (ble::peer_address_type_t::type) direct_address_type.value(),
+                (BLEProtocol::AddressBytes_t &) direct_address,
+                make_Span(data, data_length)
+            )
+        );
+    } else {
+        if (event_type.legacy_advertising() == false) {
+            return;
+        }
+
+        GapAdvertisingParams::AdvertisingType_t advertising_type;
+
+        if (event_type.connectable() == false) {
+            if (event_type.scannable_advertising()) {
+                advertising_type = GapAdvertisingParams::ADV_SCANNABLE_UNDIRECTED;
+            } else {
+                advertising_type = GapAdvertisingParams::ADV_NON_CONNECTABLE_UNDIRECTED;
+            }
+        } else {
+            if (event_type.directed_advertising()) {
+                advertising_type = GapAdvertisingParams::ADV_CONNECTABLE_DIRECTED;
+            } else {
+                advertising_type = GapAdvertisingParams::ADV_CONNECTABLE_UNDIRECTED;
+            }
+        }
+
+        // This handler is not supposed to be called with V1 API as the extended
+        // scan is not called. However the Cordio LL stack doesn't act that way
+        // and use extended scan with V1 API.
+        BLE_DEPRECATED_API_USE_BEGIN()
+        LegacyGap::processAdvertisementReport(
+            address.data(),
             rssi,
-            periodic_advertising_interval,
-            (ble::peer_address_type_t::type) direct_address_type.value(),
-            (BLEProtocol::AddressBytes_t &) direct_address,
-            mbed::make_Span(data, data_length)
-        )
-    );
+            event_type.scan_response(),
+            advertising_type,
+            data_length,
+            data,
+            (peer_address_type_t::type) address_type->value()
+        );
+        BLE_DEPRECATED_API_USE_END()
+    }
 }
 
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>
@@ -2996,7 +3064,7 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
             tx_power,
             rssi,
             data_status,
-            mbed::make_const_Span(data, data_length)
+            make_const_Span(data, data_length)
         )
     );
 }
@@ -3401,7 +3469,19 @@ void GenericGap<PalGapImpl, PalSecurityManager, ConnectionEventMonitorEventHandl
     if (_deprecated_scan_api_used) {
         MBED_ERROR(mixed_scan_api_error, "Use of up to date scan API with deprecated API");
     }
-    _non_deprecated_scan_api_used = true;
+    if (!_non_deprecated_scan_api_used) {
+        _non_deprecated_scan_api_used = true;
+#if BLE_FEATURE_EXTENDED_ADVERTISING
+        if (const_cast<GenericGap*>(this)->is_extended_advertising_available()) {
+            const_cast<GenericGap*>(this)->setExtendedAdvertisingParameters(
+                LEGACY_ADVERTISING_HANDLE,
+                AdvertisingParameters()
+            );
+        }
+        const_cast<BitArray<MAX_ADVERTISING_SETS>*>(&_existing_sets)->set(LEGACY_ADVERTISING_HANDLE);
+#endif
+    }
+
 }
 
 template <template<class> class PalGapImpl, class PalSecurityManager, class ConnectionEventMonitorEventHandler>

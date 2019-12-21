@@ -41,6 +41,8 @@ void ASYNCHRONOUS_DNS_CACHE()
     Ticker ticker;
     ticker.attach_us(&test_dns_query_ticker, 100);
 
+    nsapi_dns_reset();
+
     for (unsigned int i = 0; i < 5; i++) {
         int started_us = ticker_us;
 
@@ -48,7 +50,7 @@ void ASYNCHRONOUS_DNS_CACHE()
                                                                  mbed::Callback<void(nsapi_error_t, SocketAddress *)>(hostbyname_cb, (void *) &data));
         TEST_ASSERT(err >= 0);
 
-        semaphore.wait();
+        semaphore.acquire();
 
         TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, data.result);
         TEST_ASSERT(strlen(data.addr.get_ip_address()) > 1);

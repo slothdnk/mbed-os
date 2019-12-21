@@ -40,6 +40,15 @@ int ws_management_node_init(
     return -1;
 }
 
+int ws_management_network_name_set(
+    int8_t interface_id,
+    char *network_name_ptr)
+{
+    (void)interface_id;
+    (void)network_name_ptr;
+    return -1;
+}
+
 int ws_management_regulatory_domain_set(
     int8_t interface_id,
     uint8_t regulatory_domain,
@@ -181,5 +190,25 @@ int ws_test_gtk_time_settings_set(int8_t interface_id, uint8_t revocat_lifetime_
     return -1;
 }
 
-#endif // no HAVE_WS
+int ws_test_next_gtk_set(int8_t interface_id, uint8_t *gtk[4])
+{
+    (void) interface_id;
+    (void) gtk;
 
+    return -1;
+}
+
+int ws_statistics_start(int8_t interface_id, ws_statistics_t *stats_ptr)
+{
+    (void) interface_id;
+    (void) stats_ptr;
+    return -1;
+}
+
+int ws_statistics_stop(int8_t interface_id)
+{
+    (void) interface_id;
+    return -1;
+}
+
+#endif // no HAVE_WS

@@ -1,5 +1,5 @@
 /* mbed Microcontroller Library
- * Copyright (c) 2006-2013 ARM Limited
+ * Copyright (c) 2006-2019 ARM Limited
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,12 +27,19 @@
 #include "platform/NonCopyable.h"
 
 namespace mbed {
-/** \addtogroup drivers */
+/** \defgroup drivers-public-api-can CAN
+ * \ingroup drivers-public-api
+ */
+
+/**
+ * \defgroup drivers_CANMessage CANMessage class
+ * \ingroup drivers-public-api-can
+ * @{
+ */
 
 /** CANMessage class
  *
  * @note Synchronization level: Thread safe
- * @ingroup drivers
  */
 class CANMessage : public CAN_Message {
 
@@ -41,10 +48,10 @@ public:
      */
     CANMessage() : CAN_Message()
     {
-        len    = 8;
+        len    = 8U;
         type   = CANData;
         format = CANStandard;
-        id     = 0;
+        id     = 0U;
         memset(data, 0, 8);
     }
 
@@ -56,7 +63,25 @@ public:
      *  @param _type    Type of Data: Use enum CANType for valid parameter values
      *  @param _format  Data Format: Use enum CANFormat for valid parameter values
      */
-    CANMessage(unsigned _id, const char *_data, char _len = 8, CANType _type = CANData, CANFormat _format = CANStandard)
+    CANMessage(unsigned int _id, const unsigned char *_data, unsigned char _len = 8, CANType _type = CANData, CANFormat _format = CANStandard)
+    {
+        len    = _len & 0xF;
+        type   = _type;
+        format = _format;
+        id     = _id;
+        memcpy(data, _data, _len);
+    }
+
+
+    /** Creates CAN message with specific content.
+     *
+     *  @param _id      Message ID
+     *  @param _data    Mesaage Data
+     *  @param _len     Message Data length
+     *  @param _type    Type of Data: Use enum CANType for valid parameter values
+     *  @param _format  Data Format: Use enum CANFormat for valid parameter values
+     */
+    CANMessage(unsigned int _id, const char *_data, unsigned char _len = 8, CANType _type = CANData, CANFormat _format = CANStandard)
     {
         len    = _len & 0xF;
         type   = _type;
@@ -70,7 +95,7 @@ public:
      *  @param _id      Message ID
      *  @param _format  Data Format: Use enum CANType for valid parameter values
      */
-    CANMessage(unsigned _id, CANFormat _format = CANStandard)
+    CANMessage(unsigned int _id, CANFormat _format = CANStandard)
     {
         len    = 0;
         type   = CANRemote;
@@ -80,8 +105,15 @@ public:
     }
 };
 
+/** @}*/
+
+/**
+ * \defgroup drivers_CAN CAN class
+ * \ingroup drivers-public-api-can
+ * @{
+ */
+
 /** A can bus client, used for communicating with can devices
- * @ingroup drivers
  */
 class CAN : private NonCopyable<CAN> {
 
@@ -104,10 +136,10 @@ public:
      * CAN can1(MBED_CONF_APP_CAN1_RD, MBED_CONF_APP_CAN1_TD);
      * CAN can2(MBED_CONF_APP_CAN2_RD, MBED_CONF_APP_CAN2_TD);
      *
-     * char counter = 0;
+     * unsigned char counter = 0;
      *
      * void send() {
-     *     if(can1.write(CANMessage(1337, &counter, 1))) {
+     *     if(can1.write(CANMessage(1337U, &counter, 1))) {
      *         printf("Message sent: %d\n", counter);
      *         counter++;
      *     }
@@ -116,7 +148,7 @@ public:
      *
      * int main() {
      *     ticker.attach(&send, 1);
-     *    CANMessage msg;
+     *     CANMessage msg;
      *     while(1) {
      *         if(can2.read(msg)) {
      *             printf("Message received: %d\n\n", msg.data[0]);
@@ -297,11 +329,14 @@ public:
 protected:
     virtual void lock();
     virtual void unlock();
+
     can_t               _can;
     Callback<void()>    _irq[IrqCnt];
     PlatformMutex       _mutex;
 #endif
 };
+
+/** @}*/
 
 } // namespace mbed
 

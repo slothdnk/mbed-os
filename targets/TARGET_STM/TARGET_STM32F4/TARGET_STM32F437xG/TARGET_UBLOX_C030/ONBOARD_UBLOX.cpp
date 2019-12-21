@@ -18,17 +18,29 @@
 
 #include "ONBOARD_UBLOX_AT.h"
 #include "ONBOARD_UBLOX_PPP.h"
+#include "ONBOARD_UBLOX_N2XX.h"
 #include "UARTSerial.h"
 
 using namespace mbed;
 
 CellularDevice *CellularDevice::get_target_default_instance()
 {
-#if defined(TARGET_UBLOX_C030_N211) || defined(TARGET_UBLOX_C030_R41XM)
-    static UARTSerial serial(MDMTXD, MDMRXD, 115200);
+#if defined(TARGET_UBLOX_C030_R41XM)
+    static UARTSerial serial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
     static ONBOARD_UBLOX_AT device(&serial);
-#else
-    static UARTSerial serial(MDMTXD, MDMRXD, 115200);
+#elif defined(TARGET_UBLOX_C030_N211)
+    static UARTSerial serial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
+    static ONBOARD_UBLOX_N2XX device(&serial);
+#elif defined(TARGET_UBLOX_C030_U201)
+    #if (NSAPI_PPP_AVAILABLE)
+        static UARTSerial serial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
+        static ONBOARD_UBLOX_PPP device(&serial);
+    #else
+        static UARTSerial serial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
+        static ONBOARD_UBLOX_AT device(&serial);
+    #endif
+#else //UBLOX_C027
+    static UARTSerial serial(MDMTXD, MDMRXD, MBED_CONF_PLATFORM_DEFAULT_SERIAL_BAUD_RATE);
     static ONBOARD_UBLOX_PPP device(&serial);
 #endif
     return &device;

@@ -35,14 +35,14 @@ set(unittest-test-sources
   stubs/LoRaPHY_stub.cpp
   stubs/LoRaMac_stub.cpp
   stubs/mbed_assert_stub.c
-  stubs/mbed_critical_stub.c
+  stubs/mbed_atomic_stub.c
   stubs/LoRaMacCrypto_stub.cpp
   stubs/LoRaMacChannelPlan_stub.cpp
   stubs/LoRaWANTimer_stub.cpp
   stubs/LoRaMacCommand_stub.cpp
   stubs/EventQueue_stub.cpp
   stubs/equeue_stub.c
-
+  stubs/Mutex_stub.cpp
 )
 
 # defines
@@ -54,4 +54,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMBED_CONF_LORA_AUTOMATIC_UPLINK_MESSAG
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMBED_CONF_LORA_APPLICATION_EUI=\"{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}\" -DMBED_CONF_LORA_APPLICATION_KEY=\"{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}\"")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMBED_CONF_LORA_APPLICATION_EUI=\"{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}\" -DMBED_CONF_LORA_APPLICATION_KEY=\"{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}\"")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMBED_CONF_LORA_REJOIN_TYPE1_SEND_PERIOD=3600")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMBED_CONF_LORA_REJOIN_TYPE1_SEND_PERIOD=3600")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DMBED_CONF_LORA_CLASS_B_BEACONLESS_PERIOD=7200")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -DMBED_CONF_LORA_CLASS_B_BEACONLESS_PERIOD=7200")
+
+
+
+
 

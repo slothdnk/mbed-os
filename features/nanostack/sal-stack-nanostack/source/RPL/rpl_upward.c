@@ -343,6 +343,8 @@ void rpl_instance_trigger_parent_selection(rpl_instance_t *instance, uint16_t de
 
 static void rpl_instance_parent_selection_timer(rpl_instance_t *instance, uint16_t seconds)
 {
+
+
     if (instance->parent_selection_timer > seconds) {
         instance->parent_selection_timer -= seconds;
     } else if (instance->parent_selection_timer != 0) {
@@ -405,6 +407,7 @@ rpl_neighbour_t *rpl_create_neighbour(rpl_dodag_version_t *version, const uint8_
     neighbour->g_mop_prf = g_mop_prf;
     neighbour->dtsn = dtsn;
     neighbour->dao_path_control = 0;
+    neighbour->confirmed = 0;
 
     /* Need to limit number of neighbours here - chucking worst neighbour */
 
@@ -423,6 +426,11 @@ rpl_neighbour_t *rpl_create_neighbour(rpl_dodag_version_t *version, const uint8_
 
 void rpl_delete_neighbour(rpl_instance_t *instance, rpl_neighbour_t *neighbour)
 {
+    rpl_dao_target_t *dao_target = rpl_instance_get_active_target_confirmation(instance);
+    if (dao_target && instance->wait_response == neighbour) {
+        instance->wait_response = NULL;
+    }
+
     rpl_downward_neighbour_gone(instance, neighbour);
     ns_list_remove(&instance->candidate_neighbours, neighbour);
     if (neighbour->dao_path_control) {
@@ -627,6 +635,7 @@ rpl_dodag_t *rpl_create_dodag(rpl_instance_t *instance, const uint8_t *dodagid, 
     dodag->have_config = false;
     dodag->used = false;
     dodag->g_mop_prf = g_mop_prf;
+    dodag->new_config_advertisment_count = 0;
     // Default timer parameters and trickle start should never normally
     // be used - we would set the parameters from the DODAG Config and start
     // as we join a version. But initialising here catches odd cases where
@@ -720,6 +729,7 @@ bool rpl_dodag_update_config(rpl_dodag_t *dodag, const rpl_dodag_conf_t *conf, c
         /* They've changed the timing parameters for our currently-in-use trickle timer! */
         tr_warn("Trickle parameters changed");
         trickle_start(&dodag->instance->dio_timer, &dodag->dio_timer_params);
+        dodag->new_config_advertisment_count = 0;
     }
     dodag->instance->of = rpl_objective_lookup(conf->objective_code_point);
     /* We could be a leaf of an unknown OCP. Still need an OF to choose parents */
@@ -932,6 +942,33 @@ const prefix_list_t *rpl_dodag_get_prefix_list(const rpl_dodag_t *dodag)
 {
     return &dodag->prefixes;
 }
+
+/* Called before updating all prefixes in a DIO */
+void rpl_dodag_update_unpublished_dio_prefix_start(rpl_dodag_t *dodag)
+{
+    /* Clear age flags - will use as a marker for entries being in the DIO */
+    ns_list_foreach(prefix_entry_t, entry, &dodag->prefixes) {
+        if (!(entry->options & RPL_PIO_PUBLISHED)) {
+            entry->options &= ~RPL_PIO_AGE;
+        }
+    }
+}
+
+
+/* Called after updating all prefixes in a DIO */
+void rpl_dodag_update_unpublished_dio_prefix_finish(rpl_dodag_t *dodag)
+{
+    /* Any remaining non-published entries that don't have the age flag
+     * set are not being sent by parent any more, so we should stop sending
+     * too, except for the minimimum count requirement on 0 lifetime.
+     */
+    ns_list_foreach_safe(prefix_entry_t, entry, &dodag->prefixes) {
+        if ((entry->options & (RPL_PIO_PUBLISHED | RPL_PIO_AGE | RPL_PIO_HOLD_MASK)) == 0) {
+            rpl_dodag_delete_dio_prefix(dodag, entry);
+        }
+    }
+}
+
 prefix_entry_t *rpl_dodag_update_dio_prefix(rpl_dodag_t *dodag, const uint8_t *prefix, uint8_t prefix_len, uint8_t flags, uint32_t lifetime, uint32_t preftime, bool publish, bool age)
 {
     /* Don't let them set funny flags - we won't propagate them either.
@@ -948,20 +985,30 @@ prefix_entry_t *rpl_dodag_update_dio_prefix(rpl_dodag_t *dodag, const uint8_t *p
         flags |= RPL_PIO_AGE;
     }
 
-    if (lifetime == 0) {
-        flags |= RPL_MAX_FINAL_RTR_ADVERTISEMENTS;
-    }
-
-    prefix_entry_t *entry = icmpv6_prefix_add(&dodag->prefixes, prefix, prefix_len, lifetime, preftime, flags);
+    prefix_entry_t *entry = icmpv6_prefix_add(&dodag->prefixes, prefix, prefix_len, lifetime, preftime, 0xff);
     /* icmpv6_prefix_add indicates a new entry by leaving options set to 0xFF */
     if (entry) {
+        /* Newly-seen zero lifetimes should be advertised at least a few times -
+         * count this down in the RPL_PIO_HOLD_COUNT field
+         */
+        if (lifetime == 0 && (entry->options == 0xFF || entry->lifetime != 0)) {
+            flags |= RPL_MAX_FINAL_RTR_ADVERTISEMENTS;
+        }
         entry->options = flags;
+        entry->lifetime = lifetime;
+        entry->preftime = preftime;
     }
     return entry;
 }
 
 void rpl_dodag_delete_dio_prefix(rpl_dodag_t *dodag, prefix_entry_t *prefix)
 {
+    rpl_instance_t *instance = dodag->instance;
+
+    if (instance && instance->domain->prefix_cb) {
+        instance->domain->prefix_cb(prefix, instance->domain->cb_handle, NULL);
+    }
+
     ns_list_remove(&dodag->prefixes, prefix);
     ns_dyn_mem_free(prefix);
 }
@@ -984,7 +1031,11 @@ static void rpl_dodag_age_prefixes(rpl_dodag_t *dodag, uint16_t seconds)
                 prefix->lifetime -= seconds;
             } else {
                 prefix->lifetime = 0;
-                if ((prefix->options & RPL_PIO_HOLD_MASK) == 0) {
+                /* Only delete on timeout if we're publishing - otherwise we will
+                 * keep advertising until we see our parent stop advertising it - deletion
+                 * is handled in rpl_control_process_prefix_options.
+                 */
+                if ((prefix->options & (RPL_PIO_PUBLISHED | RPL_PIO_HOLD_MASK)) == RPL_PIO_PUBLISHED) {
                     rpl_dodag_delete_dio_prefix(dodag, prefix);
                 }
             }
@@ -1239,7 +1290,7 @@ static void rpl_instance_update_system_dio_route(rpl_instance_t *instance, rpl_n
 
     uint8_t metric = ipv6_route_pref_to_metric(pref) + parent->dodag_pref;
 
-    ipv6_route_add_metric(route->prefix, route->prefix_len, parent->interface_id, parent->ll_address, ROUTE_RPL_DIO, parent, instance->id, rpl_aged_lifetime(route->lifetime, parent->dio_timestamp), metric);
+    ipv6_route_add_metric(route->prefix, route->prefix_len, parent->interface_id, parent->ll_address, ROUTE_RPL_DIO, parent, instance->id, route->lifetime, metric);
 }
 
 /* Called when a DIO has been received */
@@ -1249,14 +1300,14 @@ void rpl_dodag_update_implicit_system_routes(rpl_dodag_t *dodag, rpl_neighbour_t
         return;
     }
 
-    uint32_t aged_default = rpl_aged_lifetime(rpl_default_lifetime(dodag), parent->dio_timestamp);
+    uint32_t default_lifetime = rpl_default_lifetime(dodag);
     uint8_t metric = IPV6_ROUTE_DEFAULT_METRIC + parent->dodag_pref;
 
     /* Always add the "root" default route - only used for per-instance lookup */
-    ipv6_route_add_metric(NULL, 0, parent->interface_id, parent->ll_address, ROUTE_RPL_INSTANCE, parent, dodag->instance->id, aged_default, metric);
+    ipv6_route_add_metric(NULL, 0, parent->interface_id, parent->ll_address, ROUTE_RPL_INSTANCE, parent, dodag->instance->id, default_lifetime, metric);
 
     /* Also add a specific route to the DODAGID */
-    ipv6_route_add_metric(dodag->id, 128, parent->interface_id, parent->ll_address, ROUTE_RPL_ROOT, parent, dodag->instance->id, aged_default, metric);
+    ipv6_route_add_metric(dodag->id, 128, parent->interface_id, parent->ll_address, ROUTE_RPL_ROOT, parent, dodag->instance->id, default_lifetime, metric);
 
 }
 
@@ -1306,6 +1357,11 @@ static void trace_info_print(const char *fmt, ...)
     va_end(ap);
 }
 
+static uint32_t rpl_dio_imax_time_calculate(uint16_t Imax, uint16_t fixed_point)
+{
+    return (((uint32_t)Imax * fixed_point) / 0x0100);
+}
+
 
 void rpl_instance_run_parent_selection(rpl_instance_t *instance)
 {
@@ -1324,7 +1380,8 @@ void rpl_instance_run_parent_selection(rpl_instance_t *instance)
     }
 
     ns_list_foreach_safe(rpl_neighbour_t, n, &instance->candidate_neighbours) {
-        if (rpl_aged_lifetime(rpl_default_lifetime(n->dodag_version->dodag), n->dio_timestamp) == 0) {
+        //Remove a Parent candidates which are not heared a long time ago and not slected ones
+        if (!n->dodag_parent && (rpl_aged_lifetime(rpl_default_lifetime(n->dodag_version->dodag), n->dio_timestamp) == 0)) {
             rpl_delete_neighbour(instance, n);
             continue;
         }
@@ -1365,6 +1422,9 @@ void rpl_instance_run_parent_selection(rpl_instance_t *instance)
 
     if (original_preferred != preferred_parent) {
         protocol_stats_update(STATS_RPL_PARENT_CHANGE, 1);
+        if (preferred_parent) {
+            tr_debug("New preferred parent %s", trace_array(preferred_parent->ll_address, 16));
+        }
     }
 
     // Sets new preferred parent
@@ -1385,6 +1445,15 @@ void rpl_instance_run_parent_selection(rpl_instance_t *instance)
     if (preferred_parent) {
         // Always stop repair if we find a parent
         rpl_instance_set_local_repair(instance, false);
+        //Validate time from last DIO
+
+        uint32_t time_between_parent = protocol_core_monotonic_time - preferred_parent->dio_timestamp;
+        uint32_t accepted_time = rpl_dio_imax_time_calculate(instance->current_dodag_version->dodag->dio_timer_params.Imax, rpl_policy_dio_validity_period(instance->domain));
+
+        if (accepted_time < time_between_parent) {
+            rpl_control_transmit_dis(instance->domain, NULL, RPL_SOLINFO_PRED_INSTANCEID, instance->id, NULL, 0, preferred_parent->ll_address);
+        }
+
     } else if (original_preferred) {
         // Only start repair if we just lost a parent
         rpl_instance_set_local_repair(instance, true);
@@ -1480,7 +1549,15 @@ void rpl_instance_dio_trigger(rpl_instance_t *instance, protocol_interface_info_
     }
 
     // Always send config in unicasts (as required), never in multicasts (optional)
-    rpl_dodag_conf_t *conf = addr ? &dodag->config : NULL;
+    rpl_dodag_conf_t *conf;
+    if (addr) {
+        conf = &dodag->config;
+    } else if (dodag->new_config_advertisment_count < rpl_policy_dio_multicast_config_advertisment_min_count()) {
+        conf = &dodag->config;
+        dodag->new_config_advertisment_count++;
+    } else {
+        conf = NULL;
+    }
 
     rpl_control_transmit_dio(instance->domain, cur, instance->id, dodag_version->number, rank, dodag->g_mop_prf, instance->dtsn, dodag, dodag->id, conf, addr);
 
@@ -1567,16 +1644,54 @@ uint16_t rpl_instance_current_rank(const rpl_instance_t *instance)
 bool rpl_instance_address_is_parent(rpl_instance_t *instance, const uint8_t *ipv6_addr)
 {
     ns_list_foreach(rpl_neighbour_t, neighbour, &instance->candidate_neighbours) {
-        if (neighbour->dodag_parent && addr_ipv6_equal(neighbour->ll_address, ipv6_addr)) {
-            return true;
-        }
         if (!neighbour->dodag_parent) {
             // list is ordered so first encounter of false means no more parents in list
             return false;
         }
+
+        if (addr_ipv6_equal(neighbour->ll_address, ipv6_addr)) {
+            return true;
+        }
     }
     return false;
 }
+
+bool rpl_instance_address_is_candidate(rpl_instance_t *instance, const uint8_t *ipv6_addr, uint16_t candidate_amount)
+{
+    uint16_t list_compared = 0;
+
+    ns_list_foreach(rpl_neighbour_t, neighbour, &instance->candidate_neighbours) {
+        if (addr_ipv6_equal(neighbour->ll_address, ipv6_addr)) {
+            return true;
+        }
+        list_compared++;
+        if (candidate_amount && list_compared >= candidate_amount) {
+            return false;
+        }
+
+    }
+    return false;
+}
+
+uint16_t rpl_instance_address_candidate_count(rpl_instance_t *instance, bool selected_parents)
+{
+    uint16_t parent_list = 0;
+
+    ns_list_foreach(rpl_neighbour_t, neighbour, &instance->candidate_neighbours) {
+
+
+        if (selected_parents) {
+            if (neighbour->dodag_parent) {
+                parent_list++;
+            }
+        } else {
+            parent_list++;
+        }
+    }
+    return parent_list;
+}
+
+
 void rpl_instance_neighbor_delete(rpl_instance_t *instance, const uint8_t *ipv6_addr)
 {
     ns_list_foreach_safe(rpl_neighbour_t, neighbour, &instance->candidate_neighbours) {
@@ -1592,6 +1707,8 @@ void rpl_instance_slow_timer(rpl_instance_t *instance, uint16_t seconds)
     ns_list_foreach(rpl_dodag_t, dodag, &instance->dodags) {
         rpl_dodag_slow_timer(dodag, seconds);
     }
+
+    rpl_instance_parent_address_reg_timer_update(instance, seconds);
     rpl_instance_parent_selection_timer(instance, seconds);
     if (!rpl_instance_preferred_parent(instance)) {
         protocol_stats_update(STATS_RPL_TIME_NO_NEXT_HOP, 1);
@@ -1622,6 +1739,18 @@ void rpl_upward_dio_timer(rpl_instance_t *instance, uint16_t ticks)
 
     /* Leaves don't send normal periodic DIOs */
     if (rpl_dodag_am_leaf(dodag) && !instance->poison_count) {
+        return;
+    }
+    // We dont have any valid address in interface
+    if (ns_list_count(&instance->dao_targets) == 0) {
+        return;
+    }
+    /* Address registrations for parent ongoing*/
+    if (rpl_policy_parent_confirmation_requested() && instance->pending_neighbour_confirmation) {
+        return;
+    }
+    /* If we are waiting for DAO or DAO registration is needed we dont send periodic DIOs */
+    if (instance->dao_in_transit || instance->delay_dao_timer > 0) {
         return;
     }
     if (trickle_timer(&instance->dio_timer, &dodag->dio_timer_params, ticks)) {
@@ -1742,8 +1871,19 @@ void rpl_upward_print_instance(rpl_instance_t *instance, route_print_fn_t *print
     }
 }
 
-uint16_t rpl_upward_read_dao_target_list_size(const rpl_instance_t *instance)
+uint16_t rpl_upward_read_dao_target_list_size(const rpl_instance_t *instance, const uint8_t *target_prefix)
 {
+
+    if (target_prefix) {
+        uint16_t registered_address_count = 0;
+        ns_list_foreach(rpl_dao_target_t, target, &instance->dao_targets) {
+            if (bitsequal(target->prefix, target_prefix, 64)) {
+                registered_address_count++;
+            }
+        }
+        return registered_address_count;
+    }
+
     return ns_list_count(&instance->dao_targets);
 }
 
@@ -1791,6 +1931,28 @@ bool rpl_upward_read_dodag_info(const rpl_instance_t *instance, rpl_dodag_info_t
     dodag_info->secondary_parent_rank = sec_parent->rank;
 
     return true;
+}
+
+bool rpl_upward_accept_prefix_update(const rpl_dodag_t *dodag_info, const rpl_neighbour_t *neighbour, const rpl_neighbour_t *pref_parent)
+{
+    //Accept allways from Pref parent or before it is selected
+    if (!pref_parent || neighbour == pref_parent) {
+        return true;
+    }
+
+    //Accept only same or higher version number
+    if (rpl_dodag_version_compare(neighbour->dodag_version, pref_parent->dodag_version) & (RPL_CMP_EQUAL | RPL_CMP_GREATER)) {
+        //Calculate Time between from last dio from parent and this neighbour
+        //neighbour dio_timestamp >= pref_parent's, because it's a newly-received message
+        uint32_t time_between_parent = neighbour->dio_timestamp - pref_parent->dio_timestamp;
+        uint32_t accepted_time = rpl_dio_imax_time_calculate(dodag_info->dio_timer_params.Imax, 0x0200);
+        //Accept prefix Update If Time from last DIO is more than 2 x Max
+        if (accepted_time < time_between_parent) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 #endif /* HAVE_RPL */

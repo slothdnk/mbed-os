@@ -88,8 +88,16 @@ void analogin_init(analogin_t *obj, PinName pin)
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_ADC;
     PeriphClkInitStruct.AdcClockSelection    = RCC_ADCCLKSOURCE_CLKP;
     PeriphClkInitStruct.PLL2.PLL2P           = 4;
+#if defined(DUAL_CORE)
+    uint32_t timeout = HSEM_TIMEOUT;
+    while (LL_HSEM_1StepLock(HSEM, CFG_HW_RCC_SEMID) && (--timeout != 0)) {
+    }
+#endif /* DUAL_CORE */
     HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
     __HAL_RCC_ADC_CONFIG(RCC_ADCCLKSOURCE_CLKP);
+#if defined(DUAL_CORE)
+    LL_HSEM_ReleaseLock(HSEM, CFG_HW_RCC_SEMID, HSEM_CR_COREID_CURRENT);
+#endif /* DUAL_CORE */
 
 #if defined(ADC1)
     if ((ADCName)obj->handle.Instance == ADC_1) {
@@ -190,27 +198,45 @@ uint16_t adc_read(analogin_t *obj)
             break;
         case 17:
             sConfig.Channel = ADC_CHANNEL_17;
+
+            if ((ADCName)obj->handle.Instance == ADC_3) {
+                sConfig.Channel = ADC_CHANNEL_VBAT;
+                sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
+            }
             break;
         case 18:
             sConfig.Channel = ADC_CHANNEL_18;
+
+            if ((ADCName)obj->handle.Instance == ADC_3) {
+                sConfig.Channel = ADC_CHANNEL_TEMPSENSOR;
+                sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
+            }
             break;
         case 19:
             sConfig.Channel = ADC_CHANNEL_19;
+
+            if ((ADCName)obj->handle.Instance == ADC_3) {
+                sConfig.Channel = ADC_CHANNEL_VREFINT;
+                sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
+            }
             break;
         default:
             return 0;
     }
+
+    LL_ADC_Disable((&obj->handle)->Instance);
 
     HAL_ADC_ConfigChannel(&obj->handle, &sConfig);
 
     HAL_ADC_Start(&obj->handle); // Start conversion
 
     // Wait end of conversion and get value
+    uint16_t adcValue = 0;
     if (HAL_ADC_PollForConversion(&obj->handle, 10) == HAL_OK) {
-        return (uint16_t)HAL_ADC_GetValue(&obj->handle);
-    } else {
-        return 0;
+        adcValue = (uint16_t)HAL_ADC_GetValue(&obj->handle);
     }
+    LL_ADC_SetCommonPathInternalCh(__LL_ADC_COMMON_INSTANCE((&obj->handle)->Instance), LL_ADC_PATH_INTERNAL_NONE);
+    return adcValue;
 }
 
 const PinMap *analogin_pinmap()

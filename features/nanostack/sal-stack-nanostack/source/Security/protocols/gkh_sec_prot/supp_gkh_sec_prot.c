@@ -60,13 +60,6 @@ typedef struct {
     uint16_t                      recv_size;        /**< Received pdu size */
 } gkh_sec_prot_int_t;
 
-static const trickle_params_t gkh_trickle_params = {
-    .Imin = 50,            /* 5000ms; ticks are 100ms */
-    .Imax = 150,           /* 15000ms */
-    .k = 0,                /* infinity - no consistency checking */
-    .TimerExpirations = 4
-};
-
 static uint16_t supp_gkh_sec_prot_size(void);
 static int8_t supp_gkh_sec_prot_init(sec_prot_t *prot);
 
@@ -142,12 +135,18 @@ static int8_t supp_gkh_sec_prot_receive(sec_prot_t *prot, void *pdu, uint16_t si
     if (eapol_parse_pdu_header(pdu, size, &data->recv_eapol_pdu)) {
         // Get message
         if (supp_gkh_sec_prot_message_get(&data->recv_eapol_pdu, prot->sec_keys) != GKH_MESSAGE_UNKNOWN) {
+            tr_info("GKH: recv Message 1");
+
             // Call state machine
             data->recv_pdu = pdu;
             data->recv_size = size;
             prot->state_machine(prot);
+        } else {
+            tr_error("GKH: recv error");
         }
         ret_val = 0;
+    } else {
+        tr_error("GKH: recv error");
     }
 
     memset(&data->recv_eapol_pdu, 0, sizeof(eapol_pdu_t));
@@ -166,16 +165,18 @@ static gkh_sec_prot_msg_e supp_gkh_sec_prot_message_get(eapol_pdu_t *eapol_pdu, 
         return GKH_MESSAGE_UNKNOWN;
     }
 
-    uint8_t key_mask = sec_prot_lib_key_mask_get(eapol_pdu);
+    uint8_t key_mask = eapol_pdu_key_mask_get(eapol_pdu);
 
     switch (key_mask) {
         case KEY_INFO_KEY_ACK | KEY_INFO_KEY_MIC | KEY_INFO_SECURED_KEY_FRAME:
             // Must have valid replay counter
-            if (eapol_pdu->msg.key.replay_counter > sec_prot_keys_pmk_replay_cnt_get(sec_keys)) {
+            if (sec_prot_keys_pmk_replay_cnt_compare(eapol_pdu->msg.key.replay_counter, sec_keys)) {
                 if (eapol_pdu->msg.key.key_information.encrypted_key_data) {
                     // This should include the GTK KDE, Lifetime KDE and GTKL KDE.
                     msg = GKH_MESSAGE_1;
                 }
+            } else {
+                tr_error("GKH: invalid replay counter %"PRId64, eapol_pdu->msg.key.replay_counter);
             }
             break;
         default:
@@ -207,6 +208,8 @@ static int8_t supp_gkh_sec_prot_message_send(sec_prot_t *prot, gkh_sec_prot_msg_
         return -1;
     }
 
+    tr_info("GKH: send Message 2");
+
     if (prot->send(prot, eapol_pdu_frame, eapol_pdu_size + prot->header_size) < 0) {
         return -1;
     }
@@ -217,7 +220,7 @@ static int8_t supp_gkh_sec_prot_message_send(sec_prot_t *prot, gkh_sec_prot_msg_
 static void supp_gkh_sec_prot_timer_timeout(sec_prot_t *prot, uint16_t ticks)
 {
     gkh_sec_prot_int_t *data = gkh_sec_prot_get(prot);
-    sec_prot_timer_timeout_handle(prot, &data->common, &gkh_trickle_params, ticks);
+    sec_prot_timer_timeout_handle(prot, &data->common, NULL, ticks);
 }
 
 static void supp_gkh_sec_prot_state_machine(sec_prot_t *prot)
@@ -227,7 +230,9 @@ static void supp_gkh_sec_prot_state_machine(sec_prot_t *prot)
     // GKH supplicant state machine
     switch (sec_prot_state_get(&data->common)) {
         case GKH_STATE_INIT:
+            tr_info("GKH init");
             sec_prot_state_set(prot, &data->common, GKH_STATE_MESSAGE_1);
+            prot->timer_start(prot);
             break;
 
         // Wait GKH message 1 (starts handshake on supplicant)
@@ -240,11 +245,12 @@ static void supp_gkh_sec_prot_state_machine(sec_prot_t *prot)
                 return;
             }
 
+            // Set default timeout for the total maximum length of the negotiation
+            sec_prot_default_timeout_set(&data->common);
+
             supp_gkh_sec_prot_security_replay_counter_update(prot);
 
-            tr_debug("GKH start");
-
-            prot->timer_start(prot);
+            tr_info("GKH start");
 
             // Send KMP-CREATE.indication
             prot->create_ind(prot);
@@ -264,7 +270,7 @@ static void supp_gkh_sec_prot_state_machine(sec_prot_t *prot)
             break;
 
         case GKH_STATE_FINISH:
-            tr_debug("GKH finish");
+            tr_info("GKH finish");
 
             // KMP-FINISHED.indication,
             prot->finished_ind(prot, sec_prot_result_get(&data->common), prot->sec_keys);
@@ -272,6 +278,7 @@ static void supp_gkh_sec_prot_state_machine(sec_prot_t *prot)
             break;
 
         case GKH_STATE_FINISHED:
+            tr_info("GKH finished");
             prot->timer_stop(prot);
             prot->finished(prot);
             break;
@@ -304,15 +311,11 @@ static int8_t supp_gkh_kde_handle(sec_prot_t *prot)
     }
 
     // If a valid new GTK value present, insert it
-    int8_t ret = sec_prot_lib_gtk_read(kde, kde_len, prot->sec_keys->gtks);
+    int8_t ret = sec_prot_lib_gtk_read(kde, kde_len, prot->sec_keys);
 
     ns_dyn_mem_free(kde);
 
-    if (ret < 0 || sec_prot_keys_gtk_insert_index_get(prot->sec_keys->gtks) < 0) {
-        return -1;
-    } else {
-        return 0;
-    }
+    return ret;
 }
 
 #endif /* HAVE_WS */

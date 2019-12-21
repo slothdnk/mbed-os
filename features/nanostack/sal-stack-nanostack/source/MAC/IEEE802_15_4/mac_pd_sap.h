@@ -27,6 +27,7 @@
 struct protocol_interface_rf_mac_setup;
 struct arm_phy_sap_msg_s;
 
+#define ENHANCED_ACK_NEIGHBOUR_POLL_MAX_TIME_US 3500
 
 /**
  * Send a buffer to the MAC.
@@ -38,6 +39,8 @@ struct arm_phy_sap_msg_s;
 int8_t mac_pd_sap_req(struct protocol_interface_rf_mac_setup *rf_mac_setup);
 
 int8_t mac_plme_cca_req(struct protocol_interface_rf_mac_setup *rf_mac_setup);
+
+void mac_pd_abort_active_tx(struct protocol_interface_rf_mac_setup *rf_mac_setup);
 
 void mac_pd_sap_set_phy_tx_time(struct protocol_interface_rf_mac_setup *rf_mac_setup, uint32_t tx_time, bool cca_enabled);
 

@@ -18,7 +18,7 @@
 #include "string.h"
 #include "psa/client.h"
 #include "psa/service.h"
-#include "psa_server_tests_part1_partition.h"
+#include "mbed_spm_partitions.h"
 #include "server_tests.h"
 #include "psa_manifest/sid.h"
 
@@ -698,6 +698,8 @@ psa_test_server_side_func test_list[] = {
     PSA_TEST_SERVER_NAME(skip_more_than_left),
     PSA_TEST_SERVER_NAME(rhandle_factorial),
     PSA_TEST_SERVER_NAME(cross_partition_call),
+#if defined TARGET_MBED_SPM // TF-M issue: https://developer.trustedfirmware.org/T273
     PSA_TEST_SERVER_NAME(doorbell_test),
+#endif
     NULL
 };

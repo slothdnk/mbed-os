@@ -62,15 +62,16 @@ Please refer to the following table for priorities of test cases. Priorities are
 | 9   | WIFI_CONNECT_PARAMS_CHANNEL             |                            | SHOULD   |
 | 10  | WIFI_CONNECT_PARAMS_CHANNEL_FAIL        |                            | SHOULD   |
 | 11  | WIFI_CONNECT                            |                            | MUST     |
-| 12  | WIFI_CONNECT_SECURE                     | With security type:        |          |
+| 12  | WIFI_CONNECT_DISCONNECT_NONBLOCK        |                            | SHOULD   |
+| 13  | WIFI_CONNECT_SECURE                     | With security type:        |          |
 |     |                                         | NSAPI_SECURITY_WEP         | SHOULD   |
 |     |                                         | NSAPI_SECURITY_WPA         | SHOULD   |
 |     |                                         | NSAPI_SECURITY_WPA2        | SHOULD   |
 |     |                                         | NSAPI_SECURITY_WPA_WPA2    | MUST     |
-| 13  | WIFI_CONNECT_SECURE_FAIL                |                            | MUST     |
-| 14  | WIFI_CONNECT_DISCONNECT_REPEAT          |                            | MUST     |
-| 15  | WIFI_SCAN_NULL                          |                            | SHOULD   |
-| 16  | WIFI_SCAN                               |                            | SHOULD   |
+| 14  | WIFI_CONNECT_SECURE_FAIL                |                            | MUST     |
+| 15  | WIFI_CONNECT_DISCONNECT_REPEAT          |                            | MUST     |
+| 16  | WIFI_SCAN_NULL                          |                            | SHOULD   |
+| 17  | WIFI_SCAN                               |                            | SHOULD   |
 
 Building test binaries
 ----------------------
@@ -87,10 +88,12 @@ git checkout master
 cd ..
 ```
 
+Prepare an `mbed_app.json` configuration file with all the required definitions provided. See [template_mbed_app.txt](template_mbed_app.txt) file for the full list of necessary definitions.
+
 Now build test binaries:
 
 ```.sh
-mbed test --compile -t <toolchain> -m <target> -n mbed-os-tests-network-wifi
+mbed test --compile -t <toolchain> -m <target> --app-config TESTS/network/wifi/template_mbed_app.txt -n mbed-os-tests-network-wifi
 ```
 
 Running tests
@@ -370,7 +373,7 @@ Test `WiFiInterface::connect()` without parameters. Use `set_credentials()` for 
 2.  `Call WiFiInterface::set_credentials( <ssid:unsecure>, NULL)`.
 3.  `Call WiFiInterface::connect()`.
 4.  `disconnect()`.
-5.  `Call WiFiInterface::set_credentials( <ssid:unsecure>, "")`.
+5.  `Call WiFiInterface::set_credentials( <ssid:unsecure>, "")`.
 6.  `Call WiFiInterface::connect()`.
 7.  `disconnect()`.
 8.  Trash the memory storing SSID.
@@ -381,6 +384,39 @@ Test `WiFiInterface::connect()` without parameters. Use `set_credentials()` for 
 **Expected result:**
 
 `connect()` calls return `NSAPI_ERROR_OK`.
+
+### WIFI_CONNECT_DISCONNECT_NONBLOCK
+
+**Description:**
+
+Test `WiFiInterface::connect()` and `WiFiInterface::disconnect()` in non-blocking mode. It checks that driver can connect and disconnect in nonblocking mode. 
+
+**Preconditions:**
+
+1.  Test enviroment is set up as specified in the "Test Environment" chapter.
+
+**Test steps:**
+
+1.  Initialize the driver.
+2.  `Call WiFiInterface::set_credentials( <ssid:unsecure>, NULL)`.
+3.  `Call WiFiInterface::set_blocking(false)`
+4.  `Call WiFiInterface::connect()`.
+5.  `Cal WiFiInterface::set_credentials(const char *ssid, const char *pass, nsapi_security_t security)`
+6.  `Call WiFiInterface::connect()`.
+7.  `disconnect()`
+8.  `disconnect()`
+9. `Call WiFiInterface::set_blocking(true)`
+
+**Expected result:**
+
+1. Drivers which do not support asynchronous mode `set_blocking(false)` call returns `NSAPI_ERROR_UNSUPPORTED` and skips test case.
+2. `connect()` call returns  `NSAPI_ERROR_OK`. 
+3. `set_credentials(...)` call returns `NSAPI_ERROR_BUSY`. 
+4. Second `connect()` call returns `NSAPI_ERROR_BUSY` or `NSAPI_ERROR_IS_CONNECTED`.
+5. Attached callback informs about connection status. Callback reports status `NSAPI_STATUS_CONNECTING` and `NSAPI_STATUS_CONNECTED`. 
+6. `disconnect()` call returns `NSAPI_ERROR_OK`. 
+7. Second `disconnect()` call returns `NSAPI_ERROR_BUSY` or `NSAPI_ERROR_IS_CONNECTED`. 
+8. To confirm disconnection callback reports `NSAPI_STATUS_DISCONNECTED`.
 
 ### WIFI_CONNECT_SECURE
 

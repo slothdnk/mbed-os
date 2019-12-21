@@ -39,6 +39,7 @@ extern "C"
 #define PSA_PS_GLOBAL_PID        1
 
 static KVStore *kvstore = NULL;
+static bool initialized = false;
 
 MBED_WEAK psa_status_t ps_version_migrate(KVStore *kvstore,
                                           const psa_storage_version_t *old_version, const psa_storage_version_t *new_version)
@@ -61,52 +62,85 @@ static void ps_init(void)
     KVMap &kv_map = KVMap::get_instance();
     psa_storage_version_t version = {PSA_PS_API_VERSION_MAJOR, PSA_PS_API_VERSION_MINOR};
     kvstore = kv_map.get_main_kv_instance(STR_EXPAND(MBED_CONF_STORAGE_DEFAULT_KV));
-    if (!kvstore) {
+    KVStore *int_kvstore = kv_map.get_internal_kv_instance(STR_EXPAND(MBED_CONF_STORAGE_DEFAULT_KV));;
+    if (!kvstore || !int_kvstore) {
         // Can only happen due to system misconfiguration.
         // Thus considered as unrecoverable error for runtime.
         error("Failed getting kvstore instance\n");
     }
 
     psa_storage_handle_version(kvstore, PS_VERSION_KEY, &version, ps_version_migrate);
+    initialized = true;
 }
 
 // used from test only
 void ps_deinit(void)
 {
     kvstore = NULL;
+    initialized = false;
 }
 
 
-psa_status_t psa_ps_set(psa_storage_uid_t uid, uint32_t data_length, const void *p_data, psa_storage_create_flags_t create_flags)
+psa_status_t psa_ps_set(psa_storage_uid_t uid, size_t data_length, const void *p_data, psa_storage_create_flags_t create_flags)
 {
-    if (!kvstore) {
+    if (!initialized) {
         ps_init();
     }
 
-    return psa_storage_set_impl(kvstore, PSA_PS_GLOBAL_PID, uid, data_length, p_data, create_flags);
+    if (create_flags & ~
+            (PSA_STORAGE_FLAG_WRITE_ONCE | PSA_STORAGE_FLAG_NO_CONFIDENTIALITY | PSA_STORAGE_FLAG_NO_REPLAY_PROTECTION)) {
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+
+    // Assume confidentiality and replay protection are set by default
+    uint32_t kv_create_flags = KVStore::REQUIRE_CONFIDENTIALITY_FLAG | KVStore::REQUIRE_REPLAY_PROTECTION_FLAG;
+
+    if (create_flags & PSA_STORAGE_FLAG_NO_CONFIDENTIALITY) {
+        kv_create_flags &= ~KVStore::REQUIRE_CONFIDENTIALITY_FLAG;
+    }
+    if (create_flags & PSA_STORAGE_FLAG_NO_REPLAY_PROTECTION) {
+        kv_create_flags &= ~KVStore::REQUIRE_REPLAY_PROTECTION_FLAG;
+    }
+    if (create_flags & PSA_STORAGE_FLAG_WRITE_ONCE) {
+        kv_create_flags |= KVStore::WRITE_ONCE_FLAG;
+    }
+
+    return psa_storage_set_impl(kvstore, PSA_PS_GLOBAL_PID, uid, data_length, p_data, kv_create_flags);
 }
 
-psa_status_t psa_ps_get(psa_storage_uid_t uid, uint32_t data_offset, uint32_t data_length, void *p_data)
+psa_status_t psa_ps_get(psa_storage_uid_t uid, size_t data_offset, size_t data_length, void *p_data, size_t *p_data_length)
 {
-    if (!kvstore) {
+    if (!initialized) {
         ps_init();
     }
 
-    return psa_storage_get_impl(kvstore, PSA_PS_GLOBAL_PID, uid, data_offset, data_length, p_data);
+    return psa_storage_get_impl(kvstore, PSA_PS_GLOBAL_PID, uid, data_offset, data_length, p_data, p_data_length);
 }
 
 psa_status_t psa_ps_get_info(psa_storage_uid_t uid, struct psa_storage_info_t *p_info)
 {
-    if (!kvstore) {
+    psa_status_t ret;
+    uint32_t kv_get_flags;
+
+    if (!initialized) {
         ps_init();
     }
 
-    return psa_storage_get_info_impl(kvstore, PSA_PS_GLOBAL_PID, uid, p_info);
+    ret = psa_storage_get_info_impl(kvstore, PSA_PS_GLOBAL_PID, uid, p_info, &kv_get_flags);
+
+    if ((kv_get_flags & ~KVStore::REQUIRE_CONFIDENTIALITY_FLAG) == kv_get_flags) {
+        p_info->flags |= PSA_STORAGE_FLAG_NO_CONFIDENTIALITY;
+    }
+    if ((kv_get_flags & ~KVStore::REQUIRE_REPLAY_PROTECTION_FLAG) == kv_get_flags) {
+        p_info->flags |= PSA_STORAGE_FLAG_NO_REPLAY_PROTECTION;
+    }
+
+    return ret;
 }
 
 psa_status_t psa_ps_remove(psa_storage_uid_t uid)
 {
-    if (!kvstore) {
+    if (!initialized) {
         ps_init();
     }
 

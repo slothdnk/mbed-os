@@ -26,13 +26,11 @@
 #elif COMPONENT_SD
 #include "SDBlockDevice.h"
 #include "FATFileSystem.h"
-#elif COMPONENT_FLASHIAP
-#include "FlashIAPBlockDevice.h"
-#include "LittleFileSystem.h"
 #else
 #error [NOT_SUPPORTED] storage test not supported on this platform
 #endif
 
+#if COMPONENT_SPIF || COMPONENT_SD
 using namespace utest::v1;
 using namespace mbed;
 
@@ -45,6 +43,7 @@ FILE *fd[test_files];
 
 BlockDevice *bd = BlockDevice::get_default_instance();
 FileSystem  *fs = FileSystem::get_default_instance();
+const char *bd_type;
 
 /*----------------help functions------------------*/
 
@@ -74,6 +73,7 @@ static void deinit()
 //init the blockdevice and reformat the filesystem
 static void bd_init_fs_reformat()
 {
+    bd_type = bd->get_type();
     init();
 }
 
@@ -2096,7 +2096,7 @@ Case cases[] = {
 
 utest::v1::status_t greentea_test_setup(const size_t number_of_cases)
 {
-    GREENTEA_SETUP(3000, "default_auto");
+    GREENTEA_SETUP(300, "default_auto");
     return greentea_test_setup_handler(number_of_cases);
 }
 
@@ -2106,3 +2106,5 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // COMPONENT_SPIF || COMPONENT_SD

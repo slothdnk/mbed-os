@@ -1,6 +1,6 @@
 /***************************************************************************//**
 * \file system_psoc6.h
-* \version 2.30
+* \version 2.60
 *
 * \brief Device system header file.
 *
@@ -320,8 +320,23 @@
 *       <th>Reason for Change</th>
 *   </tr>
 *   <tr>
+*       <td>2.60</td>
+*       <td>Updated linker scripts.</td>
+*       <td>Provided support for new devices, updated usage of CM0p prebuilt image.</td>
+*   </tr>
+*   <tr>
+*       <td>2.50</td>
+*       <td>Updated assembler files, C files, linker scripts.</td>
+*       <td>Dynamic allocated HEAP size for Arm Compiler 6, IAR 8.</td>
+*   </tr>
+*   <tr>
+*       <td>2.40</td>
+*       <td>Updated assembler files, C files, linker scripts.</td>
+*       <td>Added Arm Compiler 6 support.</td>
+*   </tr>
+*   <tr>
 *       <td rowspan="2">2.30</td>
-*       <td>Added assembler files, linker skripts for Mbed OS.</td>
+*       <td>Added assembler files, linker scripts for Mbed OS.</td>
 *       <td>Added Arm Mbed OS embedded operating system support.</td>
 *   </tr>
 *   <tr>
@@ -539,11 +554,7 @@ extern "C" {
 * \addtogroup group_system_config_system_functions
 * \{
 */
-#if defined(__ARMCC_VERSION)
-    extern void SystemInit(void) __attribute__((constructor));
-#else
-    extern void SystemInit(void);
-#endif /* (__ARMCC_VERSION) */
+extern void SystemInit(void);
 
 extern void SystemCoreClockUpdate(void);
 /** \} group_system_config_system_functions */

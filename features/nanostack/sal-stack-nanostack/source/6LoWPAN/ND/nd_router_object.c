@@ -855,8 +855,14 @@ static void nd_update_registration(protocol_interface_info_entry_t *cur_interfac
          */
         mac_neighbor_table_entry_t *entry = mac_neighbor_table_address_discover(mac_neighbor_info(cur_interface), ipv6_neighbour_eui64(&cur_interface->ipv6_neighbour_cache, neigh), ADDR_802_15_4_LONG);
 
-        if (entry && !entry->ffd_device) {
-            rpl_control_publish_host_address(protocol_6lowpan_rpl_domain, neigh->ip_address, neigh->lifetime);
+        if (entry) {
+            if (ws_info(cur_interface)) {
+                ws_common_etx_validate(cur_interface, entry);
+            }
+
+            if (!entry->ffd_device) {
+                rpl_control_publish_host_address(protocol_6lowpan_rpl_domain, neigh->ip_address, neigh->lifetime);
+            }
         }
         protocol_6lowpan_neighbor_address_state_synch(cur_interface, aro->eui64, neigh->ip_address + 8);
 
@@ -926,7 +932,7 @@ bool nd_ns_aro_handler(protocol_interface_info_entry_t *cur_interface, const uin
 
     /* TODO - check hard upper limit on registrations? */
     if (ws_info(cur_interface) &&
-            !ws_common_allow_child_registration(cur_interface)) {
+            !ws_common_allow_child_registration(cur_interface, aro_out->eui64)) {
         aro_out->present = true;
         aro_out->status = ARO_FULL;
         return true;

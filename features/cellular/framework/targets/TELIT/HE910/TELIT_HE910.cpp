@@ -28,9 +28,15 @@ static const intptr_t cellular_properties[AT_CellularBase::PROPERTY_MAX] = {
     0,  // AT_CGSN_WITH_TYPE
     1,  // AT_CGDATA
     0,  // AT_CGAUTH
+    1,  // AT_CNMI
+    1,  // AT_CSMP
+    1,  // AT_CMGF
+    1,  // AT_CSDH
     1,  // PROPERTY_IPV4_STACK
     0,  // PROPERTY_IPV6_STACK
     0,  // PROPERTY_IPV4V6_STACK
+    0,  // PROPERTY_NON_IP_PDP_TYPE
+    1,  // PROPERTY_AT_CGEREP
 };
 
 TELIT_HE910::TELIT_HE910(FileHandle *fh) : AT_CellularDevice(fh)
@@ -49,11 +55,7 @@ nsapi_error_t TELIT_HE910::init()
     if (err != NSAPI_ERROR_OK) {
         return err;
     }
-    _at->lock();
-    _at->cmd_start("AT&K0;&C1;&D0");
-    _at->cmd_stop_read_resp();
-
-    return _at->unlock_return_error();
+    return _at->at_cmd_discard("&K0;&C1;&D0", "");
 }
 
 #if MBED_CONF_TELIT_HE910_PROVIDE_DEFAULT

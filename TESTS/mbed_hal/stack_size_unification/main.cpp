@@ -1,6 +1,6 @@
 /* mbed Microcontroller Library
  * Copyright (c) 2019-2019 ARM Limited
- * 
+ *
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,7 @@
 
 #ifdef TARGET_RENESAS
 #error [NOT_SUPPORTED] Cortex-A target not supported for this test
-#endif
+#else
 
 using namespace utest::v1;
 
@@ -74,3 +74,5 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // TARGET_RENESAS

@@ -29,7 +29,7 @@
  */
 
 typedef enum {
-    INVALID_KMP_TYPE = 0,
+    KMP_TYPE_NONE = 0,
 
     IEEE_802_1X_MKA = 1,
     IEEE_802_11_4WH = 6,
@@ -151,6 +151,16 @@ void kmp_api_delete(kmp_api_t *kmp);
  *
  */
 kmp_type_e kmp_api_type_get(kmp_api_t *kmp);
+
+/**
+ * kmp_api_type_get get receive disabled status
+ *
+ * \param kmp instance
+ *
+ * \return true/false true when receiving has been disabled
+ *
+ */
+bool kmp_api_receive_disable(kmp_api_t *kmp);
 
 /**
  * kmp_api_type_from_id_get get KMP type from KMP id

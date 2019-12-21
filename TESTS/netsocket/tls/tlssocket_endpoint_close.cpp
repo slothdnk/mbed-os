@@ -40,7 +40,7 @@ static nsapi_error_t _tlssocket_connect_to_daytime_srv(TLSSocket &sock)
 {
     SocketAddress tls_addr;
 
-    NetworkInterface::get_default_instance()->gethostbyname(MBED_CONF_APP_ECHO_SERVER_ADDR, &tls_addr);
+    NetworkInterface::get_default_instance()->gethostbyname(ECHO_SERVER_ADDR, &tls_addr);
     tls_addr.set_port(2013);
 
     nsapi_error_t err = sock.open(NetworkInterface::get_default_instance());
@@ -48,12 +48,17 @@ static nsapi_error_t _tlssocket_connect_to_daytime_srv(TLSSocket &sock)
         return err;
     }
 
+    TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, sock.set_root_ca_cert(tls_global::cert));
+
+    sock.set_timeout(10000); // Set timeout for case TLSSocket does not support peer closed indication
+
     return sock.connect(tls_addr);
 }
 
 
 void TLSSOCKET_ENDPOINT_CLOSE()
 {
+    SKIP_IF_TCP_UNSUPPORTED();
     static const int MORE_THAN_AVAILABLE = 30;
     char buff[MORE_THAN_AVAILABLE];
     int time_allotted = split2half_rmng_tls_test_time(); // [s]
@@ -61,7 +66,6 @@ void TLSSOCKET_ENDPOINT_CLOSE()
     tc_exec_time.start();
 
     TLSSocket sock;
-    TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, sock.set_root_ca_cert(tls_global::cert));
     if (_tlssocket_connect_to_daytime_srv(sock) != NSAPI_ERROR_OK) {
         TEST_FAIL();
         return;

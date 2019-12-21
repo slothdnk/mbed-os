@@ -1,6 +1,7 @@
 /*
  * mbed Microcontroller Library
  * Copyright (c) 2017-2018 Future Electronics
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,67 +19,101 @@
 #ifndef MBED_PINNAMESTYPES_H
 #define MBED_PINNAMESTYPES_H
 
-#include "cmsis.h"
+#include "cyhal_gpio.h"
+#include "cybsp_types.h"
+
+// Pin Modes
+#define PullNone CYHAL_GPIO_DRIVE_STRONG
+#define PullDefault CYHAL_GPIO_DRIVE_NONE
+#define PullDown CYHAL_GPIO_DRIVE_PULLDOWN
+#define PullUp CYHAL_GPIO_DRIVE_PULLUP
+
+// Arduino Headers
+#ifdef CYBSP_A0
+#define A0 CYBSP_A0
+#endif
+#ifdef CYBSP_A1
+#define A1 CYBSP_A1
+#endif
+#ifdef CYBSP_A2
+#define A2 CYBSP_A2
+#endif
+#ifdef CYBSP_A3
+#define A3 CYBSP_A3
+#endif
+#ifdef CYBSP_A4
+#define A4 CYBSP_A4
+#endif
+#ifdef CYBSP_A5
+#define A5 CYBSP_A5
+#endif
+#ifdef CYBSP_D0
+#define D0 CYBSP_D0
+#endif
+#ifdef CYBSP_D1
+#define D1 CYBSP_D1
+#endif
+#ifdef CYBSP_D2
+#define D2 CYBSP_D2
+#endif
+#ifdef CYBSP_D3
+#define D3 CYBSP_D3
+#endif
+#ifdef CYBSP_D4
+#define D4 CYBSP_D4
+#endif
+#ifdef CYBSP_D5
+#define D5 CYBSP_D5
+#endif
+#ifdef CYBSP_D6
+#define D6 CYBSP_D6
+#endif
+#ifdef CYBSP_D7
+#define D7 CYBSP_D7
+#endif
+#ifdef CYBSP_D8
+#define D8 CYBSP_D8
+#endif
+#ifdef CYBSP_D9
+#define D9 CYBSP_D9
+#endif
+#ifdef CYBSP_D10
+#define D10 CYBSP_D10
+#endif
+#ifdef CYBSP_D11
+#define D11 CYBSP_D11
+#endif
+#ifdef CYBSP_D12
+#define D12 CYBSP_D12
+#endif
+#ifdef CYBSP_D13
+#define D13 CYBSP_D13
+#endif
+#ifdef CYBSP_D14
+#define D14 CYBSP_D14
+#endif
+#ifdef CYBSP_D15
+#define D15 CYBSP_D15
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef enum {
     PIN_INPUT = 0,
     PIN_OUTPUT
 } PinDirection;
 
-typedef enum {
-    PullNone           = 0,
-    PullUp             = 1,
-    PullDown           = 2,
-    OpenDrainDriveLow  = 3,
-    OpenDrainDriveHigh = 4,
-    OpenDrain          = OpenDrainDriveLow,
-    PushPull           = 5,
-    AnalogMode         = 6,
-    PullDefault        = PullNone
-} PinMode;
-
-typedef struct {
-    en_hsiom_sel_t  hsiom       : 8;
-    en_clk_dst_t    clock       : 8;
-    PinMode         mode        : 4;
-    PinDirection    dir         : 1;
-} PinFunction;
-
-// Encode pin function.
-// Output function
-#define CY_PIN_FUNCTION(hsiom, clock, mode, dir)    (int)(((dir) << 20) | ((mode) << 16) | ((clock) << 8) | (hsiom))
-#define CY_PIN_OUT_FUNCTION(hsiom, clock)           CY_PIN_FUNCTION(hsiom, clock, PushPull, PIN_OUTPUT)
-#define CY_PIN_OD_FUNCTION(hsiom, clock)            CY_PIN_FUNCTION(hsiom, clock, OpenDrain, PIN_OUTPUT)
-#define CY_PIN_IN_FUNCTION(hsiom, clock)            CY_PIN_FUNCTION(hsiom, clock, PullDefault, PIN_INPUT)
-#define CY_PIN_PULLUP_FUNCTION(hsiom, clock)        CY_PIN_FUNCTION(hsiom, clock, PullUp, PIN_INPUT)
-#define CY_PIN_ANALOG_FUNCTION(clock)               CY_PIN_FUNCTION(HSIOM_SEL_GPIO, clock, AnalogMode, 0)
-
-// Create unique name to force 32-bit PWM usage on a pin.
-#define CY_PIN_FORCE_PWM_32(pin)        ((uint32_t)(pin) + 0x8000)
-
-static inline en_hsiom_sel_t CY_PIN_HSIOM(int function)
+typedef cyhal_gpio_drive_mode_t PinMode;
+typedef cyhal_gpio_t PinName;
+static inline PinName cyhal_gpio_to_rtos(cyhal_gpio_t pin)
 {
-    return (en_hsiom_sel_t)(function & 0xFF);
+    return pin;
 }
 
-static inline en_clk_dst_t CY_PIN_CLOCK(int function)
-{
-    return (en_clk_dst_t)((function >> 8) & 0xFF);
+#ifdef __cplusplus
 }
-
-static inline PinMode CY_PIN_MODE(int function)
-{
-    return (PinMode)((function >> 16) & 0x0F);
-}
-
-static inline PinDirection CY_PIN_DIRECTION(int function)
-{
-    return (PinDirection)((function >> 20) & 1);
-}
-
-static inline int CY_PERIPHERAL_BASE(int peripheral)
-{
-    return peripheral & 0xffff0000;
-}
+#endif
 
 #endif

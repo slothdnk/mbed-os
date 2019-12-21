@@ -1,5 +1,5 @@
 /* mbed Microcontroller Library
- * Copyright (c) 2015 ARM Limited
+ * Copyright (c) 2015-2019 ARM Limited
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,7 @@
 #ifndef MBED_CIRCULARBUFFER_H
 #define MBED_CIRCULARBUFFER_H
 
+#include <stdint.h>
 #include "platform/mbed_critical.h"
 #include "platform/mbed_assert.h"
 
@@ -50,7 +51,7 @@ struct is_unsigned<unsigned long long> {
 };
 };
 
-/** \addtogroup platform */
+/** \addtogroup platform-public-api */
 /** @{*/
 /**
  * \defgroup platform_CircularBuffer CircularBuffer functions

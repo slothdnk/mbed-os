@@ -134,6 +134,14 @@ int _storage_config_FILESYSTEM_NO_RBP();
 int _storage_config_tdb_external_common();
 int _storage_config_filesystem_common();
 
+/**
+ * @brief If block device out of Mbed OS tree is to support, please overwrite this
+ *        function to provide it.
+ *
+ * @returns pointer to other block device.
+ */
+BlockDevice *get_other_blockdevice();
+
 static const char *filesystemstore_folder_path = NULL;
 
 using namespace mbed;
@@ -245,56 +253,62 @@ FileSystem *_get_filesystem_default(const char *mount)
 #elif COMPONENT_SD
     return _get_filesystem_FAT(mount);
 #else
-    return NULL;
+    BlockDevice *bd = get_other_blockdevice();
+    if (bd) {
+        if (bd->get_erase_value() != -1) {
+            return _get_filesystem_LITTLE(mount);
+        } else {
+            return _get_filesystem_FAT(mount);
+        }
+    } else {
+        return NULL;
+    }
 #endif
 }
 
 //Calculates the start address of FLASHIAP block device for TDB_INTERNAL profile.
-//If possible, the address will start 2 sectors after the end of code sector allowing
-//some space for an application update.
+//Last two sectors to have a predictable location for the TDBStore
 int _get_flashiap_bd_default_addresses_tdb_internal(bd_addr_t *start_address, bd_size_t *size)
 {
+    int ret = MBED_SUCCESS;
+
 #if COMPONENT_FLASHIAP
 
     FlashIAP flash;
+    static const int STORE_SECTORS = 2;
 
-    if (*start_address != 0 || *size != 0) {
+    if (*start_address || *size) {
         return MBED_ERROR_INVALID_ARGUMENT;
     }
 
-    //If default values are set, we should get the maximum available size of internal bd.
     if (flash.init() != 0) {
         return MBED_ERROR_FAILED_OPERATION;
     }
 
-    *start_address = align_up(FLASHIAP_APP_ROM_END_ADDR, flash.get_sector_size(FLASHIAP_APP_ROM_END_ADDR));
+    // Lets work from end of the flash backwards
+    bd_addr_t curr_addr = flash.get_flash_start() + flash.get_flash_size();
 
-    // Give the application a couple of spare sectors to grow (if there are such)
-    bd_size_t spare_size_for_app = 0;
-    bd_addr_t curr_addr = *start_address;
-    bd_addr_t flash_end_address = flash.get_flash_start() + flash.get_flash_size();
-
-    int spare_sectors_for_app = 2;
-    int min_sectors_for_storage = 2;
-    for (int i = 0; i < spare_sectors_for_app + min_sectors_for_storage - 1; i++) {
-        bd_size_t sector_size = flash.get_sector_size(curr_addr);
-        curr_addr += sector_size;
-        if (curr_addr >= flash_end_address) {
-            spare_size_for_app = 0;
-            break;
-        }
-
-        if (i < spare_sectors_for_app) {
-            spare_size_for_app += sector_size;
-        }
+    for (int i = STORE_SECTORS; i; i--) {
+        bd_size_t sector_size = flash.get_sector_size(curr_addr - 1);
+        curr_addr -= sector_size;
     }
-    *start_address += spare_size_for_app;
+
+    // Store- and application-sectors mustn't overlap
+    uint32_t first_wrtbl_sector_addr =
+        (uint32_t)(align_up(FLASHIAP_APP_ROM_END_ADDR, flash.get_sector_size(FLASHIAP_APP_ROM_END_ADDR)));
+
+    MBED_ASSERT(curr_addr >= first_wrtbl_sector_addr);
+    if (curr_addr < first_wrtbl_sector_addr) {
+        ret = MBED_ERROR_MEDIA_FULL;
+    } else {
+        *start_address = curr_addr;
+    }
 
     flash.deinit();
 
 #endif
 
-    return MBED_SUCCESS;
+    return ret;
 }
 
 //Calculates address and size for FLASHIAP block device in TDB_EXTERNAL and FILESYSTEM profiles.
@@ -374,7 +388,7 @@ BlockDevice *_get_blockdevice_FLASHIAP(bd_addr_t start_address, bd_size_t size)
         }
 
         if (size == 0) {
-            //The block device will have all space form start address to the end of the flash
+            //The block device will have all space from start address to the end of the flash
             size = (flash_end_address - start_address);
 
             static FlashIAPBlockDevice bd(start_address, size);
@@ -472,12 +486,12 @@ BlockDevice *_get_blockdevice_QSPIF(bd_addr_t start_address, bd_size_t size)
     bd_addr_t aligned_start_address;
 
     static QSPIFBlockDevice bd(
-        QSPI_FLASH1_IO0,
-        QSPI_FLASH1_IO1,
-        QSPI_FLASH1_IO2,
-        QSPI_FLASH1_IO3,
-        QSPI_FLASH1_SCK,
-        QSPI_FLASH1_CSN,
+        MBED_CONF_QSPIF_QSPI_IO0,
+        MBED_CONF_QSPIF_QSPI_IO1,
+        MBED_CONF_QSPIF_QSPI_IO2,
+        MBED_CONF_QSPIF_QSPI_IO3,
+        MBED_CONF_QSPIF_QSPI_SCK,
+        MBED_CONF_QSPIF_QSPI_CSN,
         QSPIF_POLARITY_MODE_0,
         MBED_CONF_QSPIF_QSPI_FREQ
     );
@@ -617,16 +631,76 @@ BlockDevice *_get_blockdevice_default(bd_addr_t start_address, bd_size_t size)
 #endif
 }
 
+/* Same logic as _get_blockdevice_SD() except block device replaced with from
+ * get_other_blockdevice() */
+BlockDevice *_get_blockdevice_other(bd_addr_t start_address, bd_size_t size)
+{
+    bd_addr_t aligned_end_address;
+    bd_addr_t aligned_start_address;
+
+    BlockDevice *bd = get_other_blockdevice();
+    if (bd == NULL) {
+        tr_error("KV Config: \"other\" block device init fail");
+        return NULL;
+    }
+
+    if (bd->init() != MBED_SUCCESS) {
+        tr_error("KV Config: SDBlockDevice init fail");
+        return NULL;
+    }
+
+    if (strcmp(STR(MBED_CONF_STORAGE_STORAGE_TYPE), "TDB_EXTERNAL_NO_RBP") == 0 ||
+            strcmp(STR(MBED_CONF_STORAGE_STORAGE_TYPE), "TDB_EXTERNAL") == 0) {
+        //In TDBStore profile, we have a constraint of 4GByte
+        if (start_address == 0 && size == 0  && bd->size() < (uint32_t)(-1)) {
+            return bd;
+        }
+
+        //If the size of external storage is bigger than 4G we need to slice it.
+        size = size != 0 ? size : align_down(bd->size(), bd->get_erase_size(bd->size() - 1));
+
+        if (_get_addresses(bd, start_address, size, &aligned_start_address, &aligned_end_address) != 0) {
+            tr_error("KV Config: Fail to get addresses for SlicingBlockDevice.");
+            return NULL;
+        }
+
+        if (aligned_end_address - aligned_start_address != (uint32_t)(aligned_end_address - aligned_start_address)) {
+            aligned_end_address = aligned_start_address + (uint32_t)(-1);//Support up to 4G only
+        }
+    } else {
+        //For all other KVStore profiles beside TDBStore we take the entire external memory space.
+        if (start_address == 0 && size == 0) {
+            return bd;
+        }
+
+        if (_get_addresses(bd, start_address, size, &aligned_start_address, &aligned_end_address) != 0) {
+            tr_error("KV Config: Fail to get addresses for SlicingBlockDevice.");
+            return NULL;
+        }
+    }
+
+    aligned_end_address = align_down(aligned_end_address, bd->get_erase_size(aligned_end_address));
+    static SlicingBlockDevice sbd(bd, aligned_start_address, aligned_end_address);
+    return &sbd;
+}
+
+MBED_WEAK BlockDevice *get_other_blockdevice()
+{
+    return NULL;
+}
+
 int _storage_config_TDB_INTERNAL()
 {
 #if COMPONENT_FLASHIAP
     bd_size_t internal_size = MBED_CONF_STORAGE_TDB_INTERNAL_INTERNAL_SIZE;
     bd_addr_t internal_start_address = MBED_CONF_STORAGE_TDB_INTERNAL_INTERNAL_BASE_ADDRESS;
+    int ret;
 
     if (internal_size == 0 && internal_start_address == 0) {
         //Calculate the block device size and start address in case default values are used.
-        if (_get_flashiap_bd_default_addresses_tdb_internal(&internal_start_address, &internal_size) != MBED_SUCCESS) {
-            return MBED_ERROR_FAILED_OPERATION;
+        ret = _get_flashiap_bd_default_addresses_tdb_internal(&internal_start_address, &internal_size);
+        if (ret != MBED_SUCCESS) {
+            return ret;
         }
     }
 
@@ -638,7 +712,7 @@ int _storage_config_TDB_INTERNAL()
     }
 
 
-    int ret = kvstore_config.internal_bd->init();
+    ret = kvstore_config.internal_bd->init();
     if (ret != MBED_SUCCESS) {
         tr_error("KV Config: Fail to init internal BlockDevice.");
         return MBED_ERROR_FAILED_OPERATION;
@@ -700,6 +774,8 @@ int _storage_config_TDB_EXTERNAL()
     return MBED_ERROR_UNSUPPORTED;
 #endif
 
+#ifdef MBED_CONF_STORAGE_TDB_EXTERNAL_INTERNAL_BASE_ADDRESS
+
     bd_size_t internal_rbp_size = MBED_CONF_STORAGE_TDB_EXTERNAL_RBP_INTERNAL_SIZE;
     bd_addr_t internal_start_address = MBED_CONF_STORAGE_TDB_EXTERNAL_INTERNAL_BASE_ADDRESS;
 
@@ -750,17 +826,10 @@ int _storage_config_TDB_EXTERNAL()
         return MBED_ERROR_FAILED_OPERATION ;
     }
 
-    //TDBStore needs a block device base on flash. so if this is SD block device or the default block device is SD
-    //add FlashSimBlockDevice on top of the SDBlockDevice
-#if defined(COMPONENT_SD)
-    if (strcmp(STR(MBED_CONF_STORAGE_TDB_EXTERNAL_BLOCKDEVICE), "SD") == 0
-#if defined(COMPONENT_SD) &&  !defined(COMPONENT_SPIF) && !defined(COMPONENT_QSPIF) && !defined(COMPONENT_DATAFLASH)
-            ||  strcmp(STR(MBED_CONF_STORAGE_TDB_EXTERNAL_BLOCKDEVICE), "default") == 0) {
-#else
-       ) {
-
-#endif
-        //TDBStore need FlashSimBlockDevice when working with SD block device
+    //TDBStore needs a block device base on flash. So if this is non-flash type block device,
+    //add FlashSimBlockDevice on top of it.
+    if (bd->get_erase_value() == -1) {
+        //TDBStore needs FlashSimBlockDevice when working with non-flash type block device
         if (bd->init() != MBED_SUCCESS) {
             tr_error("KV Config: Fail to init external BlockDevice.");
             return MBED_ERROR_FAILED_OPERATION ;
@@ -771,13 +840,13 @@ int _storage_config_TDB_EXTERNAL()
     } else {
         kvstore_config.external_bd = bd;
     }
-#else
-    kvstore_config.external_bd = bd;
-#endif
 
     kvstore_config.flags_mask = ~(0);
 
     return _storage_config_tdb_external_common();
+#else
+    return MBED_ERROR_CONFIG_UNSUPPORTED;
+#endif
 }
 
 int _storage_config_TDB_EXTERNAL_NO_RBP()
@@ -785,6 +854,8 @@ int _storage_config_TDB_EXTERNAL_NO_RBP()
 #if !SECURESTORE_ENABLED
     return MBED_ERROR_UNSUPPORTED;
 #endif
+
+#ifdef MBED_CONF_STORAGE_TDB_EXTERNAL_NO_RBP_EXTERNAL_BASE_ADDRESS
     bd_size_t size = MBED_CONF_STORAGE_TDB_EXTERNAL_NO_RBP_EXTERNAL_SIZE;
     bd_addr_t address = MBED_CONF_STORAGE_TDB_EXTERNAL_NO_RBP_EXTERNAL_BASE_ADDRESS;
 
@@ -795,17 +866,10 @@ int _storage_config_TDB_EXTERNAL_NO_RBP()
         return MBED_ERROR_FAILED_OPERATION ;
     }
 
-    //TDBStore needs a block device base on flash. so if this is SD block device or the default block device is SD
+    //TDBStore needs a block device base on flash. So if this is non-flash type block device,
     //add FlashSimBlockDevice on top of the SDBlockDevice
-#if defined(COMPONENT_SD)
-    if (strcmp(STR(MBED_CONF_STORAGE_TDB_EXTERNAL_NO_RBP_BLOCKDEVICE), "SD") == 0
-#if defined(COMPONENT_SD) &&  !defined(COMPONENT_SPIF) && !defined(COMPONENT_QSPIF) && !defined(COMPONENT_DATAFLASH)
-            ||  strcmp(STR(MBED_CONF_STORAGE_TDB_EXTERNAL_NO_RBP_BLOCKDEVICE), "default") == 0) {
-#else
-       ) {
-
-#endif
-        //TDBStore need FlashSimBlockDevice when working with SD block device
+    if (bd->get_erase_value() == -1) {
+        //TDBStore needs FlashSimBlockDevice when working with non-flash type block device
         if (bd->init() != MBED_SUCCESS) {
             tr_error("KV Config: Fail to init external BlockDevice.");
             return MBED_ERROR_FAILED_OPERATION ;
@@ -816,15 +880,15 @@ int _storage_config_TDB_EXTERNAL_NO_RBP()
     } else {
         kvstore_config.external_bd = bd;
     }
-#else
-    kvstore_config.external_bd = bd;
-#endif
 
     //Masking flag - Actually used to remove any KVStore flag which is not supported
     //in the chosen KVStore profile.
     kvstore_config.flags_mask = ~(KVStore::REQUIRE_REPLAY_PROTECTION_FLAG);
 
     return _storage_config_tdb_external_common();
+#else
+    return MBED_ERROR_CONFIG_UNSUPPORTED;
+#endif
 }
 
 int _storage_config_tdb_external_common()
@@ -884,6 +948,7 @@ int _storage_config_FILESYSTEM()
     return MBED_ERROR_UNSUPPORTED;
 #endif
 
+#ifdef MBED_CONF_STORAGE_FILESYSTEM_INTERNAL_BASE_ADDRESS
     filesystemstore_folder_path = STR(MBED_CONF_STORAGE_FILESYSTEM_FOLDER_PATH);
 
     bd_size_t internal_rbp_size = MBED_CONF_STORAGE_FILESYSTEM_RBP_INTERNAL_SIZE;
@@ -963,6 +1028,9 @@ int _storage_config_FILESYSTEM()
     kvstore_config.flags_mask = ~(0);
 
     return _storage_config_filesystem_common();
+#else
+    return MBED_ERROR_CONFIG_UNSUPPORTED;
+#endif
 }
 
 int _storage_config_FILESYSTEM_NO_RBP()
@@ -971,6 +1039,7 @@ int _storage_config_FILESYSTEM_NO_RBP()
     return MBED_ERROR_UNSUPPORTED;
 #endif
 
+#ifdef MBED_CONF_STORAGE_FILESYSTEM_NO_RBP_EXTERNAL_BASE_ADDRESS
     filesystemstore_folder_path = STR(MBED_CONF_STORAGE_FILESYSTEM_NO_RBP_FOLDER_PATH);
 
     bd_size_t size = MBED_CONF_STORAGE_FILESYSTEM_NO_RBP_EXTERNAL_SIZE;
@@ -1005,6 +1074,9 @@ int _storage_config_FILESYSTEM_NO_RBP()
     kvstore_config.flags_mask = ~(KVStore::REQUIRE_REPLAY_PROTECTION_FLAG);
 
     return _storage_config_filesystem_common();
+#else
+    return MBED_ERROR_CONFIG_UNSUPPORTED;
+#endif
 }
 
 int _storage_config_filesystem_common()
@@ -1069,7 +1141,16 @@ int _storage_config_default()
 #elif COMPONENT_FLASHIAP
     return _storage_config_TDB_INTERNAL();
 #else
-    return MBED_ERROR_UNSUPPORTED;
+    BlockDevice *bd = get_other_blockdevice();
+    if (bd) {
+        if (bd->get_erase_value() != -1) {
+            return _storage_config_TDB_EXTERNAL();
+        } else {
+            return _storage_config_FILESYSTEM();
+        }
+    } else {
+        return MBED_ERROR_UNSUPPORTED;
+    }
 #endif
 }
 

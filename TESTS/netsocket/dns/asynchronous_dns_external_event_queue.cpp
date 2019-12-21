@@ -53,14 +53,7 @@ static nsapi_error_t event_queue_call(int delay, mbed::Callback<void()> func)
 
 void ASYNCHRONOUS_DNS_EXTERNAL_EVENT_QUEUE()
 {
-    // Ensures that cache does not contain entries
-    do_asynchronous_gethostbyname(dns_test_hosts, MBED_CONF_NSAPI_DNS_CACHE_SIZE, &result_ok, &result_no_mem,
-                                  &result_dns_failure, &result_exp_timeout);
-
-    TEST_ASSERT_EQUAL(MBED_CONF_NSAPI_DNS_CACHE_SIZE, result_ok);
-    TEST_ASSERT_EQUAL(0, result_no_mem);
-    TEST_ASSERT_EQUAL(0, result_dns_failure);
-    TEST_ASSERT_EQUAL(0, result_exp_timeout);
+    nsapi_dns_reset();
 
     // Dispatch event queue
     Thread eventThread(osPriorityNormal, EXTERNAL_THREAD_SIZE);
@@ -79,7 +72,7 @@ void ASYNCHRONOUS_DNS_EXTERNAL_EVENT_QUEUE()
     TEST_ASSERT_EQUAL(0, result_exp_timeout);
 
     // Give event queue time to finalise before destructors
-    wait(2.0);
+    ThisThread::sleep_for(2000);
 
     nsapi_dns_call_in_set(0);
 }

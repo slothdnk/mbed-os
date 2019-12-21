@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2019 ARM Limited. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  * Licensed under the Apache License, Version 2.0 (the License); you may
  * not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #ifndef MESHINTERFACENANOSTACK_H
 #define MESHINTERFACENANOSTACK_H
 
+#include "Semaphore.h"
 #include "MeshInterface.h"
 #include "NanostackRfPhy.h"
 #include "Nanostack.h"
@@ -33,7 +34,10 @@ public:
 
     void get_mac_address(uint8_t *buf) const
     {
-        interface_phy.get_mac_address(buf);
+        NanostackMACPhy *phy = interface_phy.nanostack_mac_phy();
+        if (phy) {
+            phy->get_mac_address(buf);
+        }
     }
 
     /**
@@ -63,6 +67,7 @@ protected:
     int8_t interface_id;
     int8_t _device_id;
     rtos::Semaphore connect_semaphore;
+    rtos::Semaphore disconnect_semaphore;
 
     mbed::Callback<void(nsapi_event_t, intptr_t)> _connection_status_cb;
     nsapi_connection_status_t _connect_status;
@@ -127,9 +132,19 @@ public:
      */
     virtual nsapi_error_t set_blocking(bool blocking);
 
+    /** Set file system root path.
+     *
+     *  Set file system root path that stack will use to write and read its data.
+     *  Setting root_path to NULL will disable file system usage.
+     *
+     *  @param  root_path Address to NUL-terminated root-path string or NULL to disable file system usage.
+     *  @return MESH_ERROR_NONE on success, MESH_ERROR_MEMORY in case of memory failure, MESH_ERROR_UNKNOWN in case of other error.
+     */
+    virtual nsapi_error_t set_file_system_root_path(const char *root_path);
+
     /** Get the interface ID
-    /return     Interface identifier
-    */
+     *  @return  Interface identifier
+     */
     int8_t get_interface_id() const
     {
         return _interface->get_interface_id();

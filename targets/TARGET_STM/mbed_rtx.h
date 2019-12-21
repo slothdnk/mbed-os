@@ -36,6 +36,9 @@
 #define INITIAL_SP              (0x20018000UL)
 #endif /* toolchains */
 
+#elif (defined(TARGET_STM32H747xI) && defined(CORE_CM4))
+#define INITIAL_SP              (0x10008000UL)
+
 #elif (defined(TARGET_STM32F051R8) ||\
        defined(TARGET_STM32F100RB) ||\
        defined(TARGET_STM32L031K6) ||\
@@ -91,18 +94,22 @@
 #elif (defined(TARGET_STM32F207ZG) ||\
        defined(TARGET_STM32F405RG) ||\
        defined(TARGET_STM32F407VG) ||\
+       defined(TARGET_STM32F407VE) ||\
+       defined(TARGET_STM32F407ZG) ||\
        defined(TARGET_STM32F411RE) ||\
        defined(TARGET_STM32F446RE) ||\
        defined(TARGET_STM32F446VE) ||\
        defined(TARGET_STM32F446ZE) ||\
-       defined(TARGET_STM32H743ZI) ||\
-       defined(TARGET_STM32H753ZI))
+       defined(TARGET_STM32H743xI) ||\
+       defined(TARGET_STM32H753xI) ||\
+       defined(TARGET_STM32H747xI))
 #define INITIAL_SP              (0x20020000UL)
 
 #elif (defined(TARGET_STM32F429ZI) ||\
        defined(TARGET_STM32F437VG) ||\
        defined(TARGET_STM32F439VI) ||\
-       defined(TARGET_STM32F439ZI))
+       defined(TARGET_STM32F439ZI) ||\
+       defined(TARGET_STM32WB55RG))
 #define INITIAL_SP              (0x20030000UL)
 
 #elif defined(TARGET_STM32F412ZG)
@@ -118,10 +125,14 @@
 #define INITIAL_SP              (0x20050000UL)
 
 #elif (defined(TARGET_STM32F767ZI) ||\
+       defined(TARGET_STM32F767VI) ||\
        defined(TARGET_STM32F769NI))
 #define INITIAL_SP              (0x20080000UL)
 
-#elif defined(TARGET_STM32L4R5ZI)
+#elif defined(TARGET_STM32L4R5xI)
+#define INITIAL_SP              (0x200A0000UL)
+
+#elif defined(TARGET_STM32L4R9xI)
 #define INITIAL_SP              (0x200A0000UL)
 
 #else
@@ -135,6 +146,15 @@
 #undef MBED_CONF_RTOS_MAIN_THREAD_STACK_SIZE
 #endif
 #define MBED_CONF_RTOS_MAIN_THREAD_STACK_SIZE 3072
+#endif
+
+#if (defined(TARGET_STM32L475VG) || defined(TARGET_STM32L443RC))
+#if defined(__ARMCC_VERSION)
+extern uint32_t               Image$$ARM_LIB_HEAP$$ZI$$Base[];
+extern uint32_t               Image$$ARM_LIB_HEAP$$ZI$$Length[];
+#define HEAP_START            Image$$ARM_LIB_HEAP$$ZI$$Base
+#define HEAP_SIZE             Image$$ARM_LIB_HEAP$$ZI$$Length
+#endif
 #endif
 
 #endif  // MBED_MBED_RTX_H

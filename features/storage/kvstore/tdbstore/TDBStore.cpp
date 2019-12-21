@@ -35,7 +35,8 @@ using namespace mbed;
 
 static const uint32_t delete_flag = (1UL << 31);
 static const uint32_t internal_flags = delete_flag;
-static const uint32_t supported_flags = KVStore::WRITE_ONCE_FLAG;
+// Only write once flag is supported, other two are kept in storage but ignored
+static const uint32_t supported_flags = KVStore::WRITE_ONCE_FLAG | KVStore::REQUIRE_CONFIDENTIALITY_FLAG | KVStore::REQUIRE_REPLAY_PROTECTION_FLAG;
 
 namespace {
 
@@ -125,8 +126,14 @@ static uint32_t calc_crc(uint32_t init_crc, uint32_t data_size, const void *data
 TDBStore::TDBStore(BlockDevice *bd) : _ram_table(0), _max_keys(0),
     _num_keys(0), _bd(bd), _buff_bd(0),  _free_space_offset(0), _master_record_offset(0),
     _master_record_size(0), _is_initialized(false), _active_area(0), _active_area_version(0), _size(0),
-    _prog_size(0), _work_buf(0), _key_buf(0), _variant_bd_erase_unit_size(false), _inc_set_handle(0)
+    _area_params{}, _prog_size(0), _work_buf(0), _key_buf(0), _variant_bd_erase_unit_size(false), _inc_set_handle(0)
 {
+    for (int i = 0; i < _num_areas; i++) {
+        _area_params[i] = { 0 };
+    }
+    for (int i = 0; i < _max_open_iterators; i++) {
+        _iterator_table[i] = { 0 };
+    }
 }
 
 TDBStore::~TDBStore()
@@ -160,11 +167,7 @@ int TDBStore::erase_erase_unit(uint8_t area, uint32_t offset)
     uint32_t bd_offset = _area_params[area].address + offset;
     uint32_t eu_size = _buff_bd->get_erase_size(bd_offset);
 
-    int os_ret = _buff_bd->erase(bd_offset, eu_size);
-    if (os_ret) {
-        return MBED_ERROR_WRITE_FAILED;
-    }
-    return MBED_SUCCESS;
+    return _buff_bd->erase(bd_offset, eu_size);
 }
 
 void TDBStore::calc_area_params()
@@ -391,8 +394,8 @@ int TDBStore::set_start(set_handle_t *handle, const char *key, size_t final_data
                         uint32_t create_flags)
 {
     int ret;
-    uint32_t offset;
-    uint32_t hash, ram_table_ind;
+    uint32_t offset = 0;
+    uint32_t hash = 0, ram_table_ind = 0;
     inc_set_handle_t *ih;
     bool need_gc = false;
 
@@ -412,6 +415,8 @@ int TDBStore::set_start(set_handle_t *handle, const char *key, size_t final_data
         // in the upper layers).
         ih->bd_base_offset = _master_record_offset;
         ih->new_key = false;
+        ram_table_ind = 0;
+        hash = 0;
     } else {
 
         _mutex.lock();
@@ -605,7 +610,7 @@ int TDBStore::set_finalize(set_handle_t handle)
         goto end;
     }
 
-    // Writes may fail without returning a failure (specially in flash components). Reread the record
+    // Writes may fail without returning a failure (especially in flash components). Reread the record
     // to ensure write success (this won't read the data anywhere - just use the CRC calculation).
     ret = read_record(_active_area, ih->bd_base_offset, 0, 0, (uint32_t) -1,
                       actual_data_size, 0, false, false, false, false,
@@ -1014,7 +1019,10 @@ int TDBStore::init()
     _size = (size_t) -1;
 
     _buff_bd = new BufferedBlockDevice(_bd);
-    _buff_bd->init();
+    ret = _buff_bd->init();
+    if (ret) {
+        goto fail;
+    }
 
     // Underlying BD must have flash attributes, i.e. have an erase value
     if (_bd->get_erase_value() == -1) {
@@ -1052,7 +1060,7 @@ int TDBStore::init()
         // (this will do nothing if already erased)
         if (ret == MBED_ERROR_INVALID_DATA_DETECTED) {
             if (check_erase_before_write(area, _master_record_offset, _master_record_size, true)) {
-                MBED_ERROR(MBED_ERROR_READ_FAILED, "TDBSTORE: Unable reset area at init");
+                MBED_ERROR(MBED_ERROR_READ_FAILED, "TDBSTORE: Unable to reset area at init");
             }
             area_state[area] = TDBSTORE_AREA_STATE_EMPTY;
             continue;
@@ -1133,6 +1141,19 @@ int TDBStore::init()
 
 end:
     _is_initialized = true;
+    _mutex.unlock();
+    return ret;
+fail:
+    delete[] ram_table;
+    delete _buff_bd;
+    delete[] _work_buf;
+    delete[] _key_buf;
+    delete reinterpret_cast<inc_set_handle_t *>(_inc_set_handle);
+    _ram_table = nullptr;
+    _buff_bd = nullptr;
+    _work_buf = nullptr;
+    _key_buf = nullptr;
+    _inc_set_handle = nullptr;
     _mutex.unlock();
     return ret;
 }
@@ -1409,7 +1430,7 @@ int TDBStore::do_reserved_data_get(void *reserved_data, size_t reserved_data_buf
 
     while (actual_size) {
         uint32_t chunk = std::min(work_buf_size, (uint32_t) actual_size);
-        ret = read_area(_active_area, offset, chunk, buf);
+        ret = read_area(_active_area, offset, chunk, buf + offset);
         if (ret) {
             return ret;
         }
@@ -1489,8 +1510,7 @@ int TDBStore::is_erase_unit_erased(uint8_t area, uint32_t offset, bool &erased)
 int TDBStore::check_erase_before_write(uint8_t area, uint32_t offset, uint32_t size, bool force_check)
 {
     // In order to save init time, we don't check that the entire area is erased.
-    // Instead, whenever reaching an erase unit start, check that it's erased, and if not -
-    // erase it.
+    // Instead, whenever reaching an erase unit start erase it.
 
     while (size) {
         uint32_t dist, offset_from_start;
@@ -1498,19 +1518,10 @@ int TDBStore::check_erase_before_write(uint8_t area, uint32_t offset, uint32_t s
         offset_in_erase_unit(area, offset, offset_from_start, dist);
         uint32_t chunk = std::min(size, dist);
 
-        if (!offset_from_start || force_check) {
-            // We're at the start of an erase unit. Here (and only here, if not forced),
-            // check if it's erased.
-            bool erased;
-            ret = is_erase_unit_erased(area, offset, erased);
-            if (ret) {
+        if (offset_from_start == 0 || force_check) {
+            ret = erase_erase_unit(area, offset - offset_from_start);
+            if (ret != MBED_SUCCESS) {
                 return MBED_ERROR_WRITE_FAILED;
-            }
-            if (!erased) {
-                ret = erase_erase_unit(area, offset - offset_from_start);
-                if (ret) {
-                    return MBED_ERROR_WRITE_FAILED;
-                }
             }
         }
         offset += chunk;

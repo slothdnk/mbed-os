@@ -17,7 +17,7 @@
 
 #if !DEVICE_FLASH
 #error [NOT_SUPPORTED] Flash API not supported for this target
-#endif
+#else
 
 #include "utest/utest.h"
 #include "utest/utest_serial.h"
@@ -143,6 +143,7 @@ void flashiap_cross_sector_program_test()
     TEST_ASSERT_EQUAL_INT32(0, ret);
 
     uint32_t page_size = flash_device.get_page_size();
+    uint8_t erase_value = flash_device.get_erase_value();
 
     // Erase last two sectors
     uint32_t address = flash_device.get_flash_start() + flash_device.get_flash_size();
@@ -170,7 +171,7 @@ void flashiap_cross_sector_program_test()
         data[i] = rand() % 256;
     }
     for (uint32_t i = prog_size; i < aligned_prog_size; i++) {
-        data[i] = 0xFF;
+        data[i] = erase_value;
     }
 
     ret = flash_device.program(data, address, prog_size);
@@ -328,3 +329,5 @@ int main()
 {
     Harness::run(specification);
 }
+
+#endif // !DEVICE_FLASH

@@ -28,6 +28,7 @@
 #include "Security/kmp/kmp_api.h"
 #include "Security/protocols/sec_prot_certs.h"
 #include "Security/protocols/sec_prot_keys.h"
+#include "6LoWPAN/ws/ws_pae_timers.h"
 #include "6LoWPAN/ws/ws_pae_lib.h"
 
 #ifdef HAVE_WS
@@ -75,13 +76,21 @@ int8_t ws_pae_lib_kmp_list_delete(kmp_list_t *kmp_list, kmp_api_t *kmp)
 
 kmp_api_t *ws_pae_lib_kmp_list_type_get(kmp_list_t *kmp_list, kmp_type_e type)
 {
+    kmp_api_t *kmp = NULL;
+
     ns_list_foreach(kmp_entry_t, cur, kmp_list) {
+        // If kmp type matches
         if (kmp_api_type_get(cur->kmp) == type) {
-            return cur->kmp;
+            /* If receiving of messages has not been disabled for the kmp (kmp is not
+               in terminating phase) prioritizes that kmp */
+            if (!kmp_api_receive_disable(cur->kmp)) {
+                return cur->kmp;
+            }
+            // Otherwise returns any kmp that matches
+            kmp = cur->kmp;
         }
     }
-
-    return 0;
+    return kmp;
 }
 
 void ws_pae_lib_kmp_list_free(kmp_list_t *kmp_list)
@@ -155,9 +164,9 @@ supp_entry_t *ws_pae_lib_supp_list_add(supp_list_t *supp_list, const kmp_addr_t 
     }
 
     ws_pae_lib_supp_init(entry);
-
-    entry->addr = kmp_address_create(KMP_ADDR_EUI_64_AND_IP, 0);
-    kmp_address_copy(entry->addr, addr);
+    memset(&entry->addr, 0, sizeof(kmp_addr_t));
+    entry->addr.type = KMP_ADDR_EUI_64_AND_IP;
+    kmp_address_copy(&entry->addr, addr);
 
     ns_list_add_to_end(supp_list, entry);
 
@@ -177,7 +186,7 @@ int8_t ws_pae_lib_supp_list_remove(supp_list_t *supp_list, supp_entry_t *supp)
 supp_entry_t *ws_pae_lib_supp_list_entry_eui_64_get(const supp_list_t *supp_list, const uint8_t *eui_64)
 {
     ns_list_foreach(supp_entry_t, cur, supp_list) {
-        if (memcmp(kmp_address_eui_64_get(cur->addr), eui_64, 8) == 0) {
+        if (memcmp(cur->addr.eui_64, eui_64, 8) == 0) {
             return cur;
         }
     }
@@ -208,19 +217,33 @@ bool ws_pae_lib_supp_list_timer_update(supp_list_t *active_supp_list, supp_list_
     return timer_running;
 }
 
+void ws_pae_lib_supp_list_slow_timer_update(supp_list_t *supp_list, timer_settings_t *timer_settings, uint16_t seconds)
+{
+    ns_list_foreach(supp_entry_t, entry, supp_list) {
+        if (sec_prot_keys_pmk_lifetime_decrement(&entry->sec_keys, timer_settings->pmk_lifetime, seconds)) {
+            tr_info("PMK and PTK expired, eui-64: %s, system time: %"PRIu32"", trace_array(entry->addr.eui_64, 8), protocol_core_monotonic_time / 10);
+        }
+        if (sec_prot_keys_ptk_lifetime_decrement(&entry->sec_keys, timer_settings->ptk_lifetime, seconds)) {
+            tr_info("PTK expired, eui-64: %s, system time: %"PRIu32"", trace_array(entry->addr.eui_64, 8), protocol_core_monotonic_time / 10);
+        }
+    }
+
+}
+
 void ws_pae_lib_supp_init(supp_entry_t *entry)
 {
     ws_pae_lib_kmp_list_init(&entry->kmp_list);
-    entry->addr = 0;
+    memset(&entry->addr, 0, sizeof(kmp_addr_t));
     memset(&entry->sec_keys, 0, sizeof(sec_prot_keys_t));
     entry->ticks = 0;
+    entry->retry_ticks = 0;
     entry->active = true;
+    entry->access_revoked = false;
 }
 
 void ws_pae_lib_supp_delete(supp_entry_t *entry)
 {
     ws_pae_lib_kmp_list_free(&entry->kmp_list);
-    kmp_address_delete(entry->addr);
 }
 
 bool ws_pae_lib_supp_timer_update(supp_entry_t *entry, uint16_t ticks, ws_pae_lib_kmp_timer_timeout timeout)
@@ -235,7 +258,18 @@ bool ws_pae_lib_supp_timer_update(supp_entry_t *entry, uint16_t ticks, ws_pae_li
             entry->ticks -= ticks;
         } else {
             entry->ticks = 0;
+            entry->retry_ticks = 0;
         }
+    }
+
+    // Updates retry timer
+    if (entry->retry_ticks > ticks) {
+        entry->retry_ticks -= ticks;
+    } else {
+        if (entry->retry_ticks > 0) {
+            tr_info("EAP-TLS max ongoing delay timeout eui-64: %s", trace_array(entry->addr.eui_64, 8));
+        }
+        entry->retry_ticks = 0;
     }
 
     return keep_timer_running;
@@ -252,7 +286,7 @@ void ws_pae_lib_supp_list_to_active(supp_list_t *active_supp_list, supp_list_t *
         return;
     }
 
-    tr_debug("PAE: to active, eui-64: %s", trace_array(kmp_address_eui_64_get(entry->addr), 8));
+    tr_debug("PAE: to active, eui-64: %s", trace_array(entry->addr.eui_64, 8));
 
     ns_list_remove(inactive_supp_list, entry);
     ns_list_add_to_start(active_supp_list, entry);
@@ -261,9 +295,7 @@ void ws_pae_lib_supp_list_to_active(supp_list_t *active_supp_list, supp_list_t *
     entry->ticks = 0;
 
     // Adds relay address data
-    kmp_addr_t *addr = kmp_address_create(KMP_ADDR_EUI_64_AND_IP, kmp_address_eui_64_get(entry->addr));
-    kmp_address_delete(entry->addr);
-    entry->addr = addr;
+    entry->addr.type = KMP_ADDR_EUI_64_AND_IP;
 }
 
 void ws_pae_lib_supp_list_to_inactive(supp_list_t *active_supp_list, supp_list_t *inactive_supp_list, supp_entry_t *entry)
@@ -272,7 +304,13 @@ void ws_pae_lib_supp_list_to_inactive(supp_list_t *active_supp_list, supp_list_t
         return;
     }
 
-    tr_debug("PAE: to inactive, eui-64: %s", trace_array(kmp_address_eui_64_get(entry->addr), 8));
+    tr_debug("PAE: to inactive, eui-64: %s", trace_array(entry->addr.eui_64, 8));
+
+    if (entry->access_revoked) {
+        tr_info("Access revoked; deleted, eui-64: %s", trace_array(entry->addr.eui_64, 8));
+        ws_pae_lib_supp_list_remove(active_supp_list, entry);
+        return;
+    }
 
     ns_list_remove(active_supp_list, entry);
     ns_list_add_to_start(inactive_supp_list, entry);
@@ -281,9 +319,64 @@ void ws_pae_lib_supp_list_to_inactive(supp_list_t *active_supp_list, supp_list_t
     entry->ticks = 0;
 
     // Removes relay address data
-    kmp_addr_t *addr = kmp_address_create(KMP_ADDR_EUI_64, kmp_address_eui_64_get(entry->addr));
-    kmp_address_delete(entry->addr);
-    entry->addr = addr;
+    entry->addr.type = KMP_ADDR_EUI_64;
+    entry->addr.port = 0;
+    memset(entry->addr.relay_address, 0, 16);
+}
+
+void ws_pae_lib_supp_list_purge(supp_list_t *active_supp_list, supp_list_t *inactive_supp_list, uint16_t max_number, uint8_t max_purge)
+{
+    uint16_t active_supp = ns_list_count(active_supp_list);
+    uint16_t inactive_supp = ns_list_count(inactive_supp_list);
+
+    if (active_supp + inactive_supp > max_number) {
+        uint16_t remove_count = active_supp + inactive_supp - max_number;
+        if (max_purge > 0 && remove_count > max_purge) {
+            remove_count = max_purge;
+        }
+
+        // Remove entries from inactive list
+        ns_list_foreach_safe(supp_entry_t, entry, inactive_supp_list) {
+            if (remove_count > 0) {
+                tr_info("Inactive supplicant removed, eui-64: %s", trace_array(kmp_address_eui_64_get(&entry->addr), 8));
+                ws_pae_lib_supp_list_remove(inactive_supp_list, entry);
+                remove_count--;
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+uint16_t ws_pae_lib_supp_list_kmp_count(supp_list_t *supp_list, kmp_type_e type)
+{
+    uint16_t kmp_count = 0;
+
+    ns_list_foreach(supp_entry_t, entry, supp_list) {
+        ns_list_foreach(kmp_entry_t, kmp_entry, &entry->kmp_list) {
+            if (kmp_api_type_get(kmp_entry->kmp) == type) {
+                kmp_count++;
+            }
+        }
+    }
+
+    return kmp_count;
+}
+
+supp_entry_t *ws_pae_lib_supp_list_entry_retry_timer_get(supp_list_t *supp_list)
+{
+    supp_entry_t *retry_supp = NULL;
+
+    ns_list_foreach(supp_entry_t, entry, supp_list) {
+        // Finds entry with shortest timeout i.e. oldest one
+        if (entry->retry_ticks > 0) {
+            if (!retry_supp || retry_supp->retry_ticks > entry->retry_ticks) {
+                retry_supp = entry;
+            }
+        }
+    }
+
+    return retry_supp;
 }
 
 #endif /* HAVE_WS */

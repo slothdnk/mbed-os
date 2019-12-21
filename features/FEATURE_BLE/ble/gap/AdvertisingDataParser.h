@@ -19,7 +19,6 @@
 
 #include <stdint.h>
 #include "ble/gap/AdvertisingDataTypes.h"
-#include "platform/Span.h"
 
 namespace ble {
 
@@ -68,6 +67,11 @@ public:
     bool hasNext() const
     {
         if (position >= data.size()) {
+            return false;
+        }
+        
+        /* early termination of packet, no more meaningful octets */
+        if (current_length() == 0) {
             return false;
         }
 

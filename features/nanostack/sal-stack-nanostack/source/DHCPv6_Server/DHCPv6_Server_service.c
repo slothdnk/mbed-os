@@ -147,6 +147,11 @@ int DHCPV6_server_service_request_handler(uint16_t instance_id, uint32_t msg_tr_
                     replyPacket.T1 = dhcp_ia_non_temporal_params.T1;
                     replyPacket.iaId = dhcp_ia_non_temporal_params.iaId;
                     replyPacket.transaction_ID = msg_tr_id;
+
+                    uint16_t duid_length = libdhcpv6_duid_option_size(replyPacket.clientDUID.linkType);
+                    duid_length -= 8;
+                    tr_debug("Response dhcp sol %s clientDUID", trace_array(replyPacket.clientDUID.linkID, duid_length));
+
                     //Check First Current list
                     if (DHCPv6_server_respond_client(serverBase, &replyPacket, &dhcp_ia_non_temporal_params, &responseBuf, true) == 0) {
                         //Respond
@@ -272,7 +277,7 @@ void DHCPv6_server_service_timeout_cb(uint32_t timeUpdateInSeconds)
  *  /param guaPrefix Prefix which will be removed
  *  /param delete_gua_addresses Whether or not assigned addresses with the prefix should be removed from the interface.
  */
-void DHCPv6_server_service_delete(int8_t interface, uint8_t guaPrefix[static 16], bool delete_gua_addresses)
+void DHCPv6_server_service_delete(int8_t interface, uint8_t guaPrefix[static 8], bool delete_gua_addresses)
 {
     dhcpv6_gua_server_entry_s *serverInfo = libdhcpv6_server_data_get_by_prefix_and_interfaceid(interface, guaPrefix);
     if (serverInfo) {
@@ -390,7 +395,7 @@ int DHCPv6_server_service_init(int8_t interface, uint8_t guaPrefix[static 16], u
 
     return -1;
 }
-void DHCPv6_server_service_delete(int8_t interface, uint8_t guaPrefix[static 16], bool delete_gua_addresses)
+void DHCPv6_server_service_delete(int8_t interface, uint8_t guaPrefix[static 8], bool delete_gua_addresses)
 {
     (void) interface;
     (void) guaPrefix;

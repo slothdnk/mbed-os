@@ -24,6 +24,7 @@
 #include "ns_trace.h"
 #include "nsdynmemLIB.h"
 #include "Core/include/ns_socket.h"
+#include "Core/include/ns_monitor.h"
 #include "NWK_INTERFACE/Include/protocol.h"
 #include "NWK_INTERFACE/Include/protocol_timer.h"
 #include "platform/arm_hal_interrupt.h"
@@ -81,6 +82,7 @@
 #include "6LoWPAN/Fragmentation/cipv6_fragmenter.h"
 #include "Service_Libs/load_balance/load_balance_api.h"
 #include "Service_Libs/pan_blacklist/pan_blacklist_api.h"
+#include "Service_Libs/etx/etx.h"
 
 #include "mac_api.h"
 #include "ethernet_mac_api.h"
@@ -174,6 +176,7 @@ void protocol_root_tasklet(arm_event_t *event)
     switch (event_type) {
         case ARM_LIB_TASKLET_INIT_EVENT:
             tr_debug("NS Root task Init");
+            ns_monitor_init();
             break;
 
         case ARM_IN_PROTOCOL_TIMER_EVENT: {
@@ -260,6 +263,7 @@ void core_timer_event_handle(uint16_t ticksUpdate)
                     if (cur->nwk_wpan_nvm_api) {
                         cur->nwk_wpan_nvm_api->nvm_params_update_cb(cur->nwk_wpan_nvm_api, false);
                     }
+                    etx_cache_timer(cur->id, seconds);
                 }
             } else if (cur->nwk_id == IF_IPV6) {
                 //Slow Pointer Update
@@ -300,9 +304,11 @@ void core_timer_event_handle(uint16_t ticksUpdate)
         ipv6_destination_cache_timer(seconds);
         ipv6_frag_timer(seconds);
         cipv6_frag_timer(seconds);
+#ifdef HAVE_WS
+        ws_pae_controller_slow_timer(seconds);
+#endif
         protocol_6lowpan_mle_timer(seconds);
-        /* This limit bad behaviour device's MLE link reject generation */
-
+        ns_monitor_timer(seconds);
     } else {
         protocol_core_seconds_timer -= ticksUpdate;
     }
@@ -339,7 +345,7 @@ void core_timer_event_handle(uint16_t ticksUpdate)
     icmpv6_radv_timer(ticksUpdate);
     protocol_core_security_tick_update(ticksUpdate);
 #ifdef HAVE_WS
-    ws_pae_controller_timer(ticksUpdate);
+    ws_pae_controller_fast_timer(ticksUpdate);
 #endif
     platform_enter_critical();
     protocol_core_timer_info.core_timer_event = false;
@@ -382,7 +388,6 @@ void protocol_core_init(void)
     protocol_core_timer_info.core_security_ticks_counter = SEC_LIB_X_100MS_COUNTER;
 
     protocol_timer_start(PROTOCOL_TIMER_STACK_TIM, protocol_core_cb, 100);
-
 }
 
 void protocol_core_interface_info_reset(protocol_interface_info_entry_t *entry)
@@ -480,6 +485,7 @@ static void protocol_core_base_finish_init(protocol_interface_info_entry_t *entr
     entry->dad_failures = 0;
     entry->icmp_tokens = 10;
     entry->mle_link_reject_tokens = 2;
+    entry->send_na = true; /* Default to on for now... */
     entry->ip_forwarding = true; /* Default to on for now... */
     entry->ip_multicast_forwarding = true; /* Default to on for now... */
 #ifdef HAVE_IPV6_ND
@@ -863,7 +869,6 @@ protocol_interface_info_entry_t *protocol_stack_interface_generate_ethernet(eth_
     if (!api) {
         return NULL;
     }
-    protocol_interface_info_entry_t *new_entry = NULL;
 
     ns_list_foreach(protocol_interface_info_entry_t, cur, &protocol_interface_info_list) {
         if (cur->eth_mac_api == api) {
@@ -871,32 +876,74 @@ protocol_interface_info_entry_t *protocol_stack_interface_generate_ethernet(eth_
         }
     }
 
-    if (api) {
-        new_entry = protocol_core_interface_ethernet_entry_get(api);
+    protocol_interface_info_entry_t *new_entry = protocol_core_interface_ethernet_entry_get(api);
 
-        if (new_entry) {
-            neighbor_cache_init(&(new_entry->neigh_cache));
-            pan_blacklist_cache_init(&(new_entry->pan_blaclist_cache));
-            pan_coordinator_blacklist_cache_init(&(new_entry->pan_cordinator_black_list));
-            ipv6_neighbour_cache_init(&new_entry->ipv6_neighbour_cache, new_entry->id);
-            addr_max_slaac_entries_set(new_entry, 16);
-            uint8_t mac[6];
-            int8_t error = api->mac48_get(api, mac);
-            if (error) {
-                tr_error("mac_ext_mac64_address_get failed: %d", error);
-                ns_dyn_mem_free(new_entry);
-                return NULL;
-            }
+    if (!new_entry) {
+        return NULL;
+    }
 
-            protocol_stack_interface_iid_eui64_generate(new_entry, mac);
-            ns_list_add_to_start(&protocol_interface_info_list, new_entry);
+    neighbor_cache_init(&(new_entry->neigh_cache));
+    pan_blacklist_cache_init(&(new_entry->pan_blaclist_cache));
+    pan_coordinator_blacklist_cache_init(&(new_entry->pan_cordinator_black_list));
+    ipv6_neighbour_cache_init(&new_entry->ipv6_neighbour_cache, new_entry->id);
+    addr_max_slaac_entries_set(new_entry, 16);
+    uint8_t mac[6];
+    int8_t error = api->mac48_get(api, mac);
+    if (error) {
+        tr_error("mac_ext_mac64_address_get failed: %d", error);
+        ns_dyn_mem_free(new_entry);
+        return NULL;
+    }
 
-            (void) ipv6_route_table_set_max_entries(new_entry->id, ROUTE_RADV, 16);
+    protocol_stack_interface_iid_eui64_generate(new_entry, mac);
+    ns_list_add_to_start(&protocol_interface_info_list, new_entry);
 
-            return new_entry;
+    (void) ipv6_route_table_set_max_entries(new_entry->id, ROUTE_RADV, 16);
+
+    return new_entry;
+}
+
+protocol_interface_info_entry_t *protocol_stack_interface_generate_ppp(eth_mac_api_t *api)
+{
+    if (!api) {
+        return NULL;
+    }
+
+    ns_list_foreach(protocol_interface_info_entry_t, cur, &protocol_interface_info_list) {
+        if (cur->eth_mac_api == api) {
+            return cur;
         }
     }
-    return NULL;
+
+    protocol_interface_info_entry_t *new_entry = protocol_core_interface_ethernet_entry_get(api);
+
+    if (!new_entry) {
+        return NULL;
+    }
+
+    neighbor_cache_init(&(new_entry->neigh_cache));
+    pan_blacklist_cache_init(&(new_entry->pan_blaclist_cache));
+    pan_coordinator_blacklist_cache_init(&(new_entry->pan_cordinator_black_list));
+    ipv6_neighbour_cache_init(&new_entry->ipv6_neighbour_cache, new_entry->id);
+    addr_max_slaac_entries_set(new_entry, 16);
+    uint8_t iid64[8];
+    int8_t error = api->iid64_get(api, iid64);
+    if (error) {
+        tr_error("iid64_get failed: %d", error);
+        ns_dyn_mem_free(new_entry);
+        return NULL;
+    }
+    memcpy(new_entry->iid_slaac, iid64, 8);
+    memcpy(new_entry->iid_eui64, iid64, 8);
+    new_entry->send_mld = false;                 // No mld for PPP
+    new_entry->dup_addr_detect_transmits = 0;    // No duplicate detection for PPP
+    new_entry->send_na = false;                  // No neighbor advertisements for PPP
+
+    ns_list_add_to_start(&protocol_interface_info_list, new_entry);
+
+    (void) ipv6_route_table_set_max_entries(new_entry->id, ROUTE_RADV, 16);
+
+    return new_entry;
 }
 
 protocol_interface_info_entry_t *protocol_stack_interface_generate_lowpan(mac_api_t *api)
@@ -1134,4 +1181,28 @@ int8_t protocol_interface_address_compare(const uint8_t *addr)
 
     return -1;
 }
+
+bool protocol_address_prefix_cmp(protocol_interface_info_entry_t *cur, const uint8_t *prefix, uint8_t prefix_len)
+{
+    ns_list_foreach(if_address_entry_t, adr, &cur->ip_addresses) {
+        if (bitsequal(adr->address, prefix, prefix_len)) {
+            /* Prefix  stil used at list so stop checking */
+            return true;
+        }
+    }
+    return false;
+}
+
+bool protocol_interface_any_address_match(const uint8_t *prefix, uint8_t prefix_len)
+{
+    ns_list_foreach(protocol_interface_info_entry_t, cur, &protocol_interface_info_list) {
+
+        if (protocol_address_prefix_cmp(cur, prefix, prefix_len)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 

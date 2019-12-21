@@ -71,8 +71,8 @@ static void _sigio_handler(osThreadId id)
 void UDPSOCKET_ECHOTEST_BURST()
 {
     SocketAddress udp_addr;
-    NetworkInterface::get_default_instance()->gethostbyname(MBED_CONF_APP_ECHO_SERVER_ADDR, &udp_addr);
-    udp_addr.set_port(MBED_CONF_APP_ECHO_SERVER_PORT);
+    NetworkInterface::get_default_instance()->gethostbyname(ECHO_SERVER_ADDR, &udp_addr);
+    udp_addr.set_port(ECHO_SERVER_PORT);
 
     UDPSocket sock;
     const int TIMEOUT = 5000; // [ms]
@@ -91,7 +91,11 @@ void UDPSOCKET_ECHOTEST_BURST()
     SocketAddress temp_addr;
     for (int i = 0; i < BURST_CNT; i++) {
         for (int x = 0; x < BURST_PKTS; x++) {
-            TEST_ASSERT_EQUAL(tx_buffers[x].len, sock.sendto(udp_addr, tx_buffers[x].payload, tx_buffers[x].len));
+            int sent = sock.sendto(udp_addr, tx_buffers[x].payload, tx_buffers[x].len);
+            if (check_oversized_packets(sent, tx_buffers[x].len)) {
+                TEST_IGNORE_MESSAGE("This device does not handle oversized packets");
+            }
+            TEST_ASSERT_EQUAL(tx_buffers[x].len, sent);
         }
 
         bt_total = 0;
@@ -106,7 +110,7 @@ void UDPSOCKET_ECHOTEST_BURST()
             } else if (recvd < 0) {
                 pkg_fail += BURST_PKTS - j; // Assume all the following packets of the burst to be lost
                 printf("[%02d] network error %d\n", i, recvd);
-                wait(recv_timeout);
+                ThisThread::sleep_for(recv_timeout * 1000);
                 recv_timeout *= 2; // Back off,
                 break;
             } else if (temp_addr != udp_addr) {
@@ -142,7 +146,7 @@ void UDPSOCKET_ECHOTEST_BURST()
     // Packet loss up to 30% tolerated
     TEST_ASSERT_DOUBLE_WITHIN(TOLERATED_LOSS_RATIO, EXPECTED_LOSS_RATIO, loss_ratio);
     // 70% of the bursts need to be successful
-    TEST_ASSERT_INT_WITHIN(3 * (BURST_CNT / 10), BURST_CNT, ok_bursts);
+    TEST_ASSERT(BURST_CNT - ok_bursts < 3 * (BURST_CNT / 10));
 
     TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, sock.close());
 }
@@ -150,8 +154,8 @@ void UDPSOCKET_ECHOTEST_BURST()
 void UDPSOCKET_ECHOTEST_BURST_NONBLOCK()
 {
     SocketAddress udp_addr;
-    NetworkInterface::get_default_instance()->gethostbyname(MBED_CONF_APP_ECHO_SERVER_ADDR, &udp_addr);
-    udp_addr.set_port(MBED_CONF_APP_ECHO_SERVER_PORT);
+    NetworkInterface::get_default_instance()->gethostbyname(ECHO_SERVER_ADDR, &udp_addr);
+    udp_addr.set_port(ECHO_SERVER_PORT);
 
     UDPSocket sock;
     TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, sock.open(NetworkInterface::get_default_instance()));
@@ -225,7 +229,7 @@ PKT_OK:
     // Packet loss up to 30% tolerated
     TEST_ASSERT_DOUBLE_WITHIN(TOLERATED_LOSS_RATIO, EXPECTED_LOSS_RATIO, loss_ratio);
     // 70% of the bursts need to be successful
-    TEST_ASSERT_INT_WITHIN(3 * (BURST_CNT / 10), BURST_CNT, ok_bursts);
+    TEST_ASSERT(BURST_CNT - ok_bursts < 3 * (BURST_CNT / 10));
 
     TEST_ASSERT_EQUAL(NSAPI_ERROR_OK, sock.close());
 }

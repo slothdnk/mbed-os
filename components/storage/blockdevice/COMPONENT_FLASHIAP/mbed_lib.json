@@ -28,6 +28,10 @@
             "size": "0x10000",
             "num-blocks": 3,
             "max-test-size": "64 * 1024"
+	},
+        "FVP_MPS2": {
+            "base-address": "0x00200000",
+            "size": "0x200000"
         }
     }
 }

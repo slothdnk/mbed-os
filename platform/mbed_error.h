@@ -1,11 +1,5 @@
-/** \addtogroup platform */
-/** @{*/
-/**
- * \defgroup platform_error Error functions
- * @{
- */
 /* mbed Microcontroller Library
- * Copyright (c) 2006-2013 ARM Limited
+ * Copyright (c) 2006-2019 ARM Limited
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,12 +17,21 @@
 #ifndef MBED_ERROR_H
 #define MBED_ERROR_H
 
+#include <stdbool.h>
 #include "platform/mbed_retarget.h"
 #include "platform/mbed_toolchain.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** \addtogroup platform-public-api */
+/** @{*/
+
+/**
+ * \defgroup platform_error Error functions
+ * @{
+ */
 
 /** Define this macro to include filenames in error context. For release builds, do not include filename to save memory.
  *  MBED_PLATFORM_CONF_ERROR_FILENAME_CAPTURE_ENABLED
@@ -50,14 +53,17 @@ extern "C" {
 #endif
 
 #define MBED_ERROR_STATUS_CODE_MASK                 (0x0000FFFF)
+#define MBED_ERROR_STATUS_CODE_UNSHIFTED_MASK       (0x0000FFFF)
 #define MBED_ERROR_STATUS_CODE_POS                  (0)
 #define MBED_ERROR_STATUS_CODE_FIELD_SIZE           (16)
 
 #define MBED_ERROR_STATUS_MODULE_MASK               (0x00FF0000)
+#define MBED_ERROR_STATUS_MODULE_UNSHIFTED_MASK     (0x000000FF)
 #define MBED_ERROR_STATUS_MODULE_POS                (16)
 #define MBED_ERROR_STATUS_MODULE_FIELD_SIZE         (8)
 
 #define MBED_ERROR_STATUS_TYPE_MASK                 (0x60000000)
+#define MBED_ERROR_STATUS_TYPE_UNSHIFTED_MASK       (0x00000003)
 #define MBED_ERROR_STATUS_TYPE_POS                  (29)
 #define MBED_ERROR_STATUS_TYPE_FIELD_SIZE           (2)
 
@@ -65,11 +71,11 @@ extern "C" {
 //|31(1 bit) Always Negative|30-29(2 bits)  |28-24              | 23-16(8 bits) |  15-0(16 bits) |
 //|-1                       |TYPE           |(unused/reserved)  | MODULE TYPE   |  ERROR CODE    |
 
-#define MAKE_MBED_ERROR(type, module, error_code)   (mbed_error_status_t)                                                                   \
-                                                    ((0x80000000) |                                                                     \
-                                                    (MBED_ERROR_STATUS_CODE_MASK & (error_code << MBED_ERROR_STATUS_CODE_POS)) |        \
-                                                    (MBED_ERROR_STATUS_MODULE_MASK & (module << MBED_ERROR_STATUS_MODULE_POS)) |        \
-                                                    (MBED_ERROR_STATUS_TYPE_MASK & (type << MBED_ERROR_STATUS_TYPE_POS)))
+#define MAKE_MBED_ERROR(type, module, error_code)   (mbed_error_status_t)                                                                                           \
+                                                    ((0x80000000) |                                                                                                 \
+                                                    ((mbed_error_status_t) (error_code & MBED_ERROR_STATUS_CODE_UNSHIFTED_MASK) << MBED_ERROR_STATUS_CODE_POS) |    \
+                                                    ((mbed_error_status_t) (module & MBED_ERROR_STATUS_MODULE_UNSHIFTED_MASK) << MBED_ERROR_STATUS_MODULE_POS) |    \
+                                                    ((mbed_error_status_t) (type & MBED_ERROR_STATUS_TYPE_UNSHIFTED_MASK) << MBED_ERROR_STATUS_TYPE_POS))
 
 #define MBED_GET_ERROR_TYPE( error_status )         ((error_status & MBED_ERROR_STATUS_TYPE_MASK) >> MBED_ERROR_STATUS_TYPE_POS)
 #define MBED_GET_ERROR_MODULE( error_status )       ((error_status & MBED_ERROR_STATUS_MODULE_MASK) >> MBED_ERROR_STATUS_MODULE_POS)
@@ -83,7 +89,7 @@ extern "C" {
  *
  \verbatim
  | 31 Always Negative | 30-29(2 bits)  | 28-24              | 23-16(8 bits) | 15-0(16 bits) |
- | -1                 | TYPE           | (unused/reserved)  | MODULE TYPE    | ERROR CODE    |
+ | -1                 | TYPE           | (unused/reserved)  | MODULE TYPE   | ERROR CODE    |
  \endverbatim
  *
  * The error status value range for each error type is as follows:\n
@@ -284,6 +290,7 @@ typedef enum _mbed_module_type {
     MBED_MODULE_DRIVER_PWM,
     MBED_MODULE_DRIVER_QSPI,
     MBED_MODULE_DRIVER_USB,
+    MBED_MODULE_DRIVER_WATCHDOG,
     MBED_MODULE_TARGET_SDK,
     MBED_MODULE_BLE,
     MBED_MODULE_NETWORK_STATS,
@@ -1035,6 +1042,13 @@ mbed_error_status_t mbed_get_last_error(void);
  *
  */
 int mbed_get_error_count(void);
+
+/**
+ * Returns whether we are processing a fatal mbed error.
+ * @return                  bool Whether a fatal error has occurred.
+ *
+ */
+bool mbed_get_error_in_progress(void);
 
 /**
  * Call this function to set a fatal system error and halt the system. This function will log the fatal error with the context info and prints the error report and halts the system.

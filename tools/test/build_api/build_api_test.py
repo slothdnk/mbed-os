@@ -18,9 +18,10 @@ limitations under the License.
 import unittest
 from collections import namedtuple
 from mock import patch, MagicMock
-from tools.build_api import prepare_toolchain, build_project, build_library, merge_region_list
-from tools.resources import Resources
-from tools.toolchains import TOOLCHAINS
+from tools.build_api import prepare_toolchain, build_project, build_library
+from tools.regions import merge_region_list
+from tools.resources import Resources, FileRef
+from tools.toolchains import TOOLCHAINS, mbedToolchain
 from tools.notifier.mock import MockNotifier
 from tools.config import Region, Config, ConfigException
 from tools.utils import ToolException
@@ -30,8 +31,11 @@ from intelhex import IntelHex
 Tests for build_api.py
 """
 make_mock_target = namedtuple(
-    "Target", "init_hooks name features core supported_toolchains")
-
+    "Target", "get_post_build_hook name features core supported_toolchains build_tools_metadata")
+#Add ARMC5 to the supported_toolchains list as ARMC5 actually refers ARM Compiler 5 and is needed by ARM/ARM_STD classes when it checks for supported toolchains
+TOOLCHAINS.add("ARMC5")
+#Make a mock build_tools_metadata
+mock_build_tools_metadata = {u'version':0, u'public':False}
 
 class BuildApiTests(unittest.TestCase):
     """
@@ -62,7 +66,6 @@ class BuildApiTests(unittest.TestCase):
     @patch('tools.toolchains.mbedToolchain.need_update',
            side_effect=[i % 2 for i in range(3000)])
     @patch('os.mkdir')
-    @patch('tools.toolchains.exists', return_value=True)
     @patch('tools.toolchains.mbedToolchain.dump_build_profile')
     @patch('tools.utils.run_cmd', return_value=(b'', b'', 0))
     def test_always_complete_build(self, *_):
@@ -81,6 +84,53 @@ class BuildApiTests(unittest.TestCase):
         assert any('percent' in msg and msg['percent'] == 100.0
                    for msg in notify.messages if msg)
 
+    @patch('tools.toolchains.arm.ARM_STD.parse_dependencies',
+           return_value=["foo"])
+    @patch('tools.toolchains.mbedToolchain.need_update',
+           side_effect=[i % 2 for i in range(3000)])
+    @patch('os.mkdir')
+    @patch('tools.toolchains.mbedToolchain.dump_build_profile')
+    @patch('tools.utils.run_cmd', return_value=(b'', b'', 0))
+    def test_compile_legacy_sources_always_complete_build(self, *_):
+        """Test that compile_legacy_sources() completes."""
+        notify = MockNotifier()
+        toolchain = prepare_toolchain(self.src_paths, self.build_path, self.target,
+                                      self.toolchain_name, notify=notify)
+
+        res = Resources(MockNotifier()).scan_with_toolchain(
+            self.src_paths, toolchain)
+
+        toolchain.RESPONSE_FILES=False
+        toolchain.config_processed = True
+        toolchain.config_file = "junk"
+        toolchain.compile_legacy_sources(res)
+
+        assert any('percent' in msg and msg['percent'] == 100.0
+                   for msg in notify.messages if msg)
+
+    def test_dirs_exclusion_from_file_to_compile(self):
+        """Test that dirs can be excluded from the build."""
+        files_to_compile = [
+            FileRef(
+                name="platform/TARGET_CORTEX_M/TOOLCHAIN_ARM/except.S",
+                path="./platform/TARGET_CORTEX_M/TOOLCHAIN_ARM/except.S",
+            ),
+            FileRef(
+                name="rtos/TARGET_CORTEX/rtx5/RTX/Source/TOOLCHAIN_ARM/TARGET_RTOS_M4_M7/targets_irq_cm4f.S",
+                path="./rtos/TARGET_CORTEX/rtx5/RTX/Source/TOOLCHAIN_ARM/TARGET_RTOS_M4_M7/targets_irq_cm4f.S",
+            ),
+        ]
+        exclude_dirs = ["platform/", "drivers/", "targets/"]
+        expected_compilation_queue = [
+            FileRef(
+                name="rtos/TARGET_CORTEX/rtx5/RTX/Source/TOOLCHAIN_ARM/TARGET_RTOS_M4_M7/targets_irq_cm4f.S",
+                path="./rtos/TARGET_CORTEX/rtx5/RTX/Source/TOOLCHAIN_ARM/TARGET_RTOS_M4_M7/targets_irq_cm4f.S",
+            )
+        ]
+        compilation_queue = mbedToolchain._exclude_files_from_build(
+            files_to_compile, exclude_dirs
+        )
+        self.assertEqual(compilation_queue, expected_compilation_queue)
 
     @patch('tools.build_api.Config')
     def test_prepare_toolchain_app_config(self, mock_config_init):
@@ -91,8 +141,8 @@ class BuildApiTests(unittest.TestCase):
         :return:
         """
         app_config = "app_config"
-        mock_target = make_mock_target(lambda _, __ : None,
-                                       "Junk", [], "Cortex-M3", TOOLCHAINS)
+        mock_target = make_mock_target(lambda _ : None,
+                                       "Junk", [], "Cortex-M3", TOOLCHAINS, mock_build_tools_metadata)
         mock_config_init.return_value = namedtuple(
             "Config", "target has_regions name")(mock_target, False, None)
 
@@ -110,8 +160,8 @@ class BuildApiTests(unittest.TestCase):
         :param mock_config_init: mock of Config __init__
         :return:
         """
-        mock_target = make_mock_target(lambda _, __ : None,
-                                       "Junk", [], "Cortex-M3", TOOLCHAINS)
+        mock_target = make_mock_target(lambda _ : None,
+                                       "Junk", [], "Cortex-M3", TOOLCHAINS, mock_build_tools_metadata)
         mock_config_init.return_value = namedtuple(
             "Config", "target has_regions name")(mock_target, False, None)
 
@@ -243,12 +293,10 @@ class BuildApiTests(unittest.TestCase):
         self.assertEqual(args[1]['app_config'], None,
                          "prepare_toolchain was called with an incorrect app_config")
 
-    @patch('tools.build_api.intelhex_offset')
-    @patch('tools.config')
-    def test_merge_region_no_fit(self, mock_config, mock_intelhex_offset):
+    @patch('tools.regions.intelhex_offset')
+    def test_merge_region_no_fit(self, mock_intelhex_offset):
         """
         Test that merge_region_list call fails when part size overflows region size.
-        :param mock_config: config object that is mocked.
         :param mock_intelhex_offset: mocked intel_hex_offset call.
         :return:
         """
@@ -264,15 +312,12 @@ class BuildApiTests(unittest.TestCase):
         region_list = [region_application, region_post_application]
         # path to store the result in, should not get used as we expect exception.
         res = "./"
-        mock_config.target.restrict_size = 90000
         toolexception = False
 
         try:
-            merge_region_list(region_list, res, notify, mock_config)
+            merge_region_list(region_list, res, notify, restrict_size=90000)
         except ToolException:
             toolexception = True
-        except Exception as e:
-            print("%s %s" % (e.message, e.args))
 
         self.assertTrue(toolexception, "Expected ToolException not raised")
 

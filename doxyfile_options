@@ -843,8 +843,6 @@ EXCLUDE_PATTERNS       = */tools/* \
                          */cmsis/* \
                          */features/cryptocell/* \
                          */features/mbedtls/* \
-                         */features/storage/cfstore/* \
-                         */features/storage/FEATURE_STORAGE/* \
                          */features/unsupported/* \
                          */features/lwipstack/* \
                          */features/nanostack/sal-stack-nanostack/* \
@@ -2091,6 +2089,7 @@ PREDEFINED             = DOXYGEN_ONLY            \
                          DEVICE_PORTINOUT        \
                          DEVICE_PORTOUT          \
                          DEVICE_PWMOUT           \
+                         DEVICE_RESET_REASON     \
                          DEVICE_RTC              \
                          DEVICE_TRNG             \
                          DEVICE_SERIAL           \
@@ -2102,8 +2101,10 @@ PREDEFINED             = DOXYGEN_ONLY            \
                          DEVICE_SPISLAVE         \
                          DEVICE_QSPI             \
                          DEVICE_STORAGE          \
+                         DEVICE_WATCHDOG         \
                          COMPONENT_SPE           \
                          COMPONENT_SPM_MAILBOX   \
+                         "TFM_LVL=1" \
                          "MBED_DEPRECATED_SINCE(d, m)=" \
                          "MBED_ENABLE_IF_CALLBACK_COMPATIBLE(F, M)=" \
                          "MBED_DEPRECATED(s)=" \

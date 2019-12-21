@@ -60,11 +60,19 @@ typedef struct {
     uint16_t                      recv_size;        /**< Received pdu size */
 } gkh_sec_prot_int_t;
 
-static const trickle_params_t gkh_trickle_params = {
-    .Imin = 50,            /* 5000ms; ticks are 100ms */
-    .Imax = 150,           /* 15000ms */
+/*Small network setup*/
+#define GKH_SMALL_IMIN 300 // retries done in 30 seconds
+#define GKH_SMALL_IMAX 900 // Largest value 90 seconds
+
+/* Large network setup*/
+#define GKH_LARGE_IMIN 600 // retries done in 60 seconds
+#define GKH_LARGE_IMAX 2400 // Largest value 240 seconds
+
+static trickle_params_t gkh_trickle_params = {
+    .Imin = GKH_SMALL_IMIN,            /* ticks are 100ms */
+    .Imax = GKH_SMALL_IMAX,            /* ticks are 100ms */
     .k = 0,                /* infinity - no consistency checking */
-    .TimerExpirations = 4
+    .TimerExpirations = 2
 };
 
 static uint16_t auth_gkh_sec_prot_size(void);
@@ -92,6 +100,18 @@ int8_t auth_gkh_sec_prot_register(kmp_service_t *service)
         return -1;
     }
 
+    return 0;
+}
+
+int8_t auth_gkh_sec_prot_timing_adjust(uint8_t timing)
+{
+    if (timing < 16) {
+        gkh_trickle_params.Imin = GKH_SMALL_IMIN;
+        gkh_trickle_params.Imax = GKH_SMALL_IMAX;
+    } else {
+        gkh_trickle_params.Imin = GKH_LARGE_IMIN;
+        gkh_trickle_params.Imax = GKH_LARGE_IMAX;
+    }
     return 0;
 }
 
@@ -139,12 +159,18 @@ static int8_t auth_gkh_sec_prot_receive(sec_prot_t *prot, void *pdu, uint16_t si
     if (eapol_parse_pdu_header(pdu, size, &data->recv_eapol_pdu)) {
         // Get message
         if (auth_gkh_sec_prot_message_get(&data->recv_eapol_pdu, prot->sec_keys) != GKH_MESSAGE_UNKNOWN) {
+            tr_info("GKH: recv Message 2, eui-64: %s", trace_array(sec_prot_remote_eui_64_addr_get(prot), 8));
+
             // Call state machine
             data->recv_pdu = pdu;
             data->recv_size = size;
             prot->state_machine(prot);
+        } else {
+            tr_error("GKH: recv error, eui-64: %s", trace_array(sec_prot_remote_eui_64_addr_get(prot), 8));
         }
         ret_val = 0;
+    } else {
+        tr_error("GKH: recv error, eui-64: %s", trace_array(sec_prot_remote_eui_64_addr_get(prot), 8));
     }
 
     memset(&data->recv_eapol_pdu, 0, sizeof(eapol_pdu_t));
@@ -163,7 +189,7 @@ static gkh_sec_prot_msg_e auth_gkh_sec_prot_message_get(eapol_pdu_t *eapol_pdu, 
         return GKH_MESSAGE_UNKNOWN;
     }
 
-    uint8_t key_mask = sec_prot_lib_key_mask_get(eapol_pdu);
+    uint8_t key_mask = eapol_pdu_key_mask_get(eapol_pdu);
 
     switch (key_mask) {
         case KEY_INFO_KEY_MIC | KEY_INFO_SECURED_KEY_FRAME:
@@ -204,14 +230,14 @@ static int8_t auth_gkh_sec_prot_message_send(sec_prot_t *prot, gkh_sec_prot_msg_
     switch (msg) {
         case GKH_MESSAGE_1: {
             uint8_t gtk_index;
-            uint8_t *gtk = sec_prot_keys_get_gtk_to_insert(prot->sec_keys->gtks, &gtk_index);
+            uint8_t *gtk = sec_prot_keys_get_gtk_to_insert(prot->sec_keys, &gtk_index);
             if (gtk) {
                 kde_end = kde_gtk_write(kde_end, gtk_index, gtk);
 
                 uint32_t gtk_lifetime = sec_prot_keys_gtk_lifetime_get(prot->sec_keys->gtks, gtk_index);
                 kde_end = kde_lifetime_write(kde_end, gtk_lifetime);
             }
-            uint8_t gtkl = sec_prot_keys_gtkl_get(prot->sec_keys->gtks);
+            uint8_t gtkl = sec_prot_keys_fresh_gtkl_get(prot->sec_keys->gtks);
             kde_end = kde_gtkl_write(kde_end, gtkl);
             kde_padding_write(kde_end, kde_start + kde_len);
         }
@@ -245,6 +271,8 @@ static int8_t auth_gkh_sec_prot_message_send(sec_prot_t *prot, gkh_sec_prot_msg_
         return -1;
     }
 
+    tr_info("GKH: send Message 1, eui-64: %s", trace_array(sec_prot_remote_eui_64_addr_get(prot), 8));
+
     if (prot->send(prot, eapol_pdu_frame, eapol_pdu_size + prot->header_size) < 0) {
         return -1;
     }
@@ -265,14 +293,17 @@ static void auth_gkh_sec_prot_state_machine(sec_prot_t *prot)
     // GKH authenticator state machine
     switch (sec_prot_state_get(&data->common)) {
         case GKH_STATE_INIT:
+            tr_info("GKH init");
             sec_prot_state_set(prot, &data->common, GKH_STATE_CREATE_REQ);
+            prot->timer_start(prot);
             break;
 
         // Wait KMP-CREATE.request
         case GKH_STATE_CREATE_REQ:
-            tr_debug("GKH start");
+            tr_info("GKH start, eui-64: %s", trace_array(sec_prot_remote_eui_64_addr_get(prot), 8));
 
-            prot->timer_start(prot);
+            // Set default timeout for the total maximum length of the negotiation
+            sec_prot_default_timeout_set(&data->common);
 
             // KMP-CREATE.confirm
             prot->create_conf(prot, SEC_RESULT_OK);
@@ -296,12 +327,15 @@ static void auth_gkh_sec_prot_state_machine(sec_prot_t *prot)
                 if (auth_gkh_sec_prot_mic_validate(prot) < 0) {
                     return;
                 }
+                // Set inserted GTK valid
+                sec_prot_keys_gtkl_from_gtk_insert_index_set(prot->sec_keys);
+
                 sec_prot_state_set(prot, &data->common, GKH_STATE_FINISH);
             }
             break;
 
         case GKH_STATE_FINISH:
-            tr_debug("GKH finish");
+            tr_info("GKH finish, eui-64: %s", trace_array(sec_prot_remote_eui_64_addr_get(prot), 8));
 
             // KMP-FINISHED.indication,
             prot->finished_ind(prot, sec_prot_result_get(&data->common), 0);
@@ -309,10 +343,13 @@ static void auth_gkh_sec_prot_state_machine(sec_prot_t *prot)
             sec_prot_state_set(prot, &data->common, GKH_STATE_FINISHED);
             break;
 
-        case GKH_STATE_FINISHED:
+        case GKH_STATE_FINISHED: {
+            uint8_t *remote_eui_64 = sec_prot_remote_eui_64_addr_get(prot);
+            tr_info("GKH finished, eui-64: %s", remote_eui_64 ? trace_array(sec_prot_remote_eui_64_addr_get(prot), 8) : "not set");
             prot->timer_stop(prot);
             prot->finished(prot);
             break;
+        }
 
         default:
             break;

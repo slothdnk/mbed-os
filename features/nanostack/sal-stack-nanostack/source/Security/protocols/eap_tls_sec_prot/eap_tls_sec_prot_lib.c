@@ -59,6 +59,23 @@ int8_t eap_tls_sec_prot_lib_message_allocate(tls_data_t *data, uint8_t head_len,
     return 0;
 }
 
+int8_t eap_tls_sec_prot_lib_message_realloc(tls_data_t *data, uint8_t head_len, uint16_t new_len)
+{
+    tls_data_t new_tls_send;
+
+    eap_tls_sec_prot_lib_message_init(&new_tls_send);
+    if (eap_tls_sec_prot_lib_message_allocate(&new_tls_send, head_len, new_len) < 0) {
+        return -1;
+    }
+    memcpy(new_tls_send.data + head_len, data->data + head_len, data->handled_len);
+    new_tls_send.handled_len = data->handled_len;
+    eap_tls_sec_prot_lib_message_free(data);
+
+    *data = new_tls_send;
+
+    return 0;
+}
+
 void eap_tls_sec_prot_lib_message_free(tls_data_t *data)
 {
     ns_dyn_mem_free(data->data);
@@ -88,6 +105,7 @@ int8_t eap_tls_sec_prot_lib_message_handle(uint8_t *data, uint16_t length, bool 
         // Handles the length field
         if (data[0] & EAP_TLS_FRAGMENT_LENGTH) {
             if (length < 5) {
+                tr_error("EAP-TLS: decode error");
                 return EAP_TLS_MSG_DECODE_ERROR;
             }
 
@@ -138,18 +156,15 @@ int8_t eap_tls_sec_prot_lib_message_handle(uint8_t *data, uint16_t length, bool 
     return result;
 }
 
-uint8_t *eap_tls_sec_prot_lib_message_build(uint8_t eap_code, uint8_t eap_type, uint8_t flags, uint8_t eap_id_seq, uint8_t header_size, tls_data_t *tls_send, uint16_t *length)
+uint8_t *eap_tls_sec_prot_lib_message_build(uint8_t eap_code, uint8_t eap_type, uint8_t *flags, uint8_t eap_id_seq, uint8_t header_size, tls_data_t *tls_send, uint16_t *length)
 {
     uint16_t eap_len = 4;
     uint8_t *data_ptr = NULL;
 
     // Write EAP-TLS data (from EAP-TLS flags field onward)
     if (tls_send->data) {
-        data_ptr = eap_tls_sec_prot_lib_fragment_write(tls_send->data + TLS_HEAD_LEN, tls_send->total_len, tls_send->handled_len, &eap_len, &flags);
+        data_ptr = eap_tls_sec_prot_lib_fragment_write(tls_send->data + TLS_HEAD_LEN, tls_send->total_len, tls_send->handled_len, &eap_len, flags);
     }
-
-    tr_debug("send EAP %s type %s id %i flags %x len %i", eap_msg_trace[eap_code - 1],
-             eap_type == EAP_IDENTITY ? "IDENTITY" : "TLS", eap_id_seq, flags, eap_len);
 
     eapol_pdu_t eapol_pdu;
 

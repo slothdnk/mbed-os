@@ -1,5 +1,5 @@
 ;/**************************************************************************//**
-; * @file     startup_psoc6_02_cm4.s
+; * @file     startup_psoc6_02_cm4.S
 ; * @brief    CMSIS Core Device Startup File for
 ; *           ARMCM4 Device Series
 ; * @version  V5.00
@@ -78,7 +78,6 @@ __vector_table_0x1c
         DCD     0
         DCD     PendSV_Handler
         DCD     SysTick_Handler
-
 
         ; External interrupts                           Description
         DCD     ioss_interrupts_gpio_0_IRQHandler     ; GPIO Port Interrupt #0

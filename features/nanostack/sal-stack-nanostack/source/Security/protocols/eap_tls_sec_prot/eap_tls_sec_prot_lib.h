@@ -73,6 +73,19 @@ extern const uint8_t eap_msg_trace[4][10];
 int8_t eap_tls_sec_prot_lib_message_allocate(tls_data_t *data, uint8_t head_len, uint16_t len);
 
 /**
+ * eap_tls_sec_prot_lib_message_realloc allocates larger message buffer and copies existing data to it
+ *
+ * \param data data buffer which length is increased
+ * \param head_len header length
+ * \param new_len new length for the buffer
+ *
+ * \return < 0 failure
+ * \return >= 0 success
+ *
+ */
+int8_t eap_tls_sec_prot_lib_message_realloc(tls_data_t *data, uint8_t head_len, uint16_t new_len);
+
+/**
  * eap_tls_sec_prot_lib_message_free free message buffer
  *
  * \param data data buffer
@@ -117,6 +130,6 @@ int8_t eap_tls_sec_prot_lib_message_handle(uint8_t *data, uint16_t length, bool 
  * \return pointer to message to be sent or NULL in case of failure
  *
  */
-uint8_t *eap_tls_sec_prot_lib_message_build(uint8_t eap_code, uint8_t eap_type, uint8_t flags, uint8_t eap_id_seq, uint8_t header_size, tls_data_t *tls_send, uint16_t *length);
+uint8_t *eap_tls_sec_prot_lib_message_build(uint8_t eap_code, uint8_t eap_type, uint8_t *flags, uint8_t eap_id_seq, uint8_t header_size, tls_data_t *tls_send, uint16_t *length);
 
 #endif /* EAP_TLS_SEC_PROT_H_ */

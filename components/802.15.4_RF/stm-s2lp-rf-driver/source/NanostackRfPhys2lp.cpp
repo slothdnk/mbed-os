@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include <string.h>
-#if defined(MBED_CONF_NANOSTACK_CONFIGURATION) && DEVICE_SPI && defined(MBED_CONF_RTOS_PRESENT)
+#if defined(MBED_CONF_NANOSTACK_CONFIGURATION) && DEVICE_SPI && DEVICE_INTERRUPTIN && defined(MBED_CONF_RTOS_PRESENT)
 #include "platform/arm_hal_interrupt.h"
 #include "nanostack/platform/arm_hal_phy.h"
 #include "ns_types.h"
@@ -29,6 +29,7 @@
 #include "Timeout.h"
 #include "Thread.h"
 #include "mbed_wait_api.h"
+#include "platform/mbed_error.h"
 
 using namespace mbed;
 using namespace rtos;
@@ -79,7 +80,6 @@ extern void (*fhss_bc_switch)(void);
 #define MAC_TYPE_ACK            (2)
 #define MAC_TYPE_COMMAND        (3)
 #define MAC_DATA_PENDING        0x10
-#define MAC_FRAME_VERSION_2     (2)
 #define FC_DST_MODE             0x0C
 #define FC_SRC_MODE             0xC0
 #define FC_DST_ADDR_NONE        0x00
@@ -98,8 +98,6 @@ extern void (*fhss_bc_switch)(void);
 
 #define CS_SELECT()  {rf->CS = 0;}
 #define CS_RELEASE() {rf->CS = 1;}
-
-extern const uint8_t ADDR_UNSPECIFIED[16];
 
 typedef enum {
     RF_MODE_NORMAL = 0,
@@ -140,11 +138,9 @@ public:
     Timeout cca_timer;
     Timeout backup_timer;
     Timer tx_timer;
-#ifdef MBED_CONF_RTOS_PRESENT
     Thread irq_thread;
     Mutex mutex;
     void rf_irq_task();
-#endif //MBED_CONF_RTOS_PRESENT
 };
 
 RFPins::RFPins(PinName spi_sdi, PinName spi_sdo,
@@ -167,20 +163,15 @@ RFPins::RFPins(PinName spi_sdi, PinName spi_sdo,
         RF_S2LP_GPIO0(spi_gpio0),
         RF_S2LP_GPIO1(spi_gpio1),
         RF_S2LP_GPIO2(spi_gpio2),
-        RF_S2LP_GPIO3(spi_gpio3)
-#ifdef MBED_CONF_RTOS_PRESENT
-    , irq_thread(osPriorityRealtime, 1024)
-#endif //MBED_CONF_RTOS_PRESENT
+        RF_S2LP_GPIO3(spi_gpio3),
+        irq_thread(osPriorityRealtime, 1024)
 {
-#ifdef MBED_CONF_RTOS_PRESENT
     irq_thread.start(mbed::callback(this, &RFPins::rf_irq_task));
-#endif //MBED_CONF_RTOS_PRESENT
 }
 
 static uint8_t rf_read_register(uint8_t addr);
 static s2lp_states_e rf_read_state(void);
 static void rf_write_register(uint8_t addr, uint8_t data);
-static void rf_print_registers(void);
 static void rf_interrupt_handler(void);
 static void rf_receive(uint8_t rx_channel);
 static void rf_cca_timer_stop(void);
@@ -189,6 +180,7 @@ static void rf_backup_timer_stop(void);
 static void rf_rx_ready_handler(void);
 static uint32_t read_irq_status(void);
 static bool rf_rx_filter(uint8_t *mac_header, uint8_t *mac_64bit_addr, uint8_t *mac_16bit_addr, uint8_t *pan_id);
+static void rf_cca_timer_start(uint32_t slots);
 
 static RFPins *rf;
 static phy_device_driver_s device_driver;
@@ -215,6 +207,10 @@ static uint8_t s2lp_short_address[2];
 static uint8_t s2lp_MAC[8];
 static rf_mode_e rf_mode = RF_MODE_NORMAL;
 static bool rf_update_config = false;
+static uint16_t cur_packet_len = 0xffff;
+static uint32_t receiver_ready_timestamp;
+
+static int16_t rssi_threshold = RSSI_THRESHOLD;
 
 /* Channel configurations for sub-GHz */
 static phy_rf_channel_configuration_s phy_subghz = {
@@ -232,7 +228,6 @@ static const phy_device_channel_page_s phy_channel_pages[] = {
     { CHANNEL_PAGE_0, NULL}
 };
 
-#ifdef MBED_CONF_RTOS_PRESENT
 
 #include "rtos.h"
 
@@ -243,7 +238,6 @@ static void rf_irq_task_process_irq();
 #define SIG_TIMER_CCA       2
 #define SIG_TIMER_BACKUP    4
 
-#endif //MBED_CONF_RTOS_PRESENT
 
 #define ACK_FRAME_LENGTH    3
 // Give some additional time for processing, PHY headers, CRC etc.
@@ -292,7 +286,6 @@ static void rf_unlock(void)
     platform_exit_critical();
 }
 
-#ifdef MBED_CONF_RTOS_PRESENT
 static void rf_cca_timer_signal(void)
 {
     rf->irq_thread.flags_set(SIG_TIMER_CCA);
@@ -302,7 +295,6 @@ static void rf_backup_timer_signal(void)
 {
     rf->irq_thread.flags_set(SIG_TIMER_BACKUP);
 }
-#endif //MBED_CONF_RTOS_PRESENT
 
 /*
  * \brief Function writes/read data in SPI interface
@@ -365,22 +357,36 @@ static void rf_enable_gpio_signal(uint8_t gpio_pin, uint8_t interrupt_signal, ui
 
 static void rf_enable_interrupt(uint8_t event)
 {
+    if (enabled_interrupts & (1 << event)) {
+        return;
+    }
     rf_write_register_field(IRQ_MASK0 - (event / 8), 1 << (event % 8), 1 << (event % 8));
     enabled_interrupts |= (1 << event);
 }
 
 static void rf_disable_interrupt(uint8_t event)
 {
+    if (!(enabled_interrupts & (1 << event))) {
+        return;
+    }
     rf_write_register_field(IRQ_MASK0 - (event / 8), 1 << (event % 8), 0 << (event % 8));
     enabled_interrupts &= ~(1 << event);
 }
 
 static void rf_disable_all_interrupts(void)
 {
-    rf_write_register(IRQ_MASK0, 0);
-    rf_write_register(IRQ_MASK1, 0);
-    rf_write_register(IRQ_MASK2, 0);
-    rf_write_register(IRQ_MASK3, 0);
+    if ((uint8_t)enabled_interrupts & 0xff) {
+        rf_write_register(IRQ_MASK0, 0);
+    }
+    if ((uint8_t)(enabled_interrupts >> 8) & 0xff) {
+        rf_write_register(IRQ_MASK1, 0);
+    }
+    if ((uint8_t)(enabled_interrupts >> 16) & 0xff) {
+        rf_write_register(IRQ_MASK2, 0);
+    }
+    if ((uint8_t)(enabled_interrupts >> 24) & 0xff) {
+        rf_write_register(IRQ_MASK3, 0);
+    }
     enabled_interrupts = 0;
     read_irq_status();
 }
@@ -459,10 +465,29 @@ static int rf_read_rx_fifo(uint16_t rx_index, uint16_t length)
     return length;
 }
 
+static void rf_flush_tx_fifo(void)
+{
+    if (rf_read_register(TX_FIFO_STATUS)) {
+        rf_send_command(S2LP_CMD_FLUSHTXFIFO);
+    }
+}
+
+static void rf_flush_rx_fifo(void)
+{
+    if (rf_read_register(RX_FIFO_STATUS)) {
+        rf_send_command(S2LP_CMD_FLUSHRXFIFO);
+    }
+}
+
 static void rf_write_packet_length(uint16_t packet_length)
 {
-    rf_write_register(PCKTLEN1, packet_length / 256);
-    rf_write_register(PCKTLEN0, packet_length % 256);
+    if ((uint8_t)(cur_packet_len >> 8) != (packet_length / 256)) {
+        rf_write_register(PCKTLEN1, packet_length / 256);
+    }
+    if ((uint8_t)cur_packet_len != (packet_length % 256)) {
+        rf_write_register(PCKTLEN0, packet_length % 256);
+    }
+    cur_packet_len = packet_length;
 }
 
 static uint32_t read_irq_status(void)
@@ -477,6 +502,10 @@ static uint32_t read_irq_status(void)
 
 static void rf_set_channel_configuration_registers(void)
 {
+    // Set RSSI threshold
+    uint8_t rssi_th;
+    rf_conf_calculate_rssi_threshold_registers(rssi_threshold, &rssi_th);
+    rf_write_register(RSSI_TH, rssi_th);
     // Set deviation
     uint32_t deviation = rf_conf_calculate_deviation(phy_subghz.modulation_index, phy_subghz.datarate);
     if (!deviation) {
@@ -514,12 +543,6 @@ static void rf_set_channel_configuration_registers(void)
         rf_channel_multiplier++;
     }
     rf_write_register(CHSPACE, ch_space);
-    tr_info("RF config update:");
-    tr_info("Frequency(ch0): %luHz", phy_subghz.channel_0_center_frequency);
-    tr_info("Channel spacing: %luHz", phy_subghz.channel_spacing);
-    tr_info("Datarate: %lubps", phy_subghz.datarate);
-    tr_info("Deviation: %luHz", deviation);
-    tr_info("RX BW M: %u, E: %u", chflt_m, chflt_e);
 }
 
 static void rf_init_registers(void)
@@ -527,10 +550,11 @@ static void rf_init_registers(void)
     rf_write_register_field(PCKTCTRL3, PCKT_FORMAT_FIELD, PCKT_FORMAT_802_15_4);
     rf_write_register_field(MOD2, MOD_TYPE_FIELD, MOD_2FSK);
     rf_write_register(PCKT_FLT_OPTIONS, 0);
-    rf_write_register_field(PCKTCTRL1, PCKT_CRCMODE_FIELD, PCKT_CRCMODE_0X1021);
+    rf_write_register_field(PCKTCTRL1, PCKT_CRCMODE_FIELD, PCKT_CRCMODE_0x04C11DB7);
     rf_write_register_field(PCKTCTRL1, PCKT_TXSOURCE_FIELD, PCKT_TXSOURCE_NORMAL);
     rf_write_register_field(PCKTCTRL1, PCKT_WHITENING_FIELD, PCKT_WHITENING_ENABLED);
     rf_write_register_field(PCKTCTRL2, PCKT_FIXVARLEN_FIELD, PCKT_VARIABLE_LEN);
+    rf_write_register_field(PCKTCTRL2, PCKT_FCS_TYPE_FIELD, PCKT_FCS_TYPE_4_OCTET);
     rf_write_register_field(PCKTCTRL3, PCKT_RXMODE_FIELD, PCKT_RXMODE_NORMAL);
     rf_write_register_field(PCKTCTRL3, PCKT_BYTE_SWAP_FIELD, PCKT_BYTE_SWAP_LSB);
     rf_write_register(PCKTCTRL5, PCKT_PREAMBLE_LEN);
@@ -539,10 +563,6 @@ static void rf_init_registers(void)
     rf_write_register_field(QI, SQI_EN_FIELD, SQI_EN);
     rf_write_register(SYNC0, SFD0);
     rf_write_register(SYNC1, SFD1);
-    // Set RSSI threshold
-    uint8_t rssi_th;
-    rf_conf_calculate_rssi_threshold_registers(RSSI_THRESHOLD, &rssi_th);
-    rf_write_register(RSSI_TH, rssi_th);
     rf_set_channel_configuration_registers();
 }
 
@@ -648,6 +668,16 @@ static int8_t rf_extension(phy_extension_type_e extension_type, uint8_t *data_pt
                 rf_receive(rf_rx_channel);
             }
             break;
+        case PHY_EXTENSION_SET_TX_POWER:
+            // TODO: Set TX output power
+            break;
+        case PHY_EXTENSION_SET_CCA_THRESHOLD:
+            rssi_threshold = rf_conf_cca_threshold_percent_to_rssi(*data_ptr);
+            rf_update_config = true;
+            if (rf_state == RF_IDLE) {
+                rf_receive(rf_rx_channel);
+            }
+            break;
         default:
             break;
     }
@@ -665,6 +695,14 @@ static int8_t rf_interface_state_control(phy_interface_state_e new_state, uint8_
             break;
         /*Disable PHY Interface driver*/
         case PHY_INTERFACE_DOWN:
+            rf_lock();
+            rf_send_command(S2LP_CMD_SABORT);
+            rf_disable_all_interrupts();
+            rf_poll_state_change(S2LP_STATE_READY);
+            rf_flush_rx_fifo();
+            rf_flush_tx_fifo();
+            rf_state = RF_IDLE;
+            rf_unlock();
             break;
         /*Enable PHY Interface driver*/
         case PHY_INTERFACE_UP:
@@ -730,30 +768,52 @@ static void rf_start_tx(void)
     rf_backup_timer_start(MAX_PACKET_SENDING_TIME);
 }
 
+static int rf_cca_check(void)
+{
+    uint32_t time_from_receiver_ready = rf_get_timestamp() - receiver_ready_timestamp;
+    if (time_from_receiver_ready < RSSI_SETTLING_TIME) {
+        wait_us(RSSI_SETTLING_TIME - time_from_receiver_ready);
+    }
+    return (rf_read_register(LINK_QUALIF1) & CARRIER_SENSE);
+}
+
 static void rf_cca_timer_interrupt(void)
 {
-    if (device_driver.phy_tx_done_cb(rf_radio_driver_id, mac_tx_handle, PHY_LINK_CCA_PREPARE, 0, 0) != 0) {
-        if (rf_read_register(TX_FIFO_STATUS)) {
-            rf_send_command(S2LP_CMD_FLUSHTXFIFO);
-        }
-        rf_state = RF_IDLE;
-        return;
-    }
-    if ((cca_enabled == true) && ((rf_state != RF_CSMA_STARTED && rf_state != RF_IDLE) || (read_irq_status() & (1 << SYNC_WORD)) || (rf_read_register(LINK_QUALIF1) & CARRIER_SENSE))) {
+    int8_t status = device_driver.phy_tx_done_cb(rf_radio_driver_id, mac_tx_handle, PHY_LINK_CCA_PREPARE, 0, 0);
+    if (status == PHY_TX_NOT_ALLOWED) {
+        rf_flush_tx_fifo();
         if (rf_state == RF_CSMA_STARTED) {
             rf_state = RF_IDLE;
         }
-        if (rf_read_register(TX_FIFO_STATUS)) {
-            rf_send_command(S2LP_CMD_FLUSHTXFIFO);
+        return;
+    }
+    if ((cca_enabled == true) && ((rf_state != RF_CSMA_STARTED && rf_state != RF_IDLE) || (read_irq_status() & (1 << SYNC_WORD)) || rf_cca_check())) {
+        if (rf_state == RF_CSMA_STARTED) {
+            rf_state = RF_IDLE;
         }
+        rf_flush_tx_fifo();
         tx_finnish_time = rf_get_timestamp();
         if (device_driver.phy_tx_done_cb) {
             device_driver.phy_tx_done_cb(rf_radio_driver_id, mac_tx_handle, PHY_LINK_CCA_FAIL, 0, 0);
         }
     } else {
-        rf_start_tx();
-        rf_state = RF_TX_STARTED;
-        TEST_TX_STARTED
+        if (status == PHY_RESTART_CSMA) {
+            if (device_driver.phy_tx_done_cb) {
+                device_driver.phy_tx_done_cb(rf_radio_driver_id, mac_tx_handle, PHY_LINK_CCA_OK, 0, 0);
+            }
+            if (tx_time) {
+                uint32_t backoff_time = tx_time - rf_get_timestamp();
+                // Max. time to TX can be 65ms, otherwise time has passed already -> send immediately
+                if (backoff_time > 65000) {
+                    backoff_time = 1;
+                }
+                rf_cca_timer_start(backoff_time);
+            }
+        } else {
+            rf_start_tx();
+            rf_state = RF_TX_STARTED;
+            TEST_TX_STARTED
+        }
     }
 }
 
@@ -764,24 +824,27 @@ static void rf_cca_timer_stop(void)
 
 static void rf_cca_timer_start(uint32_t slots)
 {
-#ifdef MBED_CONF_RTOS_PRESENT
     rf->cca_timer.attach_us(rf_cca_timer_signal, slots);
-#else //MBED_CONF_RTOS_PRESENT
-    rf->cca_timer.attach_us(rf_cca_timer_interrupt, slots);
-#endif //MBED_CONF_RTOS_PRESENT
 }
 
 static void rf_backup_timer_interrupt(void)
 {
     tx_finnish_time = rf_get_timestamp();
+    if (rf_state == RF_RX_STARTED) {
+        if (device_driver.phy_rf_statistics) {
+            device_driver.phy_rf_statistics->rx_timeouts++;
+        }
+    } else {
+        if (device_driver.phy_rf_statistics) {
+            device_driver.phy_rf_statistics->tx_timeouts++;
+        }
+    }
     if (rf_state == RF_TX_STARTED) {
         if (device_driver.phy_tx_done_cb) {
             device_driver.phy_tx_done_cb(rf_radio_driver_id, mac_tx_handle, PHY_LINK_TX_SUCCESS, 0, 0);
         }
     }
-    if (rf_read_register(TX_FIFO_STATUS)) {
-        rf_send_command(S2LP_CMD_FLUSHTXFIFO);
-    }
+    rf_flush_tx_fifo();
     TEST_TX_DONE
     TEST_RX_DONE
     rf_state = RF_IDLE;
@@ -795,11 +858,7 @@ static void rf_backup_timer_stop(void)
 
 static void rf_backup_timer_start(uint32_t slots)
 {
-#ifdef MBED_CONF_RTOS_PRESENT
     rf->backup_timer.attach_us(rf_backup_timer_signal, slots);
-#else //MBED_CONF_RTOS_PRESENT
-    rf->backup_timer.attach_us(rf_backup_timer_interrupt, slots);
-#endif //MBED_CONF_RTOS_PRESENT
 }
 
 static int8_t rf_start_cca(uint8_t *data_ptr, uint16_t data_length, uint8_t tx_handle, data_protocol_e data_protocol)
@@ -842,13 +901,6 @@ static int8_t rf_start_cca(uint8_t *data_ptr, uint16_t data_length, uint8_t tx_h
 
 static void rf_send_ack(uint8_t seq)
 {
-    // If the reception started during CCA process, the TX FIFO may already contain a data packet
-    if (rf_read_register(TX_FIFO_STATUS)) {
-        rf_send_command(S2LP_CMD_SABORT);
-        rf_poll_state_change(S2LP_STATE_READY);
-        rf_send_command(S2LP_CMD_FLUSHTXFIFO);
-        rf_poll_state_change(S2LP_STATE_READY);
-    }
     rf_state = RF_TX_ACK;
     uint8_t ack_frame[3] = {MAC_TYPE_ACK, 0, seq};
     rf_write_tx_fifo(ack_frame, sizeof(ack_frame));
@@ -880,6 +932,7 @@ static void rf_rx_ready_handler(void)
 {
     rf_backup_timer_stop();
     TEST_RX_DONE
+    rf_flush_tx_fifo();
     int rx_read_length = rf_read_rx_fifo(rx_data_length, rf_read_register(RX_FIFO_STATUS));
     if (rx_read_length < 0) {
         rf_receive(rf_rx_channel);
@@ -931,6 +984,8 @@ static void rf_sync_detected_handler(void)
     rf_state = RF_RX_STARTED;
     TEST_RX_STARTED
     rf_disable_interrupt(SYNC_WORD);
+    rf_enable_interrupt(RX_FIFO_ALMOST_FULL);
+    rf_enable_interrupt(RX_DATA_READY);
     rf_backup_timer_start(MAX_PACKET_SENDING_TIME);
 }
 
@@ -940,11 +995,12 @@ static void rf_receive(uint8_t rx_channel)
         return;
     }
     rf_lock();
+    rf_send_command(S2LP_CMD_SABORT);
     rf_disable_all_interrupts();
-    rf_state_change(S2LP_STATE_READY, false);
-    rf_send_command(S2LP_CMD_FLUSHRXFIFO);
     rf_poll_state_change(S2LP_STATE_READY);
+    rf_flush_rx_fifo();
     if (rf_update_config == true) {
+        rf_channel_multiplier = 1;
         rf_update_config = false;
         rf_set_channel_configuration_registers();
     }
@@ -952,18 +1008,18 @@ static void rf_receive(uint8_t rx_channel)
         rf_write_register(CHNUM, rx_channel * rf_channel_multiplier);
         rf_rx_channel = rf_new_channel = rx_channel;
     }
-    rf_state_change(S2LP_STATE_LOCK, false);
-    rf_state_change(S2LP_STATE_RX, false);
+    rf_send_command(S2LP_CMD_RX);
     rf_enable_interrupt(SYNC_WORD);
-    rf_enable_interrupt(RX_FIFO_ALMOST_FULL);
-    rf_enable_interrupt(RX_DATA_READY);
     rf_enable_interrupt(RX_FIFO_UNF_OVF);
     rx_data_length = 0;
-    rf_state = RF_IDLE;
+    if (rf_state != RF_CSMA_STARTED) {
+        rf_state = RF_IDLE;
+    }
+    rf_poll_state_change(S2LP_STATE_RX);
+    receiver_ready_timestamp = rf_get_timestamp();
     rf_unlock();
 }
 
-#ifdef MBED_CONF_RTOS_PRESENT
 static void rf_interrupt_handler(void)
 {
     rf->irq_thread.flags_set(SIG_RADIO);
@@ -988,9 +1044,6 @@ void RFPins::rf_irq_task(void)
 }
 
 static void rf_irq_task_process_irq(void)
-#else //MBED_CONF_RTOS_PRESENT
-static void rf_interrupt_handler(void)
-#endif //MBED_CONF_RTOS_PRESENT
 {
     rf_lock();
     uint32_t irq_status = read_irq_status();
@@ -1027,9 +1080,13 @@ static void rf_interrupt_handler(void)
             } else {
                 TEST_RX_DONE
                 rf_backup_timer_stop();
+                rf_flush_tx_fifo();
                 rf_state = RF_IDLE;
                 // In case the channel change was called during reception, driver is responsible to change the channel if CRC failed.
                 rf_receive(rf_new_channel);
+                if (device_driver.phy_rf_statistics) {
+                    device_driver.phy_rf_statistics->crc_fails++;
+                }
             }
         }
         if ((irq_status & (1 << RX_FIFO_ALMOST_FULL)) && (enabled_interrupts & (1 << RX_FIFO_ALMOST_FULL))) {
@@ -1044,10 +1101,12 @@ static void rf_interrupt_handler(void)
     }
     if ((irq_status & (1 << RX_FIFO_UNF_OVF)) && (enabled_interrupts & (1 << RX_FIFO_UNF_OVF))) {
         TEST_RX_DONE
+        rf_backup_timer_stop();
         rf_send_command(S2LP_CMD_SABORT);
         rf_poll_state_change(S2LP_STATE_READY);
         rf_send_command(S2LP_CMD_FLUSHRXFIFO);
         rf_poll_state_change(S2LP_STATE_READY);
+        rf_flush_tx_fifo();
         rf_state = RF_IDLE;
         rf_receive(rf_rx_channel);
     }
@@ -1058,10 +1117,10 @@ static void rf_reset(void)
 {
     // Shutdown
     rf->SDN = 1;
-    wait_ms(10);
+    ThisThread::sleep_for(10);
     // Wake up
     rf->SDN = 0;
-    wait_ms(10);
+    ThisThread::sleep_for(10);
 }
 
 static void rf_init(void)
@@ -1077,7 +1136,6 @@ static void rf_init(void)
     rf_enable_gpio_interrupt();
     rf_calculate_symbol_rate(phy_subghz.datarate, phy_subghz.modulation);
     rf->tx_timer.start();
-    rf_print_registers();
 }
 
 static int8_t rf_device_register(const uint8_t *mac_addr)
@@ -1126,7 +1184,7 @@ void NanostackRfPhys2lp::get_mac_address(uint8_t *mac)
         rf_unlock();
         return;
     }
-    memcpy((void*)mac, (void*)_mac_addr, sizeof(_mac_addr));
+    memcpy((void *)mac, (void *)_mac_addr, sizeof(_mac_addr));
 
     rf_unlock();
 }
@@ -1140,7 +1198,7 @@ void NanostackRfPhys2lp::set_mac_address(uint8_t *mac)
         rf_unlock();
         return;
     }
-    memcpy((void*)_mac_addr, (void*)mac, sizeof(_mac_addr));
+    memcpy((void *)_mac_addr, (void *)mac, sizeof(_mac_addr));
     _mac_set = true;
 
     rf_unlock();
@@ -1157,14 +1215,24 @@ int8_t NanostackRfPhys2lp::rf_register()
         error("Multiple registrations of NanostackRfPhyAtmel not supported");
         return -1;
     }
-    if (memcmp(_mac_addr, ADDR_UNSPECIFIED, 8) == 0) {
+
+    if (!_mac_set) {
+#ifdef AT24MAC
+        int ret = _mac.read_eui64((void *)s2lp_MAC);
+        if (ret < 0) {
+            rf = NULL;
+            rf_unlock();
+            return -1;
+        }
+#else
         randLIB_seed_random();
         randLIB_get_n_bytes_random(s2lp_MAC, 8);
         s2lp_MAC[0] |= 2; //Set Local Bit
         s2lp_MAC[0] &= ~1; //Clear multicast bit
-        tr_info("Generated random MAC %s", trace_array(s2lp_MAC,8));
+#endif
         set_mac_address(s2lp_MAC);
     }
+
     rf = _rf;
 
     int8_t radio_id = rf_device_register(_mac_addr);
@@ -1187,12 +1255,20 @@ void NanostackRfPhys2lp::rf_unregister()
     rf_unlock();
 }
 
-NanostackRfPhys2lp::NanostackRfPhys2lp(PinName spi_sdi, PinName spi_sdo, PinName spi_sclk, PinName spi_cs, PinName spi_sdn,
+NanostackRfPhys2lp::NanostackRfPhys2lp(PinName spi_sdi, PinName spi_sdo, PinName spi_sclk, PinName spi_cs, PinName spi_sdn
 #ifdef TEST_GPIOS_ENABLED
-                                       PinName spi_test1, PinName spi_test2, PinName spi_test3, PinName spi_test4, PinName spi_test5,
+                                       ,PinName spi_test1, PinName spi_test2, PinName spi_test3, PinName spi_test4, PinName spi_test5
 #endif //TEST_GPIOS_ENABLED
-                                       PinName spi_gpio0, PinName spi_gpio1, PinName spi_gpio2, PinName spi_gpio3)
-    : _mac_addr(), _rf(NULL), _mac_set(false),
+                                       ,PinName spi_gpio0, PinName spi_gpio1, PinName spi_gpio2, PinName spi_gpio3
+#ifdef AT24MAC
+                                       ,PinName i2c_sda, PinName i2c_scl
+#endif //AT24MAC
+                                       )
+    :
+#ifdef AT24MAC
+                    _mac(i2c_sda, i2c_scl),
+#endif //AT24MAC
+                    _mac_addr(), _rf(NULL), _mac_set(false),
       _spi_sdi(spi_sdi), _spi_sdo(spi_sdo), _spi_sclk(spi_sclk), _spi_cs(spi_cs), _spi_sdn(spi_sdn),
 #ifdef TEST_GPIOS_ENABLED
       _spi_test1(spi_test1), _spi_test2(spi_test2), _spi_test3(spi_test3), _spi_test4(spi_test4), _spi_test5(spi_test5),
@@ -1233,20 +1309,6 @@ static bool rf_panid_filter_common(uint8_t *panid_start, uint8_t *pan_id, uint8_
         }
     }
     return retval;
-}
-
-static bool rf_panid_v2_filter(uint8_t *ptr, uint8_t *pan_id, uint8_t dst_mode, uint8_t src_mode, uint8_t seq_compressed, uint8_t panid_compressed, uint8_t frame_type)
-{
-    if ((dst_mode == FC_DST_ADDR_NONE) && (frame_type == MAC_TYPE_DATA || frame_type == MAC_TYPE_COMMAND)) {
-        return true;
-    }
-    if ((dst_mode == FC_DST_64_BITS) && (src_mode == FC_SRC_64_BITS) && panid_compressed) {
-        return true;
-    }
-    if (seq_compressed) {
-        ptr--;
-    }
-    return rf_panid_filter_common(ptr, pan_id, frame_type);
 }
 
 static bool rf_panid_v1_v0_filter(uint8_t *ptr, uint8_t *pan_id, uint8_t frame_type)
@@ -1297,17 +1359,6 @@ static bool rf_addr_filter_common(uint8_t *ptr, uint8_t addr_mode, uint8_t *mac_
     return retval;
 }
 
-static bool rf_addr_v2_filter(uint8_t *ptr, uint8_t *mac_64bit_addr, uint8_t *mac_16bit_addr, uint8_t dst_mode, uint8_t seq_compressed, uint8_t panid_compressed)
-{
-    if (seq_compressed) {
-        ptr--;
-    }
-    if (panid_compressed) {
-        ptr -= 2;
-    }
-    return rf_addr_filter_common(ptr, dst_mode, mac_64bit_addr, mac_16bit_addr);
-}
-
 static bool rf_addr_v1_v0_filter(uint8_t *ptr, uint8_t *mac_64bit_addr, uint8_t *mac_16bit_addr, uint8_t dst_mode)
 {
     return rf_addr_filter_common(ptr, dst_mode, mac_64bit_addr, mac_16bit_addr);
@@ -1316,19 +1367,9 @@ static bool rf_addr_v1_v0_filter(uint8_t *ptr, uint8_t *mac_64bit_addr, uint8_t 
 static bool rf_rx_filter(uint8_t *mac_header, uint8_t *mac_64bit_addr, uint8_t *mac_16bit_addr, uint8_t *pan_id)
 {
     uint8_t dst_mode = (mac_header[1] & FC_DST_MODE);
-    uint8_t src_mode = (mac_header[1] & FC_SRC_MODE);
-    uint8_t seq_compressed = ((mac_header[1] & FC_SEQUENCE_COMPRESSION) >> SHIFT_SEQ_COMP_FIELD);
-    uint8_t panid_compressed = ((mac_header[0] & FC_PAN_ID_COMPRESSION) >> SHIFT_PANID_COMP_FIELD);
     uint8_t frame_type = mac_header[0] & MAC_FRAME_TYPE_MASK;
     uint8_t version = ((mac_header[1] & VERSION_FIELD_MASK) >> SHIFT_VERSION_FIELD);
-    if (version == MAC_FRAME_VERSION_2) {
-        if (!rf_panid_v2_filter(mac_header + OFFSET_DST_PAN_ID, pan_id, dst_mode, src_mode, seq_compressed, panid_compressed, frame_type)) {
-            return false;
-        }
-        if (!rf_addr_v2_filter(mac_header + OFFSET_DST_ADDR, mac_64bit_addr, mac_16bit_addr, dst_mode, seq_compressed, panid_compressed)) {
-            return false;
-        }
-    } else {
+    if (version != MAC_FRAME_VERSION_2) {
         if (!rf_panid_v1_v0_filter(mac_header + OFFSET_DST_PAN_ID, pan_id, frame_type)) {
             return false;
         }
@@ -1339,145 +1380,18 @@ static bool rf_rx_filter(uint8_t *mac_header, uint8_t *mac_64bit_addr, uint8_t *
     return true;
 }
 
-static void rf_print_registers(void)
-{
-    tr_debug("GPIO0_CONF: %x", rf_read_register(GPIO0_CONF));
-    tr_debug("GPIO1_CONF: %x", rf_read_register(GPIO1_CONF));
-    tr_debug("GPIO2_CONF: %x", rf_read_register(GPIO2_CONF));
-    tr_debug("GPIO3_CONF: %x", rf_read_register(GPIO3_CONF));
-    tr_debug("SYNT3: %x", rf_read_register(SYNT3));
-    tr_debug("SYNT2: %x", rf_read_register(SYNT2));
-    tr_debug("SYNT1: %x", rf_read_register(SYNT1));
-    tr_debug("SYNT0: %x", rf_read_register(SYNT0));
-    tr_debug("IF_OFFSET_ANA: %x", rf_read_register(IF_OFFSET_ANA));
-    tr_debug("IF_OFFSET_DIG: %x", rf_read_register(IF_OFFSET_DIG));
-    tr_debug("CHSPACE: %x", rf_read_register(CHSPACE));
-    tr_debug("CHNUM: %x", rf_read_register(CHNUM));
-    tr_debug("MOD4: %x", rf_read_register(MOD4));
-    tr_debug("MOD3: %x", rf_read_register(MOD3));
-    tr_debug("MOD2: %x", rf_read_register(MOD2));
-    tr_debug("MOD1: %x", rf_read_register(MOD1));
-    tr_debug("MOD0: %x", rf_read_register(MOD0));
-    tr_debug("CHFLT: %x", rf_read_register(CHFLT));
-    tr_debug("AFC2: %x", rf_read_register(AFC2));
-    tr_debug("AFC1: %x", rf_read_register(AFC1));
-    tr_debug("AFC0: %x", rf_read_register(AFC0));
-    tr_debug("RSSI_FLT: %x", rf_read_register(RSSI_FLT));
-    tr_debug("RSSI_TH: %x", rf_read_register(RSSI_TH));
-    tr_debug("AGCCTRL4: %x", rf_read_register(AGCCTRL4));
-    tr_debug("AGCCTRL3: %x", rf_read_register(AGCCTRL3));
-    tr_debug("AGCCTRL2: %x", rf_read_register(AGCCTRL2));
-    tr_debug("AGCCTRL1: %x", rf_read_register(AGCCTRL1));
-    tr_debug("AGCCTRL0: %x", rf_read_register(AGCCTRL0));
-    tr_debug("ANT_SELECT_CONF: %x", rf_read_register(ANT_SELECT_CONF));
-    tr_debug("CLOCKREC2: %x", rf_read_register(CLOCKREC2));
-    tr_debug("CLOCKREC1: %x", rf_read_register(CLOCKREC1));
-    tr_debug("PCKTCTRL6: %x", rf_read_register(PCKTCTRL6));
-    tr_debug("PCKTCTRL5: %x", rf_read_register(PCKTCTRL5));
-    tr_debug("PCKTCTRL4: %x", rf_read_register(PCKTCTRL4));
-    tr_debug("PCKTCTRL3: %x", rf_read_register(PCKTCTRL3));
-    tr_debug("PCKTCTRL2: %x", rf_read_register(PCKTCTRL2));
-    tr_debug("PCKTCTRL1: %x", rf_read_register(PCKTCTRL1));
-    tr_debug("PCKTLEN1: %x", rf_read_register(PCKTLEN1));
-    tr_debug("PCKTLEN0: %x", rf_read_register(PCKTLEN0));
-    tr_debug("SYNC3: %x", rf_read_register(SYNC3));
-    tr_debug("SYNC2: %x", rf_read_register(SYNC2));
-    tr_debug("SYNC1: %x", rf_read_register(SYNC1));
-    tr_debug("SYNC0: %x", rf_read_register(SYNC0));
-    tr_debug("QI: %x", rf_read_register(QI));
-    tr_debug("PCKT_PSTMBL: %x", rf_read_register(PCKT_PSTMBL));
-    tr_debug("PROTOCOL2: %x", rf_read_register(PROTOCOL2));
-    tr_debug("PROTOCOL1: %x", rf_read_register(PROTOCOL1));
-    tr_debug("PROTOCOL0: %x", rf_read_register(PROTOCOL0));
-    tr_debug("FIFO_CONFIG3: %x", rf_read_register(FIFO_CONFIG3));
-    tr_debug("FIFO_CONFIG2: %x", rf_read_register(FIFO_CONFIG2));
-    tr_debug("FIFO_CONFIG1: %x", rf_read_register(FIFO_CONFIG1));
-    tr_debug("FIFO_CONFIG0: %x", rf_read_register(FIFO_CONFIG0));
-    tr_debug("PCKT_FLT_OPTIONS: %x", rf_read_register(PCKT_FLT_OPTIONS));
-    tr_debug("PCKT_FLT_GOALS4: %x", rf_read_register(PCKT_FLT_GOALS4));
-    tr_debug("PCKT_FLT_GOALS3: %x", rf_read_register(PCKT_FLT_GOALS3));
-    tr_debug("PCKT_FLT_GOALS2: %x", rf_read_register(PCKT_FLT_GOALS2));
-    tr_debug("PCKT_FLT_GOALS1: %x", rf_read_register(PCKT_FLT_GOALS1));
-    tr_debug("PCKT_FLT_GOALS0: %x", rf_read_register(PCKT_FLT_GOALS0));
-    tr_debug("TIMERS5: %x", rf_read_register(TIMERS5));
-    tr_debug("TIMERS4: %x", rf_read_register(TIMERS4));
-    tr_debug("TIMERS3: %x", rf_read_register(TIMERS3));
-    tr_debug("TIMERS2: %x", rf_read_register(TIMERS2));
-    tr_debug("TIMERS1: %x", rf_read_register(TIMERS1));
-    tr_debug("TIMERS0: %x", rf_read_register(TIMERS0));
-    tr_debug("CSMA_CONF3: %x", rf_read_register(CSMA_CONF3));
-    tr_debug("CSMA_CONF2: %x", rf_read_register(CSMA_CONF2));
-    tr_debug("CSMA_CONF1: %x", rf_read_register(CSMA_CONF1));
-    tr_debug("CSMA_CONF0: %x", rf_read_register(CSMA_CONF0));
-    tr_debug("IRQ_MASK3: %x", rf_read_register(IRQ_MASK3));
-    tr_debug("IRQ_MASK2: %x", rf_read_register(IRQ_MASK2));
-    tr_debug("IRQ_MASK1: %x", rf_read_register(IRQ_MASK1));
-    tr_debug("IRQ_MASK0: %x", rf_read_register(IRQ_MASK0));
-    tr_debug("FAST_RX_TIMER: %x", rf_read_register(FAST_RX_TIMER));
-    tr_debug("PA_POWER8: %x", rf_read_register(PA_POWER8));
-    tr_debug("PA_POWER7: %x", rf_read_register(PA_POWER7));
-    tr_debug("PA_POWER6: %x", rf_read_register(PA_POWER6));
-    tr_debug("PA_POWER5: %x", rf_read_register(PA_POWER5));
-    tr_debug("PA_POWER4: %x", rf_read_register(PA_POWER4));
-    tr_debug("PA_POWER3: %x", rf_read_register(PA_POWER3));
-    tr_debug("PA_POWER2: %x", rf_read_register(PA_POWER2));
-    tr_debug("PA_POWER1: %x", rf_read_register(PA_POWER1));
-    tr_debug("PA_POWER0: %x", rf_read_register(PA_POWER0));
-    tr_debug("PA_CONFIG1: %x", rf_read_register(PA_CONFIG1));
-    tr_debug("PA_CONFIG0: %x", rf_read_register(PA_CONFIG0));
-    tr_debug("SYNTH_CONFIG2: %x", rf_read_register(SYNTH_CONFIG2));
-    tr_debug("VCO_CONFIG: %x", rf_read_register(VCO_CONFIG));
-    tr_debug("VCO_CALIBR_IN2: %x", rf_read_register(VCO_CALIBR_IN2));
-    tr_debug("VCO_CALIBR_IN1: %x", rf_read_register(VCO_CALIBR_IN1));
-    tr_debug("VCO_CALIBR_IN0: %x", rf_read_register(VCO_CALIBR_IN0));
-    tr_debug("XO_RCO_CONF1: %x", rf_read_register(XO_RCO_CONF1));
-    tr_debug("XO_RCO_CONF0: %x", rf_read_register(XO_RCO_CONF0));
-    tr_debug("RCO_CALIBR_CONF3: %x", rf_read_register(RCO_CALIBR_CONF3));
-    tr_debug("RCO_CALIBR_CONF2: %x", rf_read_register(RCO_CALIBR_CONF2));
-    tr_debug("PM_CONF4: %x", rf_read_register(PM_CONF4));
-    tr_debug("PM_CONF3: %x", rf_read_register(PM_CONF3));
-    tr_debug("PM_CONF2: %x", rf_read_register(PM_CONF2));
-    tr_debug("PM_CONF1: %x", rf_read_register(PM_CONF1));
-    tr_debug("PM_CONF0: %x", rf_read_register(PM_CONF0));
-    tr_debug("MC_STATE1: %x", rf_read_register(MC_STATE1));
-    tr_debug("MC_STATE0: %x", rf_read_register(MC_STATE0));
-    tr_debug("TX_FIFO_STATUS: %x", rf_read_register(TX_FIFO_STATUS));
-    tr_debug("RX_FIFO_STATUS: %x", rf_read_register(RX_FIFO_STATUS));
-    tr_debug("RCO_CALIBR_OUT4: %x", rf_read_register(RCO_CALIBR_OUT4));
-    tr_debug("RCO_CALIBR_OUT3: %x", rf_read_register(RCO_CALIBR_OUT3));
-    tr_debug("VCO_CALIBR_OUT1: %x", rf_read_register(VCO_CALIBR_OUT1));
-    tr_debug("VCO_CALIBR_OUT0: %x", rf_read_register(VCO_CALIBR_OUT0));
-    tr_debug("TX_PCKT_INFO: %x", rf_read_register(TX_PCKT_INFO));
-    tr_debug("RX_PCKT_INFO: %x", rf_read_register(RX_PCKT_INFO));
-    tr_debug("AFC_CORR: %x", rf_read_register(AFC_CORR));
-    tr_debug("LINK_QUALIF2: %x", rf_read_register(LINK_QUALIF2));
-    tr_debug("LINK_QUALIF1: %x", rf_read_register(LINK_QUALIF1));
-    tr_debug("RSSI_LEVEL: %x", rf_read_register(RSSI_LEVEL));
-    tr_debug("RX_PCKT_LEN1: %x", rf_read_register(RX_PCKT_LEN1));
-    tr_debug("RX_PCKT_LEN0: %x", rf_read_register(RX_PCKT_LEN0));
-    tr_debug("CRC_FIELD3: %x", rf_read_register(CRC_FIELD3));
-    tr_debug("CRC_FIELD2: %x", rf_read_register(CRC_FIELD2));
-    tr_debug("CRC_FIELD1: %x", rf_read_register(CRC_FIELD1));
-    tr_debug("CRC_FIELD0: %x", rf_read_register(CRC_FIELD0));
-    tr_debug("RX_ADDRE_FIELD1: %x", rf_read_register(RX_ADDRE_FIELD1));
-    tr_debug("RX_ADDRE_FIELD0: %x", rf_read_register(RX_ADDRE_FIELD0));
-    tr_debug("RSSI_LEVEL_RUN: %x", rf_read_register(RSSI_LEVEL_RUN));
-    tr_debug("DEVICE_INFO1: %x", rf_read_register(DEVICE_INFO1));
-    tr_debug("DEVICE_INFO0: %x", rf_read_register(DEVICE_INFO0));
-    tr_debug("IRQ_STATUS3: %x", rf_read_register(IRQ_STATUS3));
-    tr_debug("IRQ_STATUS2: %x", rf_read_register(IRQ_STATUS2));
-    tr_debug("IRQ_STATUS1: %x", rf_read_register(IRQ_STATUS1));
-    tr_debug("IRQ_STATUS0: %x", rf_read_register(IRQ_STATUS0));
-}
-
 #if MBED_CONF_S2LP_PROVIDE_DEFAULT
 NanostackRfPhy &NanostackRfPhy::get_default_instance()
 {
-    static NanostackRfPhys2lp rf_phy(S2LP_SPI_SDI, S2LP_SPI_SDO, S2LP_SPI_SCLK, S2LP_SPI_CS, S2LP_SPI_SDN,
+    static NanostackRfPhys2lp rf_phy(S2LP_SPI_SDI, S2LP_SPI_SDO, S2LP_SPI_SCLK, S2LP_SPI_CS, S2LP_SPI_SDN
 #ifdef TEST_GPIOS_ENABLED
-                                     S2LP_SPI_TEST1, S2LP_SPI_TEST2, S2LP_SPI_TEST3, S2LP_SPI_TEST4, S2LP_SPI_TEST5,
+                                     ,S2LP_SPI_TEST1, S2LP_SPI_TEST2, S2LP_SPI_TEST3, S2LP_SPI_TEST4, S2LP_SPI_TEST5
 #endif //TEST_GPIOS_ENABLED
-                                     S2LP_SPI_GPIO0, S2LP_SPI_GPIO1, S2LP_SPI_GPIO2, S2LP_SPI_GPIO3);
+                                     ,S2LP_SPI_GPIO0, S2LP_SPI_GPIO1, S2LP_SPI_GPIO2, S2LP_SPI_GPIO3
+#ifdef AT24MAC
+                                     ,S2LP_I2C_SDA, S2LP_I2C_SCL
+#endif //AT24MAC
+                                     );
     return rf_phy;
 }
 #endif // MBED_CONF_S2LP_PROVIDE_DEFAULT

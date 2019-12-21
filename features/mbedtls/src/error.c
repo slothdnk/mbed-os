@@ -137,10 +137,6 @@
 #include "mbedtls/md5.h"
 #endif
 
-#if defined(MBEDTLS_NET_C)
-#include "mbedtls/net_sockets.h"
-#endif
-
 #if defined(MBEDTLS_OID_C)
 #include "mbedtls/oid.h"
 #endif
@@ -193,20 +189,24 @@
 #include "mbedtls/sha512.h"
 #endif
 
-#if defined(MBEDTLS_SSL_TLS_C)
-#include "mbedtls/ssl.h"
-#endif
-
 #if defined(MBEDTLS_THREADING_C)
 #include "mbedtls/threading.h"
 #endif
 
-#if defined(MBEDTLS_X509_USE_C) || defined(MBEDTLS_X509_CREATE_C)
-#include "mbedtls/x509.h"
-#endif
-
 #if defined(MBEDTLS_XTEA_C)
 #include "mbedtls/xtea.h"
+#endif
+
+#if defined(MBEDTLS_NET_C)
+#include "mbedtls/net_sockets.h"
+#endif
+
+#if defined(MBEDTLS_SSL_TLS_C)
+#include "mbedtls/ssl.h"
+#endif
+
+#if defined(MBEDTLS_X509_USE_C) || defined(MBEDTLS_X509_CREATE_C)
+#include "mbedtls/x509.h"
 #endif
 
 
@@ -523,6 +523,10 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
             mbedtls_snprintf( buf, buflen, "SSL - The asynchronous operation is not completed yet" );
         if( use_ret == -(MBEDTLS_ERR_SSL_EARLY_MESSAGE) )
             mbedtls_snprintf( buf, buflen, "SSL - Internal-only message signaling that a message arrived early" );
+        if( use_ret == -(MBEDTLS_ERR_SSL_UNEXPECTED_CID) )
+            mbedtls_snprintf( buf, buflen, "SSL - An encrypted DTLS-frame with an unexpected CID was received" );
+        if( use_ret == -(MBEDTLS_ERR_SSL_VERSION_MISMATCH) )
+            mbedtls_snprintf( buf, buflen, "SSL - An operation failed due to an unexpected version or configuration" );
         if( use_ret == -(MBEDTLS_ERR_SSL_CRYPTO_IN_PROGRESS) )
             mbedtls_snprintf( buf, buflen, "SSL - A cryptographic operation is in progress. Try again later" );
 #endif /* MBEDTLS_SSL_TLS_C */
@@ -567,7 +571,7 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
         if( use_ret == -(MBEDTLS_ERR_X509_BUFFER_TOO_SMALL) )
             mbedtls_snprintf( buf, buflen, "X509 - Destination buffer is too small" );
         if( use_ret == -(MBEDTLS_ERR_X509_FATAL_ERROR) )
-            mbedtls_snprintf( buf, buflen, "X509 - A fatal error occured, eg the chain is too long or the vrfy callback failed" );
+            mbedtls_snprintf( buf, buflen, "X509 - A fatal error occurred, eg the chain is too long or the vrfy callback failed" );
 #endif /* MBEDTLS_X509_USE_C || MBEDTLS_X509_CREATE_C */
         // END generated code
 
@@ -618,8 +622,8 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
 #endif /* MBEDTLS_ARC4_C */
 
 #if defined(MBEDTLS_ARIA_C)
-    if( use_ret == -(MBEDTLS_ERR_ARIA_INVALID_KEY_LENGTH) )
-        mbedtls_snprintf( buf, buflen, "ARIA - Invalid key length" );
+    if( use_ret == -(MBEDTLS_ERR_ARIA_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "ARIA - Bad input data" );
     if( use_ret == -(MBEDTLS_ERR_ARIA_INVALID_INPUT_LENGTH) )
         mbedtls_snprintf( buf, buflen, "ARIA - Invalid data input length" );
     if( use_ret == -(MBEDTLS_ERR_ARIA_FEATURE_UNAVAILABLE) )
@@ -672,17 +676,17 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
 #endif /* MBEDTLS_BIGNUM_C */
 
 #if defined(MBEDTLS_BLOWFISH_C)
-    if( use_ret == -(MBEDTLS_ERR_BLOWFISH_INVALID_KEY_LENGTH) )
-        mbedtls_snprintf( buf, buflen, "BLOWFISH - Invalid key length" );
-    if( use_ret == -(MBEDTLS_ERR_BLOWFISH_HW_ACCEL_FAILED) )
-        mbedtls_snprintf( buf, buflen, "BLOWFISH - Blowfish hardware accelerator failed" );
+    if( use_ret == -(MBEDTLS_ERR_BLOWFISH_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "BLOWFISH - Bad input data" );
     if( use_ret == -(MBEDTLS_ERR_BLOWFISH_INVALID_INPUT_LENGTH) )
         mbedtls_snprintf( buf, buflen, "BLOWFISH - Invalid data input length" );
+    if( use_ret == -(MBEDTLS_ERR_BLOWFISH_HW_ACCEL_FAILED) )
+        mbedtls_snprintf( buf, buflen, "BLOWFISH - Blowfish hardware accelerator failed" );
 #endif /* MBEDTLS_BLOWFISH_C */
 
 #if defined(MBEDTLS_CAMELLIA_C)
-    if( use_ret == -(MBEDTLS_ERR_CAMELLIA_INVALID_KEY_LENGTH) )
-        mbedtls_snprintf( buf, buflen, "CAMELLIA - Invalid key length" );
+    if( use_ret == -(MBEDTLS_ERR_CAMELLIA_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "CAMELLIA - Bad input data" );
     if( use_ret == -(MBEDTLS_ERR_CAMELLIA_INVALID_INPUT_LENGTH) )
         mbedtls_snprintf( buf, buflen, "CAMELLIA - Invalid data input length" );
     if( use_ret == -(MBEDTLS_ERR_CAMELLIA_HW_ACCEL_FAILED) )
@@ -790,35 +794,6 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
         mbedtls_snprintf( buf, buflen, "MD5 - MD5 hardware accelerator failed" );
 #endif /* MBEDTLS_MD5_C */
 
-#if defined(MBEDTLS_NET_C)
-    if( use_ret == -(MBEDTLS_ERR_NET_SOCKET_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Failed to open a socket" );
-    if( use_ret == -(MBEDTLS_ERR_NET_CONNECT_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - The connection to the given server / port failed" );
-    if( use_ret == -(MBEDTLS_ERR_NET_BIND_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Binding of the socket failed" );
-    if( use_ret == -(MBEDTLS_ERR_NET_LISTEN_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Could not listen on the socket" );
-    if( use_ret == -(MBEDTLS_ERR_NET_ACCEPT_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Could not accept the incoming connection" );
-    if( use_ret == -(MBEDTLS_ERR_NET_RECV_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Reading information from the socket failed" );
-    if( use_ret == -(MBEDTLS_ERR_NET_SEND_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Sending information through the socket failed" );
-    if( use_ret == -(MBEDTLS_ERR_NET_CONN_RESET) )
-        mbedtls_snprintf( buf, buflen, "NET - Connection was reset by peer" );
-    if( use_ret == -(MBEDTLS_ERR_NET_UNKNOWN_HOST) )
-        mbedtls_snprintf( buf, buflen, "NET - Failed to get an IP address for the given hostname" );
-    if( use_ret == -(MBEDTLS_ERR_NET_BUFFER_TOO_SMALL) )
-        mbedtls_snprintf( buf, buflen, "NET - Buffer is too small to hold the data" );
-    if( use_ret == -(MBEDTLS_ERR_NET_INVALID_CONTEXT) )
-        mbedtls_snprintf( buf, buflen, "NET - The context is invalid, eg because it was free()ed" );
-    if( use_ret == -(MBEDTLS_ERR_NET_POLL_FAILED) )
-        mbedtls_snprintf( buf, buflen, "NET - Polling the net context failed" );
-    if( use_ret == -(MBEDTLS_ERR_NET_BAD_INPUT_DATA) )
-        mbedtls_snprintf( buf, buflen, "NET - Input invalid" );
-#endif /* MBEDTLS_NET_C */
-
 #if defined(MBEDTLS_OID_C)
     if( use_ret == -(MBEDTLS_ERR_OID_NOT_FOUND) )
         mbedtls_snprintf( buf, buflen, "OID - OID is not found" );
@@ -855,16 +830,22 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
 #if defined(MBEDTLS_SHA1_C)
     if( use_ret == -(MBEDTLS_ERR_SHA1_HW_ACCEL_FAILED) )
         mbedtls_snprintf( buf, buflen, "SHA1 - SHA-1 hardware accelerator failed" );
+    if( use_ret == -(MBEDTLS_ERR_SHA1_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "SHA1 - SHA-1 input data was malformed" );
 #endif /* MBEDTLS_SHA1_C */
 
 #if defined(MBEDTLS_SHA256_C)
     if( use_ret == -(MBEDTLS_ERR_SHA256_HW_ACCEL_FAILED) )
         mbedtls_snprintf( buf, buflen, "SHA256 - SHA-256 hardware accelerator failed" );
+    if( use_ret == -(MBEDTLS_ERR_SHA256_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "SHA256 - SHA-256 input data was malformed" );
 #endif /* MBEDTLS_SHA256_C */
 
 #if defined(MBEDTLS_SHA512_C)
     if( use_ret == -(MBEDTLS_ERR_SHA512_HW_ACCEL_FAILED) )
         mbedtls_snprintf( buf, buflen, "SHA512 - SHA-512 hardware accelerator failed" );
+    if( use_ret == -(MBEDTLS_ERR_SHA512_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "SHA512 - SHA-512 input data was malformed" );
 #endif /* MBEDTLS_SHA512_C */
 
 #if defined(MBEDTLS_THREADING_C)
@@ -882,6 +863,35 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
     if( use_ret == -(MBEDTLS_ERR_XTEA_HW_ACCEL_FAILED) )
         mbedtls_snprintf( buf, buflen, "XTEA - XTEA hardware accelerator failed" );
 #endif /* MBEDTLS_XTEA_C */
+
+#if defined(MBEDTLS_NET_C)
+    if( use_ret == -(MBEDTLS_ERR_NET_SOCKET_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Failed to open a socket" );
+    if( use_ret == -(MBEDTLS_ERR_NET_CONNECT_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - The connection to the given server / port failed" );
+    if( use_ret == -(MBEDTLS_ERR_NET_BIND_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Binding of the socket failed" );
+    if( use_ret == -(MBEDTLS_ERR_NET_LISTEN_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Could not listen on the socket" );
+    if( use_ret == -(MBEDTLS_ERR_NET_ACCEPT_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Could not accept the incoming connection" );
+    if( use_ret == -(MBEDTLS_ERR_NET_RECV_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Reading information from the socket failed" );
+    if( use_ret == -(MBEDTLS_ERR_NET_SEND_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Sending information through the socket failed" );
+    if( use_ret == -(MBEDTLS_ERR_NET_CONN_RESET) )
+        mbedtls_snprintf( buf, buflen, "NET - Connection was reset by peer" );
+    if( use_ret == -(MBEDTLS_ERR_NET_UNKNOWN_HOST) )
+        mbedtls_snprintf( buf, buflen, "NET - Failed to get an IP address for the given hostname" );
+    if( use_ret == -(MBEDTLS_ERR_NET_BUFFER_TOO_SMALL) )
+        mbedtls_snprintf( buf, buflen, "NET - Buffer is too small to hold the data" );
+    if( use_ret == -(MBEDTLS_ERR_NET_INVALID_CONTEXT) )
+        mbedtls_snprintf( buf, buflen, "NET - The context is invalid, eg because it was free()ed" );
+    if( use_ret == -(MBEDTLS_ERR_NET_POLL_FAILED) )
+        mbedtls_snprintf( buf, buflen, "NET - Polling the net context failed" );
+    if( use_ret == -(MBEDTLS_ERR_NET_BAD_INPUT_DATA) )
+        mbedtls_snprintf( buf, buflen, "NET - Input invalid" );
+#endif /* MBEDTLS_NET_C */
     // END generated code
 
     if( strlen( buf ) != 0 )

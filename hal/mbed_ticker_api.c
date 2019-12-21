@@ -19,6 +19,7 @@
 #include "hal/ticker_api.h"
 #include "platform/mbed_critical.h"
 #include "platform/mbed_assert.h"
+#include "platform/mbed_error.h"
 
 static void schedule_interrupt(const ticker_data_t *const ticker);
 static void update_present_time(const ticker_data_t *const ticker);
@@ -42,8 +43,17 @@ static void initialize(const ticker_data_t *ticker)
     const ticker_info_t *info = ticker->interface->get_info();
     uint32_t frequency = info->frequency;
     if (info->frequency == 0) {
-        MBED_ASSERT(0);
+#if MBED_TRAP_ERRORS_ENABLED
+        MBED_ERROR(
+            MBED_MAKE_ERROR(
+                MBED_MODULE_HAL,
+                MBED_ERROR_CODE_NOT_READY
+            ),
+            "Ticker frequency is zero"
+        );
+#else
         frequency = 1000000;
+#endif // MBED_TRAP_ERRORS_ENABLED
     }
 
     uint8_t frequency_shifts = 0;
@@ -56,8 +66,17 @@ static void initialize(const ticker_data_t *ticker)
 
     uint32_t bits = info->bits;
     if ((info->bits > 32) || (info->bits < 4)) {
-        MBED_ASSERT(0);
+#if MBED_TRAP_ERRORS_ENABLED
+        MBED_ERROR(
+            MBED_MAKE_ERROR(
+                MBED_MODULE_HAL,
+                MBED_ERROR_CODE_INVALID_SIZE
+            ),
+            "Ticker number of bit is greater than 32 or less than 4 bits"
+        );
+#else
         bits = 32;
+#endif // MBED_TRAP_ERRORS_ENABLED
     }
     uint32_t max_delta = 0x7 << (bits - 4); // 7/16th
     uint64_t max_delta_us =
@@ -377,9 +396,12 @@ void ticker_insert_event_us(const ticker_data_t *const ticker, ticker_event_t *o
     /* if prev is NULL we're at the head */
     if (prev == NULL) {
         ticker->queue->head = obj;
-        schedule_interrupt(ticker);
     } else {
         prev->next = obj;
+    }
+
+    if (prev == NULL || timestamp <= ticker->queue->present_time) {
+        schedule_interrupt(ticker);
     }
 
     core_util_critical_section_exit();

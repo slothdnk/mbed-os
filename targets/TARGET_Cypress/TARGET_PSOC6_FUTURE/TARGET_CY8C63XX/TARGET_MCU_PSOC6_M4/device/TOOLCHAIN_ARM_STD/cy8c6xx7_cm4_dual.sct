@@ -132,15 +132,21 @@ LR_IROM1 FLASH_START FLASH_SIZE
         .ANY (+RW, +ZI)
     }
     
-    ARM_LIB_STACK RAM_START+RAM_SIZE EMPTY -Stack_Size 
-    { ; Stack region growing down
-    }
-
     ; Place variables in the section that should not be initialized during the
     ; device startup.
     RW_IRAM1 +0 UNINIT
     {
         * (.noinit)
+    }
+
+    ; Application heap area (HEAP)
+    ARM_LIB_HEAP  +0 EMPTY RAM_START+RAM_SIZE-Stack_Size-ImageLimit(RW_IRAM1)
+    { 
+    }
+    
+    ; Stack region growing down
+    ARM_LIB_STACK RAM_START+RAM_SIZE EMPTY -Stack_Size
+    {
     }
 
     ; Used for the digital signature of the secure application and the

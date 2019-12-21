@@ -673,6 +673,7 @@ static nsapi_size_or_error_t start_udp_receiver_thread(SInfo *info, int argc, ch
     int *packetSizes = new (nothrow) int[PACKET_SIZE_ARRAY_LEN];
     if (!packetSizes) {
         cmd_printf("Allocation failed\r\n");
+        free(dataIn);
         return CMDLINE_RETCODE_FAIL;
     }
     for (int i = 0; i < PACKET_SIZE_ARRAY_LEN; i++) {
@@ -943,7 +944,7 @@ static void bg_traffic_thread(SInfo *info)
             tr_err("Background sent: \"%s\"", sbuffer);
             tr_err("Background received: \"%s\"", rbuffer);
         }
-        wait_ms(10);
+        ThisThread::sleep_for(10);
     }
 }
 

@@ -18,6 +18,7 @@
 #include "fsl_emc.h"
 #include "fsl_power.h"
 #include "fsl_flashiap.h"
+#include "hal/pinmap.h"
 
 #define CRC16
 #include "crc.h"
@@ -82,6 +83,11 @@ void rtc_setup_oscillator(void)
     SYSCON->RTCOSCCTRL |= SYSCON_RTCOSCCTRL_EN_MASK;
 }
 
+uint32_t us_ticker_get_clock()
+{
+    return CLOCK_GetFreq(kCLOCK_BusClk);;
+}
+
 // Provide ethernet devices with a semi-unique MAC address from the UUID
 void mbed_mac_address(char *mac)
 {
@@ -129,6 +135,7 @@ void ADC_ClockPower_Configuration(void)
      * The divider would be set when configuring the converter.
      */
     CLOCK_EnableClock(kCLOCK_Adc0); /* SYSCON->AHBCLKCTRL[0] |= SYSCON_AHBCLKCTRL_ADC0_MASK; */
+    RESET_PeripheralReset(kADC0_RST_SHIFT_RSTn);
 }
 
 /* Initialize the external memory. */
@@ -179,5 +186,19 @@ uint32_t qspi_get_freq(void)
     CLOCK_AttachClk(kFRO_HF_to_SPIFI_CLK);
 
     return CLOCK_GetFroHfFreq();
+}
+
+const PinList *pinmap_restricted_pins()
+{
+    /* D6 pin is used by the LCD
+       A4 pin is used by the accelerometer */
+    static const PinName pins[] = {
+        D6, A4
+    };
+    static const PinList pin_list = {
+        sizeof(pins) / sizeof(pins[0]),
+        pins
+    };
+    return &pin_list;
 }
 

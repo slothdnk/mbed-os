@@ -34,10 +34,12 @@ SRCS += \
 	source/6LoWPAN/ws/ws_pae_lib.c \
 	source/6LoWPAN/ws/ws_pae_nvm_data.c \
 	source/6LoWPAN/ws/ws_pae_nvm_store.c \
+	source/6LoWPAN/ws/ws_pae_timers.c \
 	source/6LoWPAN/ws/ws_eapol_relay.c \
 	source/6LoWPAN/ws/ws_eapol_auth_relay.c \
 	source/6LoWPAN/ws/ws_eapol_relay_lib.c \
 	source/6LoWPAN/ws/ws_eapol_pdu.c \
+	source/6LoWPAN/ws/ws_stats.c \
 	source/BorderRouter/border_router.c \
 	source/Common_Protocols/icmpv6.c \
 	source/Common_Protocols/icmpv6_prefix.c \
@@ -50,6 +52,7 @@ SRCS += \
 	source/Common_Protocols/tcp.c \
 	source/Common_Protocols/udp.c \
 	source/Core/ns_address_internal.c \
+	source/Core/ns_monitor.c \
 	source/Core/buffer_dyn.c \
 	source/Core/sockbuf.c \
 	source/Core/ns_socket.c \
@@ -173,6 +176,7 @@ SRCS += \
 	source/6LoWPAN/Thread/thread_router_bootstrap.c \
 	source/6LoWPAN/Thread/thread_discovery.c \
 	source/6LoWPAN/Thread/thread_commissioning_if.c \
+	source/6LoWPAN/Thread/thread_bbr_commercial.c \
 	source/6LoWPAN/Thread/thread_net_config_api.c \
 	source/6LoWPAN/Thread/thread_network_data_lib.c \
 	source/6LoWPAN/Thread/thread_network_data_storage.c \
@@ -184,8 +188,10 @@ SRCS += \
 	source/6LoWPAN/Thread/thread_mdns.c \
 	source/6LoWPAN/Thread/thread_beacon.c \
 	source/6LoWPAN/Thread/thread_mle_message_handler.c \
+	source/6LoWPAN/Thread/thread_lowpower_api.c \
 	source/6LoWPAN/Thread/thread_lowpower_private_api.c \
 	source/6LoWPAN/Thread/thread_nvm_store.c \
+	source/6LoWPAN/Thread/thread_ccm.c \
 	source/DHCPv6_Server/DHCPv6_Server_service.c \
 	source/DHCPv6_client/dhcpv6_client_service.c \
 	source/libDHCPv6/dhcp_service_api.c \
@@ -194,6 +200,7 @@ SRCS += \
 	source/Service_Libs/utils/ns_crc.c \
 	source/Service_Libs/utils/isqrt.c \
 	source/Service_Libs/utils/ns_file_system.c \
+	source/Service_Libs/utils/ns_conf.c \
 	source/Service_Libs/mdns/ns_mdns_api.c \
 	source/Service_Libs/mdns/ns_fnet_port.c \
 	source/Service_Libs/mdns/ns_fnet_events.c \

@@ -8,6 +8,12 @@
  * See BSD-3-Clause license in README.md
  */
 
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
+#else
+#include MBEDTLS_CONFIG_FILE
+#endif
+
 #include "t_cose_crypto.h"
 #include "tfm_plat_defs.h"
 #include "psa/crypto.h"
@@ -39,15 +45,14 @@ t_cose_crypto_pub_key_sign(int32_t cose_alg_id,
 
     (void)key_select;
 
-    const psa_key_id_t key_id = PSA_ATTESTATION_PRIVATE_KEY_ID;
-    psa_key_handle_t handle = 0;
+    psa_key_handle_t handle;
 
     if (sig_size > signature_buffer.len)
     {
         return T_COSE_ERR_SIG_BUFFER_SIZE;
     }
 
-    crypto_ret = psa_open_key(PSA_KEY_LIFETIME_PERSISTENT, key_id, &handle);
+    crypto_ret = psa_open_key(PSA_ATTESTATION_PRIVATE_KEY_ID, &handle);
     if (crypto_ret != PSA_SUCCESS)
     {
         return T_COSE_ERR_NO_KID;

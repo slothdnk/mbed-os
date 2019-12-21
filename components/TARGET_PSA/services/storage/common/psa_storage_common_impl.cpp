@@ -127,7 +127,7 @@ static psa_status_t convert_status(int status)
  * \param n[in] number of bits to shift right
  * \return the result
  */
-MBED_FORCEINLINE uint32_t lsr32(uint32_t x, uint32_t n)
+static MBED_FORCEINLINE uint32_t lsr32(uint32_t x, uint32_t n)
 {
     return x >> n;
 }
@@ -140,7 +140,7 @@ MBED_FORCEINLINE uint32_t lsr32(uint32_t x, uint32_t n)
  * \param n[in] number of bits to shift right
  * \return the result
  */
-MBED_FORCEINLINE uint64_t lsr64(uint64_t x, uint32_t n)
+static MBED_FORCEINLINE uint64_t lsr64(uint64_t x, uint32_t n)
 {
     return x >> n;
 }
@@ -184,13 +184,9 @@ static void generate_fn(char *tdb_filename, uint32_t tdb_filename_size, psa_stor
 }
 
 psa_status_t psa_storage_set_impl(KVStore *kvstore, int32_t pid, psa_storage_uid_t uid,
-                                  uint32_t data_length, const void *p_data,
-                                  psa_storage_create_flags_t create_flags)
+                                  size_t data_length, const void *p_data,
+                                  uint32_t kv_create_flags)
 {
-    if ((create_flags & (~FLAGS_MSK)) != 0) {
-        return PSA_ERROR_NOT_SUPPORTED;
-    }
-
     if (uid == 0) {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
@@ -198,18 +194,13 @@ psa_status_t psa_storage_set_impl(KVStore *kvstore, int32_t pid, psa_storage_uid
     char kv_key[PSA_STORAGE_FILE_NAME_MAX] = {'\0'};
     generate_fn(kv_key, PSA_STORAGE_FILE_NAME_MAX, uid, pid);
 
-    uint32_t kv_create_flags = 0;
-    if (create_flags & PSA_STORAGE_FLAG_WRITE_ONCE) {
-        kv_create_flags = KVStore::WRITE_ONCE_FLAG;
-    }
-
     int status = kvstore->set(kv_key, p_data, data_length, kv_create_flags);
 
     return convert_status(status);
 }
 
 psa_status_t psa_storage_get_impl(KVStore *kvstore, int32_t pid, psa_storage_uid_t uid,
-                                  uint32_t data_offset, uint32_t data_length, void *p_data)
+                                  size_t data_offset, size_t data_length, void *p_data, size_t *p_data_length)
 {
     if (uid == 0) {
         return PSA_ERROR_INVALID_ARGUMENT;
@@ -236,18 +227,14 @@ psa_status_t psa_storage_get_impl(KVStore *kvstore, int32_t pid, psa_storage_uid
             return PSA_ERROR_BUFFER_TOO_SMALL;
         }
 
-        size_t actual_size = 0;
-        status = kvstore->get(kv_key, p_data, data_length, &actual_size, data_offset);
-        if ((status == MBED_SUCCESS) && (actual_size < data_length)) {
-            return PSA_ERROR_BUFFER_TOO_SMALL;
-        }
+        status = kvstore->get(kv_key, p_data, data_length, p_data_length, data_offset);
     }
 
     return convert_status(status);
 }
 
 psa_status_t psa_storage_get_info_impl(KVStore *kvstore, int32_t pid, psa_storage_uid_t uid,
-                                       struct psa_storage_info_t *p_info)
+                                       struct psa_storage_info_t *p_info, uint32_t *kv_get_flags)
 {
 
     if (uid == 0) {
@@ -266,7 +253,9 @@ psa_status_t psa_storage_get_info_impl(KVStore *kvstore, int32_t pid, psa_storag
         if (kv_info.flags & KVStore::WRITE_ONCE_FLAG) {
             p_info->flags |= PSA_STORAGE_FLAG_WRITE_ONCE;
         }
-        p_info->size = (uint32_t)(kv_info.size);   // kv_info.size is of type size_t
+        *kv_get_flags = kv_info.flags;
+        p_info->size = kv_info.size;
+        p_info->capacity = kv_info.size;
     }
 
     return convert_status(status);

@@ -64,7 +64,7 @@ public:
         ble::phy_t tx_phy,
         ble::phy_t rx_phy
     ) {
-        impl()->on_phy_update_complete(status, connection_handle, tx_phy, rx_phy);
+        impl()->on_phy_update_complete_(status, connection_handle, tx_phy, rx_phy);
     }
 
     /**
@@ -655,7 +655,7 @@ public:
         periodic_advertising_interval_t periodic_advertising_max,
         bool advertise_power
     ) {
-        return impl()->set_periodic_advertising_parameters(
+        return impl()->set_periodic_advertising_parameters_(
             advertising_handle,
             periodic_advertising_min,
             periodic_advertising_max,

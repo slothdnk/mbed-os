@@ -6,7 +6,8 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; COPYRIGHT(c) 2017 STMicroelectronics</center></h2>
+  * <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
+  * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
   * the "License"; You may not use this file except in compliance with the
@@ -17,8 +18,8 @@
   */ 
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef STM32H7xx_HAL_SD_EX_H
-#define STM32H7xx_HAL_SD_EX_H
+#ifndef STM32H7xx_HAL_SDEX_H
+#define STM32H7xx_HAL_SDEX_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -107,6 +108,6 @@ void HAL_SDEx_Write_DMADoubleBuffer1CpltCallback(SD_HandleTypeDef *hsd);
 #endif
 
 
-#endif /* stm32h7xx_HAL_SDEx_H */ 
+#endif /* stm32h7xx_HAL_SDEX_H */ 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

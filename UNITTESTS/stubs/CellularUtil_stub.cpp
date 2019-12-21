@@ -19,7 +19,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "CellularUtil_stub.h"
 
+int CellularUtil_stub::int_value = 0;
+uint16_t CellularUtil_stub::uint16_value = 0;
+char *CellularUtil_stub::char_ptr = NULL;
+int CellularUtil_stub::char_pos = 0;
+char *CellularUtil_stub::char_table[50] = {};
+int CellularUtil_stub::table_idx = 0;
+
+using namespace mbed;
 namespace mbed_cellular_util {
 
 #define MAX_STRING_LEN 200
@@ -39,25 +48,49 @@ void uint_to_binary_str(uint32_t num, char *str, uint8_t str_size, uint8_t bit_c
 // converts the given str to hex string to buf
 uint16_t char_str_to_hex(const char *str, uint16_t len, char *buf, bool omit_leading_zero)
 {
-    return 0;
+    return CellularUtil_stub::uint16_value;
 }
 
-void convert_ipv6(char *ip)
+nsapi_version_t convert_ipv6(char *ip)
 {
-
+    return NSAPI_UNSPEC;
 }
 
 char *find_dot_number(char *str, int dot_number)
 {
-    return NULL;
+    return CellularUtil_stub::char_ptr;
 }
 
 void separate_ip4like_addresses(char *orig, char *ip, size_t ip_size, char *ip2, size_t ip2_size)
 {
+    if (CellularUtil_stub::table_idx > 1) {
+        CellularUtil_stub::table_idx--;
+        memcpy(ip, CellularUtil_stub::char_table[CellularUtil_stub::table_idx],
+               strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx]));
+        ip[strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx])] = '\0';
+        CellularUtil_stub::table_idx--;
+        if (ip2) {
+            memcpy(ip2, CellularUtil_stub::char_table[CellularUtil_stub::table_idx],
+                   strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx]));
+            ip2[strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx])] = '\0';
+        }
+    }
 }
 
 void separate_ip_addresses(char *orig, char *ip, size_t ip_size, char *ip2, size_t ip2_size)
 {
+    if (CellularUtil_stub::table_idx > 1) {
+        CellularUtil_stub::table_idx--;
+        memcpy(ip, CellularUtil_stub::char_table[CellularUtil_stub::table_idx],
+               strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx]));
+        ip[strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx])] = '\0';
+        CellularUtil_stub::table_idx--;
+        if (ip2) {
+            memcpy(ip2, CellularUtil_stub::char_table[CellularUtil_stub::table_idx],
+                   strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx]));
+            ip2[strlen(CellularUtil_stub::char_table[CellularUtil_stub::table_idx])] = '\0';
+        }
+    }
 }
 
 void prefer_ipv6(char *ip, size_t ip_size, char *ip2, size_t ip2_size)
@@ -72,12 +105,18 @@ void int_to_hex_str(uint8_t num, char *buf)
 
 int hex_str_to_int(const char *hex_string, int hex_string_length)
 {
-    return 0;
+    return CellularUtil_stub::int_value;
 }
 
 int hex_str_to_char_str(const char *str, uint16_t len, char *buf)
 {
-    return 0;
+    buf[0] = CellularUtil_stub::char_ptr[CellularUtil_stub::char_pos++];
+    return 1;
+}
+
+void hex_to_char(const char *hex, char &buf)
+{
+    buf = CellularUtil_stub::char_ptr[CellularUtil_stub::char_pos++];
 }
 
 void uint_to_binary_str(uint32_t num, char *str, int str_size, int bit_cnt)
@@ -87,28 +126,17 @@ void uint_to_binary_str(uint32_t num, char *str, int str_size, int bit_cnt)
 
 int char_str_to_hex_str(const char *str, uint16_t len, char *buf, bool omit_leading_zero)
 {
-    //The code is dependent on this, so this is easiest just to put here
-    if (!str || !buf) {
-        return 0;
-    }
-
-    char *ptr = buf;
-    int i = 0;
-    while (i < len) {
-        if (omit_leading_zero == true && i == 0 && !(str[i] >> 4 & 0x0F)) {
-            *ptr++ = hex_values[(str[i]) & 0x0F];
-        } else {
-            *ptr++ = hex_values[((str[i]) >> 4) & 0x0F];
-            *ptr++ = hex_values[(str[i]) & 0x0F];
-        }
-        i++;
-    }
-    return ptr - buf;
+    return CellularUtil_stub::int_value;
 }
 
 uint16_t get_dynamic_ip_port()
 {
-    return 0;
+    return CellularUtil_stub::uint16_value;
+}
+
+pdp_type_t string_to_pdp_type(const char *pdp_type)
+{
+    return IPV4V6_PDP_TYPE;
 }
 
 } // namespace mbed_cellular_util

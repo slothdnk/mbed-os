@@ -276,10 +276,12 @@ typedef enum {
     LED1        = PB_0,  // LD1 = GREEN
     LED2        = PB_7,  // Blue
     LED3        = PB_14, // Red
-    LED4        = PB_0,
-    USER_BUTTON = PC_13,
+    LED4        = PB_0, // LD4 is not user, mapped to LD1
+
     // Standardized button names
+    USER_BUTTON = PC_13,
     BUTTON1 = USER_BUTTON,
+
     SERIAL_TX   = STDIO_UART_TX, // Virtual Com Port
     SERIAL_RX   = STDIO_UART_RX, // Virtual Com Port
     USBTX       = STDIO_UART_TX, // Virtual Com Port
@@ -292,12 +294,14 @@ typedef enum {
     SPI_CS      = D10,
     PWM_OUT     = D9,
 
-    /**** USB pins ****/
+    /**** USB FS pins ****/
     USB_OTG_FS_DM = PA_11,
     USB_OTG_FS_DP = PA_12,
     USB_OTG_FS_ID = PA_10,
     USB_OTG_FS_SOF = PA_8,
     USB_OTG_FS_VBUS = PA_9,
+
+    /**** USB HS pins ****/
     USB_OTG_HS_DM = PB_14,
     USB_OTG_HS_DP = PB_15,
     USB_OTG_HS_ID = PB_12,

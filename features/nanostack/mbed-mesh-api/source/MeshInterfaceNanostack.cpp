@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 ARM Limited. All rights reserved.
+ * Copyright (c) 2016-2019 ARM Limited. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  * Licensed under the Apache License, Version 2.0 (the License); you may
  * not use this file except in compliance with the License.
@@ -119,9 +119,14 @@ nsapi_error_t MeshInterfaceNanostack::initialize(NanostackRfPhy *phy)
 
 void Nanostack::Interface::network_handler(mesh_connection_status_t status)
 {
-    if ((status == MESH_CONNECTED || status == MESH_CONNECTED_LOCAL ||
-            status == MESH_CONNECTED_GLOBAL) && _blocking) {
-        connect_semaphore.release();
+    if (_blocking) {
+        if (_connect_status == NSAPI_STATUS_CONNECTING
+                && (status == MESH_CONNECTED || status == MESH_CONNECTED_LOCAL
+                    || status == MESH_CONNECTED_GLOBAL)) {
+            connect_semaphore.release();
+        } else if (status == MESH_DISCONNECTED) {
+            disconnect_semaphore.release();
+        }
     }
 
 
@@ -145,8 +150,9 @@ void Nanostack::Interface::network_handler(mesh_connection_status_t status)
         _connect_status = NSAPI_STATUS_DISCONNECTED;
     }
 
-    if (_connection_status_cb && _previous_connection_status != _connect_status) {
-
+    if (_connection_status_cb && _previous_connection_status != _connect_status
+            && (_previous_connection_status != NSAPI_STATUS_GLOBAL_UP || status != MESH_BOOTSTRAP_STARTED)
+            && (_previous_connection_status != NSAPI_STATUS_CONNECTING || status != MESH_BOOTSTRAP_START_FAILED)) {
         _connection_status_cb(NSAPI_EVENT_CONNECTION_STATUS_CHANGE, _connect_status);
     }
     _previous_connection_status = _connect_status;
@@ -209,6 +215,19 @@ nsapi_error_t InterfaceNanostack::set_blocking(bool blocking)
 {
     _blocking = blocking;
     return NSAPI_ERROR_OK;
+}
+
+nsapi_error_t InterfaceNanostack::set_file_system_root_path(const char *root_path)
+{
+    int status = mesh_system_set_file_system_root_path(root_path);
+
+    if (status == 0) {
+        return MESH_ERROR_NONE;
+    } else if (status == -2) {
+        return MESH_ERROR_MEMORY;
+    }
+
+    return MESH_ERROR_UNKNOWN;
 }
 
 #if !DEVICE_802_15_4_PHY

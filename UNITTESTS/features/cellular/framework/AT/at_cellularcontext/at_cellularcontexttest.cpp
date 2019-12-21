@@ -17,7 +17,7 @@
 #include "gtest/gtest.h"
 #include <string.h>
 #include "AT_CellularContext.h"
-#include "EventQueue.h"
+#include "events/EventQueue.h"
 #include "ATHandler.h"
 #include "AT_CellularDevice.h"
 #include "FileHandle_stub.h"
@@ -28,6 +28,8 @@
 #include "CellularDevice_stub.h"
 #include "equeue_stub.h"
 #include "AT_CellularBase_stub.h"
+#include "CellularUtil_stub.h"
+#include "PinNames.h"
 
 using namespace mbed;
 using namespace events;
@@ -62,9 +64,9 @@ protected:
         ATHandler_stub::read_string_table[kRead_string_table_size];
         ATHandler_stub::resp_stop_success_count = kResp_stop_count_default;
         CellularDevice_stub::connect_counter = 2;
-        for (int i=0; i < kATHandler_urc_table_max_size; i++) {
-            ATHandler_stub::callback[i] = NULL;
-        }
+
+        CellularUtil_stub::char_table[0] = (char *)"\0";
+        CellularUtil_stub::table_idx = 0;
     }
 
     void TearDown()
@@ -134,6 +136,16 @@ public:
         AT_CellularContext::cellular_callback(ev, ptr);
     }
 
+    void activ_non_ip_context()
+    {
+        activate_non_ip_context();
+    }
+
+    void deactiv_non_ip_context()
+    {
+        deactivate_non_ip_context();
+    }
+
     my_stack _st;
 };
 
@@ -151,6 +163,31 @@ public:
         return 10;
     }
     my_stack _st;
+};
+
+class def_AT_CTX : public AT_CellularContext {
+public:
+    def_AT_CTX(ATHandler &at, CellularDevice *device, const char *apn = MBED_CONF_NSAPI_DEFAULT_CELLULAR_APN) :
+        AT_CellularContext(at, device, apn) {}
+    virtual ~def_AT_CTX() {}
+
+    uint32_t do_op()
+    {
+        return AT_CellularContext::get_timeout_for_operation(mbed::CellularContext::ContextOperation(_op));
+    }
+    int _op;
+};
+
+class AT_CTX_cid: public AT_CellularContext {
+public:
+    AT_CTX_cid(ATHandler &at, CellularDevice *device, const char *apn = MBED_CONF_NSAPI_DEFAULT_CELLULAR_APN) :
+        AT_CellularContext(at, device, apn) {}
+    virtual ~AT_CTX_cid() {}
+
+    void set_cid(int cid)
+    {
+        _cid = cid;
+    }
 };
 
 static int network_cb_count;
@@ -172,6 +209,9 @@ TEST_F(TestAT_CellularContext, Create)
 
     ctx = new AT_CellularContext(at, &dev);
     EXPECT_TRUE(ctx != NULL);
+
+    ctx->get_device();
+    EXPECT_EQ(NSAPI_STATUS_DISCONNECTED, ctx->get_connection_status());
     delete ctx;
 }
 
@@ -220,6 +260,22 @@ TEST_F(TestAT_CellularContext, get_ip_address)
     my_AT_CTX ctx1(at, NULL);
     ip = ctx1.get_ip_address();
     EXPECT_TRUE(ip != NULL);
+}
+
+TEST_F(TestAT_CellularContext, get_interface_name)
+{
+    EventQueue que;
+    FileHandle_stub fh1;
+    ATHandler at(&fh1, que, 0, ",");
+    AT_CellularDevice dev(&fh1);
+    AT_CTX_cid ctx(at, &dev);
+
+    char ifn[5];
+    EXPECT_TRUE(NULL == ctx.get_interface_name(ifn));
+
+    ctx.set_cid(1);
+    EXPECT_STREQ("ce1", ctx.get_interface_name(ifn));
+    EXPECT_STREQ("ce1", ifn);
 }
 
 TEST_F(TestAT_CellularContext, attach)
@@ -327,6 +383,20 @@ TEST_F(TestAT_CellularContext, get_pdpcontext_params)
     ATHandler_stub::read_string_table[2] = (char *)"0.255.0.255";
     ATHandler_stub::read_string_table[1] = (char *)"25.66.77.88";
     ATHandler_stub::read_string_table[0] = (char *)"004.003.002.001";
+
+    CellularUtil_stub::table_idx = 12;
+    CellularUtil_stub::char_table[11] = (char *)"102:304:506:708:90A:B70:D0E:F10\0";
+    CellularUtil_stub::char_table[10] = (char *)"102:32C:3706:708:90A:B0C:D0E:F10\0";
+    CellularUtil_stub::char_table[9] = (char *)"1721:2C01:203:377B:E122:B01:000:7BEA\0";
+    CellularUtil_stub::char_table[8] = (char *)"1.2.3.4\0";
+    CellularUtil_stub::char_table[7] = (char *)"1.2.3.4\0";
+    CellularUtil_stub::char_table[6] = (char *)"1.2.3.4\0";
+    CellularUtil_stub::char_table[5] = (char *)"0.255.0.255\0";
+    CellularUtil_stub::char_table[4] = (char *)"1.2.3.4\0";
+    CellularUtil_stub::char_table[3] = (char *)"25.66.77.88\0";
+    CellularUtil_stub::char_table[2] = (char *)"1.2.3.4\0";
+    CellularUtil_stub::char_table[1] = (char *)"004.003.002.001\0";
+    CellularUtil_stub::char_table[0] = (char *)"1.2.3.4\0";
 
     EXPECT_TRUE(NSAPI_ERROR_OK == cn.get_pdpcontext_params(list));
     CellularContext::pdpcontext_params_t *params = list.get_head();
@@ -460,6 +530,11 @@ TEST_F(TestAT_CellularContext, set_file_handle)
     AT_CellularDevice dev(&fh1);
     AT_CellularContext ctx(at, &dev);
     ctx.set_file_handle(&fh1);
+
+    UARTSerial ss(NC, NC);
+
+    ctx.set_file_handle(&ss, PTC0, true);
+    ctx.enable_hup(true);
 }
 
 TEST_F(TestAT_CellularContext, connect_disconnect_sync)
@@ -477,16 +552,50 @@ TEST_F(TestAT_CellularContext, connect_disconnect_sync)
 
     my_AT_CTX ctx1(at, &dev);
     ctx1.attach(&network_cb);
-    Semaphore_stub::wait_return_value = 1;
+    Semaphore_stub::acquire_return_value = true;
 
     // call callback so that network is opened which is needed in disconnect
     cell_callback_data_t data;
     data.error = NSAPI_ERROR_OK;
     ctx1.cellular_callback((nsapi_event_t)CellularDeviceReady, (intptr_t)&data);
 
+    ATHandler_stub::resp_info_true_counter = 1;
+    ATHandler_stub::read_string_table[0] = (char *)"APN";
+    ATHandler_stub::read_string_table[1] = (char *)"IP";
+    ATHandler_stub::read_string_index = 2;
     ASSERT_EQ(ctx1.connect(),  NSAPI_ERROR_OK);
 
-    ASSERT_EQ(network_cb_count, 5);
+    ASSERT_EQ(network_cb_count, 4);
+
+    ASSERT_EQ(ctx1.disconnect(), NSAPI_ERROR_OK);
+    ATHandler_stub::resp_info_true_counter = 1;
+    ATHandler_stub::read_string_table[1] = (char *)"Non-IP";
+    ATHandler_stub::read_string_index = 2;
+    ASSERT_EQ(ctx1.connect(),  NSAPI_ERROR_OK);
+
+    ASSERT_EQ(ctx1.disconnect(), NSAPI_ERROR_OK);
+    ATHandler_stub::resp_info_true_counter = 1;
+    ATHandler_stub::read_string_table[1] = (char *)"IPV6";
+    ATHandler_stub::read_string_index = 2;
+    ASSERT_EQ(ctx1.connect(),  NSAPI_ERROR_OK);
+
+    AT_CellularBase_stub::supported_bool = true;
+    ASSERT_EQ(ctx1.disconnect(), NSAPI_ERROR_OK);
+    ATHandler_stub::resp_info_true_counter = 1;
+    ATHandler_stub::read_string_table[1] = (char *)"IPV4V6";
+    ATHandler_stub::read_string_index = 2;
+    ASSERT_EQ(ctx1.connect(),  NSAPI_ERROR_OK);
+    AT_CellularBase_stub::supported_bool = false;
+
+    ASSERT_EQ(ctx1.disconnect(), NSAPI_ERROR_OK);
+    ATHandler_stub::resp_info_true_counter = 1;
+    ATHandler_stub::read_string_table[0] = (char *)"APN2";
+    ATHandler_stub::read_string_table[1] = (char *)"IPV4V6";
+    ATHandler_stub::read_string_index = 2;
+    ATHandler_stub::int_value = 10;
+    ctx1.set_credentials("APN");
+    ASSERT_EQ(ctx1.connect(),  NSAPI_ERROR_OK);
+    ATHandler_stub::int_value = -1;
 
     ASSERT_EQ(ctx1.connect(), NSAPI_ERROR_IS_CONNECTED);
 
@@ -520,6 +629,26 @@ TEST_F(TestAT_CellularContext, connect_disconnect_sync)
     EXPECT_TRUE(ctx1.is_connected() == false);
 
     // More connect test after we are re-writted getting of PDP context...
+}
+
+TEST_F(TestAT_CellularContext, de_and_activate_non_ip_context)
+{
+    EventQueue que;
+    FileHandle_stub fh1;
+    ATHandler at(&fh1, que, 0, ",");
+    AT_CellularDevice dev(&fh1);
+    my_AT_CTX ctx(at, &dev);
+    ctx.attach(&network_cb);
+    Semaphore_stub::acquire_return_value = true;
+
+    // call callback so that network is opened which is needed in disconnect
+    cell_callback_data_t data;
+    data.error = NSAPI_ERROR_OK;
+    ctx.cellular_callback((nsapi_event_t)CellularDeviceReady, (intptr_t)&data);
+
+    ctx.activ_non_ip_context();
+
+    ctx.deactiv_non_ip_context();
 }
 
 TEST_F(TestAT_CellularContext, set_device_ready_sync)
@@ -603,21 +732,46 @@ TEST_F(TestAT_CellularContext, connect_disconnect_async)
     data.status_data = CellularNetwork::Attached;
     ctx1.cellular_callback((nsapi_event_t)CellularAttachNetwork, (intptr_t)&data);
 
-    ASSERT_EQ(network_cb_count, 5);
+    ASSERT_EQ(network_cb_count, 4);
     ASSERT_EQ(ctx1.connect(), NSAPI_ERROR_IS_CONNECTED);
     EXPECT_TRUE(ctx1.is_connected() == true);
+    ASSERT_EQ(ctx1.disconnect(), NSAPI_ERROR_NO_MEMORY);
+    EXPECT_TRUE(ctx1.is_connected() == true);
+
+    struct equeue_event ptr;
+    equeue_stub.void_ptr = &ptr;
+    equeue_stub.call_cb_immediately = true;
     ASSERT_EQ(ctx1.disconnect(), NSAPI_ERROR_OK);
     EXPECT_TRUE(ctx1.is_connected() == false);
 
     // sdet CellularDevice_stub::connect_counter = 0 so device is already attached and will return NSAPI_ERROR_ALREADY to context when calling connect
+    equeue_stub.void_ptr = &ptr;
+    equeue_stub.call_cb_immediately = false;
     CellularDevice_stub::connect_counter = 0;
     // queue can't allocate so return NSAPI_ERROR_NO_MEMORY
     ASSERT_EQ(ctx1.connect(), NSAPI_ERROR_NO_MEMORY);
 
-    struct equeue_event ptr;
     equeue_stub.void_ptr = &ptr;
     equeue_stub.call_cb_immediately = true;
     ASSERT_EQ(ctx1.connect(), NSAPI_ERROR_OK);
 
     // More connect test after we are re-writted getting of PDP context...
+}
+
+TEST_F(TestAT_CellularContext, get_timeout_for_operation)
+{
+    EventQueue que;
+    FileHandle_stub fh1;
+    ATHandler at(&fh1, que, 0, ",");
+
+    AT_CellularDevice dev(&fh1);
+    def_AT_CTX ctx1(at, &dev);
+    ctx1._op = 1;
+    EXPECT_EQ(300 * 1000, ctx1.do_op());
+
+    ctx1._op = 0;
+    EXPECT_EQ(300 * 1000, ctx1.do_op());
+
+    ctx1._op = -1;
+    EXPECT_EQ(1800 * 1000, ctx1.do_op());
 }

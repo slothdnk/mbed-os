@@ -14,8 +14,8 @@
 ;******************************************************************************
 ;* @attention
 ;*
-;* <h2><center>&copy; Copyright (c) 2017 STMicroelectronics.
-;* All rights reserved.</center></h2>
+;* Copyright (c) 2017 STMicroelectronics.
+;* All rights reserved.
 ;*
 ;* This software component is licensed by ST under BSD 3-Clause license,
 ;* the "License"; You may not use this file except in compliance with the
@@ -24,7 +24,7 @@
 ;*
 ;******************************************************************************
 
-__initial_sp    EQU     0x20020000 ; Top of RAM
+            IMPORT  |Image$$ARM_LIB_STACK$$ZI$$Limit|
 
                 PRESERVE8
                 THUMB
@@ -36,7 +36,7 @@ __initial_sp    EQU     0x20020000 ; Top of RAM
                 EXPORT  __Vectors_End
                 EXPORT  __Vectors_Size
 
-__Vectors       DCD     __initial_sp                      ; Top of Stack
+__Vectors       DCD     |Image$$ARM_LIB_STACK$$ZI$$Limit| ; Top of Stack
                 DCD     Reset_Handler                     ; Reset Handler
                 DCD     NMI_Handler                       ; NMI Handler
                 DCD     HardFault_Handler                 ; Hard Fault Handler

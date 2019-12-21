@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#ifdef MBED_CONF_NANOSTACK_CONFIGURATION
+
 #include "ns_types.h"
 #include "fhss_api.h"
 #include "fhss_config.h"
@@ -22,7 +25,7 @@
 #include "platform/arm_hal_interrupt.h"
 #include <Timer.h>
 #include "equeue.h"
-#include "EventQueue.h"
+#include "events/EventQueue.h"
 #include "mbed_shared_queues.h"
 #include "Timeout.h"
 
@@ -31,6 +34,7 @@
 #define NUMBER_OF_SIMULTANEOUS_TIMEOUTS  2
 #endif //NUMBER_OF_SIMULTANEOUS_TIMEOUTS
 
+namespace {
 using namespace mbed;
 using namespace events;
 
@@ -41,11 +45,17 @@ static const fhss_api_t *fhss_active_handle = NULL;
 static EventQueue *equeue;
 #endif
 
+// All members of fhss_timeout_s must be initialized to make the structure
+// constant-initialized, and hence able to be omitted by the linker,
+// as SingletonPtr now relies on C++ constant-initialization. (Previously it
+// worked through C++ zero-initialization). And all the constants should be zero
+// to ensure it stays in the actual zero-init part of the image if used, avoiding
+// an initialized-data cost.
 struct fhss_timeout_s {
-    void (*fhss_timer_callback)(const fhss_api_t *fhss_api, uint16_t);
-    uint32_t start_time;
-    uint32_t stop_time;
-    bool active;
+    void (*fhss_timer_callback)(const fhss_api_t *fhss_api, uint16_t) = nullptr;
+    uint32_t start_time = 0;
+    uint32_t stop_time = 0;
+    bool active = false;
     SingletonPtr<Timeout> timeout;
 };
 
@@ -70,7 +80,6 @@ static fhss_timeout_s *allocate_timeout(void)
 {
     for (int i = 0; i < NUMBER_OF_SIMULTANEOUS_TIMEOUTS; i++) {
         if (fhss_timeout[i].fhss_timer_callback == NULL) {
-            memset(&fhss_timeout[i], sizeof(fhss_timeout_s), 0);
             return &fhss_timeout[i];
         }
     }
@@ -162,6 +171,7 @@ static uint32_t platform_fhss_timestamp_read(const fhss_api_t *api)
     (void)api;
     return read_current_time();
 }
+} // anonymous namespace
 
 fhss_timer_t fhss_functions = {
     .fhss_timer_start = platform_fhss_timer_start,
@@ -170,3 +180,5 @@ fhss_timer_t fhss_functions = {
     .fhss_get_timestamp = platform_fhss_timestamp_read,
     .fhss_resolution_divider = 1
 };
+
+#endif

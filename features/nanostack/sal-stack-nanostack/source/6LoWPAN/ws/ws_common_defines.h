@@ -186,9 +186,11 @@ typedef struct ws_bs_ie {
 #define WS_FAN_VERSION_1_0 1
 
 #define WS_NEIGHBOR_LINK_TIMEOUT 2200
+#define WS_NEIGHBOR_TEMPORARY_LINK_MIN_TIMEOUT 120
 #define WS_NEIGHBOR_NUD_TIMEOUT WS_NEIGHBOR_LINK_TIMEOUT / 2
 
 #define WS_NEIGBOR_ETX_SAMPLE_MAX 3
+#define WS_NEIGHBOUR_MAX_CANDIDATE_PROBE 5
 
 #define WS_PROBE_INIT_BASE_SECONDS 8
 
@@ -197,6 +199,18 @@ typedef struct ws_bs_ie {
 #define WS_NUD_RANDOM_SAMPLE_LENGTH WS_NEIGHBOR_NUD_TIMEOUT / 2
 
 #define WS_NUD_RANDOM_COMPARE (WS_NUD_RAND_PROBABILITY*WS_NUD_RANDOM_SAMPLE_LENGTH) / 100
+
+#define WS_ETX_MIN_SAMPLE_COUNT 4
+
+#define WS_ETX_MAX_UPDATE 1024
+
+#define WS_ETX_MIN_WAIT_TIME 60
+
+/**
+ * Wi-sun spesific non-preferred prefix policy label
+ */
+
+#define WS_NON_PREFFRED_LABEL 36
 
 /*
  * Threshold (referenced to DEVICE_MIN_SENS) above which a neighbor node may be considered for inclusion into candidate parent set
@@ -225,6 +239,11 @@ typedef struct ws_bs_ie {
  * Tack max time in milliseconds.
  */
 #define WS_TACK_MAX_MS 5
+
+// With FHSS we need to check CCA twice on TX channel
+#define WS_NUMBER_OF_CSMA_PERIODS  2
+// Interval between two CCA checks
+#define WS_CSMA_MULTI_CCA_INTERVAL 1000
 
 /* Default FHSS timing information
  *

@@ -18,7 +18,7 @@
 
 #if ((!defined(TARGET_PSA) || (!defined(COMPONENT_PSA_SRV_IPC)) && !defined(MBEDTLS_ENTROPY_NV_SEED)))
 #error [NOT_SUPPORTED] PSA entropy injection tests can run only on PSA-enabled targets.
-#endif // TARGET_PSA
+#else
 
 #include "greentea-client/test_env.h"
 #include "unity/unity.h"
@@ -92,9 +92,7 @@ void run_entropy_inject_with_crypto_init()
 
 utest::v1::status_t greentea_test_setup(const size_t number_of_cases)
 {
-#ifndef NO_GREENTEA
     GREENTEA_SETUP(60, "default_auto");
-#endif
 
     /* fill seed in some data */
     for (size_t i = 0; i < sizeof(seed); ++i) {
@@ -184,3 +182,5 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // ((!defined(TARGET_PSA) || (!defined(COMPONENT_PSA_SRV_IPC)) && !defined(MBEDTLS_ENTROPY_NV_SEED)))

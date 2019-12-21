@@ -21,27 +21,19 @@
 #include "SynchronizedIntegral.h"
 #include "LockGuard.h"
 
-#if defined(MBED_RTOS_SINGLE_THREAD)
+#if defined(MBED_RTOS_SINGLE_THREAD) || !DEVICE_USTICKER
 #error [NOT_SUPPORTED] test not supported
-#endif
-
-#if !DEVICE_USTICKER
-#error [NOT_SUPPORTED] test not supported
-#endif
+#else
 
 #define THREAD_STACK_SIZE 512
-#if defined(__CORTEX_A9)
+#if defined(__CORTEX_A9) || defined(__CORTEX_M23) || defined(__CORTEX_M33) || defined(TARGET_ARM_FM) ||  defined(TARGET_CY8CKIT_062_WIFI_BT_PSA)
 #define PARALLEL_THREAD_STACK_SIZE 512
-#elif defined(__CORTEX_M23) || defined(__CORTEX_M33)
-#define PARALLEL_THREAD_STACK_SIZE 512
-#elif defined(__ARM_FM)
-#define PARALLEL_THREAD_STACK_SIZE 512
-#elif defined(TARGET_FUTURE_SEQUANA_PSA)
-#define PARALLEL_THREAD_STACK_SIZE   512
+#define CHILD_THREAD_STACK_SIZE 512
 #else
 #define PARALLEL_THREAD_STACK_SIZE 384
-#endif
 #define CHILD_THREAD_STACK_SIZE 384
+#endif
+
 
 using namespace utest::v1;
 
@@ -647,7 +639,7 @@ void test_mutex()
 
 void test_semaphore_thread(Semaphore *sem)
 {
-    sem->wait();
+    sem->acquire();
 }
 
 /** Testing thread states: wait semaphore
@@ -854,3 +846,5 @@ int main()
 {
     return !Harness::run(specification);
 }
+
+#endif // defined(MBED_RTOS_SINGLE_THREAD) || !DEVICE_USTICKER

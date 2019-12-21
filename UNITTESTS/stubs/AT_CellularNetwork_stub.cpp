@@ -95,11 +95,6 @@ nsapi_error_t AT_CellularNetwork::detach()
     return NSAPI_ERROR_OK;
 }
 
-void AT_CellularNetwork::urc_no_carrier()
-{
-
-}
-
 nsapi_error_t AT_CellularNetwork::set_access_technology_impl(RadioAccessTechnology opsAct)
 {
     return NSAPI_ERROR_OK;
@@ -153,12 +148,26 @@ nsapi_error_t AT_CellularNetwork::get_operator_names(operator_names_list &op_nam
     return NSAPI_ERROR_OK;
 }
 
-bool AT_CellularNetwork::is_active_context()
+bool AT_CellularNetwork::is_active_context(int *number_of_active_contexts, int cid)
 {
     return false;
 }
 
 nsapi_error_t AT_CellularNetwork::set_receive_period(int mode, EDRXAccessTechnology act_type, uint8_t edrx_value)
+{
+    return NSAPI_ERROR_OK;
+}
+
+void AT_CellularNetwork::get_context_state_command()
+{
+}
+
+nsapi_error_t AT_CellularNetwork::set_packet_domain_event_reporting(bool on)
+{
+    return NSAPI_ERROR_OK;
+}
+
+nsapi_error_t AT_CellularNetwork::clear()
 {
     return NSAPI_ERROR_OK;
 }

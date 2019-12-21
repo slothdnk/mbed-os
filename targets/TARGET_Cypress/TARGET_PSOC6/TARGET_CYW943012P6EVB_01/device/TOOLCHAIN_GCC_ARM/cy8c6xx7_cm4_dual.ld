@@ -1,6 +1,6 @@
 /***************************************************************************//**
 * \file cy8c6xx7_cm4_dual.ld
-* \version 2.30
+* \version 2.60
 *
 * Linker file for the GNU C compiler.
 *
@@ -40,12 +40,31 @@ SEARCH_DIR(.)
 GROUP(-lgcc -lc -lnosys)
 ENTRY(Reset_Handler)
 
+/* Size of the Cortex-M0+ application image at the start of FLASH */
+FLASH_CM0P_SIZE = 0x2000;
+
 #if !defined(MBED_ROM_START)
-  #define MBED_ROM_START    0x10002000
+  #define MBED_ROM_START    0x10000000
+#endif
+
+/* MBED_APP_START is being used by the bootloader build script and
+* will be calculate by the system. In case if MBED_APP_START address is
+* customized by the bootloader config, the application image should not
+* include CM0p prebuilt image.
+*/
+#if !defined(MBED_APP_START)
+  #define MBED_APP_START (MBED_ROM_START + FLASH_CM0P_SIZE)
 #endif
 
 #if !defined(MBED_ROM_SIZE)
-  #define MBED_ROM_SIZE     0x000FE000
+  #define MBED_ROM_SIZE     0x00100000
+#endif
+
+/* MBED_APP_SIZE is being  used by the bootloader build script and
+* will be calculate by the system.
+*/
+#if !defined(MBED_APP_SIZE)
+  #define MBED_APP_SIZE (MBED_ROM_SIZE - FLASH_CM0P_SIZE)
 #endif
 
 #if !defined(MBED_RAM_START)
@@ -60,6 +79,7 @@ ENTRY(Reset_Handler)
     #define MBED_BOOT_STACK_SIZE 0x400
 #endif
 
+/* Size of the stack section at the end of CM4 SRAM */
 STACK_SIZE = MBED_BOOT_STACK_SIZE;
 
 /* Force symbol to be entered in the output file as an undefined symbol. Doing
@@ -77,13 +97,14 @@ MEMORY
 {
     /* The ram and flash regions control RAM and flash memory allocation for the CM4 core.
      * You can change the memory allocation by editing the 'ram' and 'flash' regions.
-     * Note that 2 KB of RAM (at the end of the RAM section) are reserved for system use.
+     * Note that 2 KB of RAM (at the end of the SRAM) are reserved for system use.
      * Using this memory region for other purposes will lead to unexpected behavior.
      * Your changes must be aligned with the corresponding memory regions for CM0+ core in 'xx_cm0plus.ld',
      * where 'xx' is the device group; for example, 'cy8c6xx7_cm0plus.ld'.
      */
     ram               (rwx)   : ORIGIN = MBED_RAM_START, LENGTH = MBED_RAM_SIZE
-    flash             (rx)    : ORIGIN = MBED_ROM_START, LENGTH = MBED_ROM_SIZE
+    cm0p_image        (rx)    : ORIGIN = MBED_ROM_START, LENGTH = FLASH_CM0P_SIZE
+    flash             (rx)    : ORIGIN = MBED_APP_START, LENGTH = MBED_APP_SIZE
 
     /* This is a 32K flash region used for EEPROM emulation. This region can also be used as the general purpose flash.
      * You can assign sections to this memory region for only one of the cores.
@@ -141,7 +162,17 @@ GROUP(libgcc.a libc.a libm.a libnosys.a)
 
 SECTIONS
 {
-    .text :
+     /* Cortex-M0+ application flash image area */
+    .cy_m0p_image ORIGIN(cm0p_image) :
+    {
+        . = ALIGN(4);
+        __cy_m0p_code_start = . ;
+        KEEP(*(.cy_m0p_image))
+        __cy_m0p_code_end = . ;
+    } > cm0p_image
+
+    /* Cortex-M4 application flash area */
+    .text ORIGIN(flash) :
     {
         . = ALIGN(4);
         __Vectors = . ;
@@ -257,7 +288,6 @@ SECTIONS
         KEEP(*(.init_array))
         PROVIDE_HIDDEN (__init_array_end = .);
 
-
         . = ALIGN(4);
         /* finit data */
         PROVIDE_HIDDEN (__fini_array_start = .);
@@ -318,7 +348,7 @@ SECTIONS
         __HeapLimit = .;
     } > ram
 
-    
+
     /* Set stack top to end of RAM, and stack limit move down by
      * size of stack_dummy section */
     __StackTop = ORIGIN(ram) + LENGTH(ram);
@@ -371,7 +401,7 @@ SECTIONS
         KEEP(*(.cy_toc_part2))
     } > sflash_toc_2
 
-    
+
     /* Supervisory Flash: Table of Content # 2 Copy */
     .cy_rtoc_part2 :
     {

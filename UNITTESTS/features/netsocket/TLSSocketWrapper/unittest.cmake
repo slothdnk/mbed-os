@@ -20,6 +20,7 @@ set(unittest-test-sources
   features/netsocket/TLSSocketWrapper/test_TLSSocketWrapper.cpp
   stubs/Mutex_stub.cpp
   stubs/mbed_assert_stub.c
+  stubs/mbed_atomic_stub.c
   stubs/mbed_critical_stub.c
   stubs/equeue_stub.c
   ../features/nanostack/coap-service/test/coap-service/unittest/stub/mbedtls_stub.c
@@ -27,8 +28,6 @@ set(unittest-test-sources
   stubs/mbed_shared_queues_stub.cpp
   stubs/nsapi_dns_stub.cpp
   stubs/EventFlags_stub.cpp
-  stubs/stoip4_stub.c
-  stubs/ip4tos_stub.c
   stubs/SocketStats_Stub.cpp
 )
 

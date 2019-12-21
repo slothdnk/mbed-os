@@ -71,7 +71,7 @@ fhss_structure_t *fhss_enable(fhss_api_t *fhss_api, const fhss_configuration_t *
 
     fhss_struct->fhss_event_timer = eventOS_callback_timer_register(fhss_event_timer_cb);
     fhss_struct->bs->fhss_configuration = *fhss_configuration;
-    fhss_struct->bs->fhss_stats_ptr = fhss_statistics;
+    fhss_struct->fhss_stats_ptr = fhss_statistics;
     fhss_struct->number_of_channels = channel_count;
 
     // set a invalid id to tasklet_id, so we know that one is not started yet
@@ -1191,7 +1191,7 @@ static void fhss_receive_frame_callback(const fhss_api_t *api, uint16_t pan_id, 
     }
 }
 
-static uint16_t fhss_get_retry_period_callback(const fhss_api_t *api, uint8_t *destination_address, uint16_t phy_mtu)
+static uint32_t fhss_get_retry_period_callback(const fhss_api_t *api, uint8_t *destination_address, uint16_t phy_mtu)
 {
     uint16_t retry_period = 0;
     uint16_t random_number = randLIB_get_16bit();

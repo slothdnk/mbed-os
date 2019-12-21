@@ -22,6 +22,7 @@
 #include "FileHandle_stub.h"
 #include "ATHandler_stub.h"
 #include "AT_CellularContext.h"
+#include "gtest/gtest.h"
 
 using namespace events;
 
@@ -35,7 +36,7 @@ class FileHandle;
 class myCellularDevice : public CellularDevice {
 public:
     myCellularDevice(FileHandle *fh) : CellularDevice(fh), _context_list(0), _network(0) {}
-    ~myCellularDevice()
+    virtual ~myCellularDevice()
     {
         delete _context_list;
         delete _network;
@@ -54,17 +55,27 @@ public:
     virtual CellularContext *create_context(UARTSerial *serial, const char *const apn, PinName dcd_pin,
                                             bool active_high, bool cp_req = false, bool nonip_req = false)
     {
-        return NULL;
+        if (_context_list) {
+            return _context_list;
+        }
+        EventQueue que;
+        ATHandler at(serial, que, 0, ",");
+        _context_list = new AT_CellularContext(at, this);
+        return _context_list;
     }
 
     virtual CellularContext *create_context(FileHandle *fh = NULL, const char *apn = NULL, bool cp_req = false, bool nonip_req = false)
     {
+        if (_context_list) {
+            return _context_list;
+        }
         EventQueue que;
         FileHandle_stub fh1;
         ATHandler at(&fh1, que, 0, ",");
-        _context_list = new AT_CellularContext(at, NULL);
+        _context_list = new AT_CellularContext(at, this);
         return _context_list;
     }
+
     virtual void delete_context(CellularContext *context)
     {
         delete _context_list;
@@ -72,6 +83,9 @@ public:
 
     virtual CellularNetwork *open_network(FileHandle *fh = NULL)
     {
+        if (_network) {
+            return _network;
+        }
         EventQueue que;
         FileHandle_stub fh1;
         ATHandler at(&fh1, que, 0, ",");
@@ -108,11 +122,6 @@ public:
     virtual void modem_debug_on(bool on) {}
 
     virtual nsapi_error_t init()
-    {
-        return NSAPI_ERROR_OK;
-    }
-
-    virtual nsapi_error_t shutdown()
     {
         return NSAPI_ERROR_OK;
     }
@@ -167,6 +176,24 @@ public:
     {
         return NSAPI_ERROR_OK;
     }
+
+    void verify_timeout_array(const uint16_t timeout[], int array_len)
+    {
+        if (array_len > CELLULAR_RETRY_ARRAY_SIZE) {
+            FAIL();
+        }
+        uint16_t get_timeouts[CELLULAR_RETRY_ARRAY_SIZE];
+        int get_timeouts_len = 0;
+
+        get_retry_timeout_array(get_timeouts, get_timeouts_len);
+
+        EXPECT_EQ(array_len, get_timeouts_len);
+
+        for (int i = 0; i < array_len; i++) {
+            EXPECT_EQ(timeout[i], get_timeouts[i]);
+        }
+    }
+
     AT_CellularNetwork *_network;
     AT_CellularContext *_context_list;
 };

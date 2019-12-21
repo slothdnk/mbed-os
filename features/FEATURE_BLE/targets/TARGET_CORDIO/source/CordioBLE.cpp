@@ -80,7 +80,7 @@ extern "C" void hci_mbed_os_handle_reset_sequence(uint8_t* msg)
  * This function will signal to the user code by calling signalEventsToProcess.
  * It is registered and called into the Wsf Stack.
  */
-extern "C" void wsf_mbed_ble_signal_event(void)
+extern "C" MBED_WEAK void wsf_mbed_ble_signal_event(void)
 {
     ble::vendor::cordio::BLE::deviceInstance().signalEventsToProcess(::BLE::DEFAULT_INSTANCE);
 }
@@ -394,10 +394,8 @@ void BLE::stack_setup()
 
     WsfTimerInit();
 
-#if BLE_FEATURE_SECURITY
+    // Note: SecInit required for RandInit.
     SecInit();
-#endif
-
     SecRandInit();
 
 #if BLE_FEATURE_SECURITY
@@ -512,18 +510,21 @@ void BLE::stack_setup()
 
     stack_handler_id = WsfOsSetNextHandler(&BLE::stack_handler);
 
-    HciSetMaxRxAclLen(100);
+    HciSetMaxRxAclLen(MBED_CONF_CORDIO_RX_ACL_BUFFER_SIZE);
 
     DmRegister(BLE::device_manager_cb);
 #if BLE_FEATURE_CONNECTABLE
     DmConnRegister(DM_CLIENT_ID_APP, BLE::device_manager_cb);
 #endif
 
+#if BLE_FEATURE_GATT_SERVER
+    AttConnRegister(BLE::connection_handler);
+#endif
+
 #if BLE_FEATURE_ATT
 #if BLE_FEATURE_GATT_CLIENT
     AttRegister((attCback_t) ble::pal::vendor::cordio::CordioAttClient::att_client_handler);
 #else
-    AttConnRegister(BLE::connection_handler);
     AttRegister((attCback_t) ble::vendor::cordio::GattServer::att_cb);
 #endif // BLE_FEATURE_GATT_CLIENT
 #endif
@@ -554,7 +555,7 @@ void BLE::callDispatcher()
 
     wsfOsDispatcher();
 
-    static Timeout nextTimeout;
+    static LowPowerTimeout nextTimeout;
     CriticalSectionLock critical_section;
 
     if (wsfOsReadyToSleep()) {
@@ -563,6 +564,9 @@ void BLE::callDispatcher()
         timestamp_t nextTimestamp = (timestamp_t) (WsfTimerNextExpiration(&pTimerRunning) * WSF_MS_PER_TICK) * 1000;
         if (pTimerRunning) {
             nextTimeout.attach_us(timeoutCallback, nextTimestamp);
+        } else {
+            critical_section.disable();
+            _hci_driver->on_host_stack_inactivity();
         }
     }
 }

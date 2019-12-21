@@ -16,13 +16,16 @@
 * limitations under the License.
 */
 
+#include "psa/crypto.h"
+
 #if ((!defined(TARGET_PSA)) || (!defined(MBEDTLS_PSA_CRYPTO_C)))
 #error [NOT_SUPPORTED] Mbed Crypto is OFF - skipping.
-#endif // TARGET_PSA
+#else
 
 #include "greentea-client/test_env.h"
 #include "unity/unity.h"
 #include "utest/utest.h"
+#include "psa/lifecycle.h"
 #include "psa_initial_attestation_api.h"
 #include "psa_attest_inject_key.h"
 #include <string.h>
@@ -43,9 +46,7 @@ using namespace utest::v1;
 
 utest::v1::status_t greentea_test_setup(const size_t number_of_cases)
 {
-#ifndef NO_GREENTEA
     GREENTEA_SETUP(60, "default_auto");
-#endif
     return greentea_test_setup_handler(number_of_cases);
 }
 
@@ -93,7 +94,7 @@ static void check_initial_attestation_get_token()
     TEST_ASSERT_EQUAL(status, PSA_SUCCESS);
     status = psa_attestation_inject_key(private_key_data,
                                         sizeof(private_key_data),
-                                        PSA_KEY_TYPE_ECC_KEYPAIR(PSA_ECC_CURVE_SECP256R1),
+                                        PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_CURVE_SECP256R1),
                                         exported,
                                         sizeof(exported),
                                         &exported_length);
@@ -118,9 +119,8 @@ static void check_initial_attestation_get_token()
 
 utest::v1::status_t case_teardown_handler(const Case *const source, const size_t passed, const size_t failed, const failure_t reason)
 {
-    const psa_key_id_t key_id = PSA_ATTESTATION_PRIVATE_KEY_ID;
-    psa_key_handle_t handle = 0;
-    psa_open_key(PSA_KEY_LIFETIME_PERSISTENT, key_id, &handle);
+    psa_key_handle_t handle;
+    psa_open_key(PSA_ATTESTATION_PRIVATE_KEY_ID, &handle);
     psa_destroy_key(handle);
     mbedtls_psa_crypto_free();
     return greentea_case_teardown_handler(source, passed, failed, reason);
@@ -128,17 +128,9 @@ utest::v1::status_t case_teardown_handler(const Case *const source, const size_t
 
 utest::v1::status_t case_setup_handler(const Case *const source, const size_t index_of_case)
 {
-    return greentea_case_setup_handler(source, index_of_case);
-}
-
-Case cases[] = {
-    Case("PSA attestation get token", check_initial_attestation_get_token, case_teardown_handler),
-};
-
-Specification specification(greentea_test_setup, cases);
-
-int main()
-{
+    psa_status_t status;
+    status = mbed_psa_reboot_and_request_new_security_state(PSA_LIFECYCLE_ASSEMBLY_AND_TEST);
+    TEST_ASSERT_EQUAL(PSA_SUCCESS, status);
 #if (defined(COMPONENT_PSA_SRV_IPC) || defined(MBEDTLS_ENTROPY_NV_SEED))
     uint8_t seed[MBEDTLS_PSA_INJECT_ENTROPY_MIN_SIZE] = {0};
     /* inject some seed for test*/
@@ -149,5 +141,19 @@ int main()
     /* don't really care if this succeeds this is just to make crypto init pass*/
     mbedtls_psa_inject_entropy(seed, MBEDTLS_PSA_INJECT_ENTROPY_MIN_SIZE);
 #endif
+    return greentea_case_setup_handler(source, index_of_case);
+}
+
+
+Case cases[] = {
+    Case("PSA attestation get token", case_setup_handler, check_initial_attestation_get_token, case_teardown_handler),
+};
+
+Specification specification(greentea_test_setup, cases);
+
+int main()
+{
     return !Harness::run(specification);
 }
+
+#endif // ((!defined(TARGET_PSA)) || (!defined(MBEDTLS_PSA_CRYPTO_C)))

@@ -29,21 +29,22 @@ void ASYNCHRONOUS_DNS_CANCEL()
     dns_application_data *data = new dns_application_data[MBED_CONF_APP_DNS_TEST_HOSTS_NUM];
 
     int count = 0;
+    nsapi_dns_reset();
 
     for (unsigned int i = 0; i < MBED_CONF_APP_DNS_TEST_HOSTS_NUM; i++) {
         data[i].value_set = false;
         data[i].semaphore = &semaphore;
         data[i].req_result = get_interface()->gethostbyname_async(dns_test_hosts[i],
                                                                   mbed::Callback<void(nsapi_error_t, SocketAddress *)>(hostbyname_cb, (void *) &data[i]));
-        TEST_ASSERT(data[i].req_result >= 0 || data[i].req_result == NSAPI_ERROR_NO_MEMORY);
+        TEST_ASSERT(data[i].req_result >= 0 || data[i].req_result == NSAPI_ERROR_NO_MEMORY  || data[i].req_result == NSAPI_ERROR_BUSY);
 
         if (data[i].req_result >= 0) {
             // Callback will be called
             count++;
         } else {
             // No memory to initiate DNS query, callback will not be called
-            printf("Error: No memory to initiate DNS query for %s\n", dns_test_hosts[i]);
-            data[i].result = NSAPI_ERROR_NO_MEMORY;
+            printf("Error: No resources to initiate DNS query for %s\n", dns_test_hosts[i]);
+            data[i].result = data[i].req_result;
             data[i].value_set = true;
         }
     }
@@ -58,7 +59,7 @@ void ASYNCHRONOUS_DNS_CANCEL()
 
     // Wait for callback(s) to complete
     for (int i = 0; i < count; i++) {
-        semaphore.wait();
+        semaphore.acquire();
     }
 
     for (unsigned int i = 0; i < MBED_CONF_APP_DNS_TEST_HOSTS_NUM; i++) {
@@ -66,7 +67,7 @@ void ASYNCHRONOUS_DNS_CANCEL()
             printf("DNS: query \"%s\" => cancel\n", dns_test_hosts[i]);
             continue;
         }
-        TEST_ASSERT(data[i].result == NSAPI_ERROR_OK || data[i].result == NSAPI_ERROR_NO_MEMORY || data[i].result == NSAPI_ERROR_DNS_FAILURE || data[i].result == NSAPI_ERROR_TIMEOUT);
+        TEST_ASSERT(data[i].result == NSAPI_ERROR_OK || data[i].result == NSAPI_ERROR_NO_MEMORY || data[i].result == NSAPI_ERROR_BUSY || data[i].result == NSAPI_ERROR_DNS_FAILURE || data[i].result == NSAPI_ERROR_TIMEOUT);
         if (data[i].result == NSAPI_ERROR_OK) {
             printf("DNS: query \"%s\" => \"%s\"\n",
                    dns_test_hosts[i], data[i].addr.get_ip_address());
@@ -76,10 +77,12 @@ void ASYNCHRONOUS_DNS_CANCEL()
             printf("DNS: query \"%s\" => timeout\n", dns_test_hosts[i]);
         } else if (data[i].result == NSAPI_ERROR_NO_MEMORY) {
             printf("DNS: query \"%s\" => no memory\n", dns_test_hosts[i]);
+        } else if (data[i].result == NSAPI_ERROR_BUSY) {
+            printf("DNS: query \"%s\" => busy\n", dns_test_hosts[i]);
         }
     }
 
     delete[] data;
 
-    wait(5.0);
+    ThisThread::sleep_for(5000);
 }

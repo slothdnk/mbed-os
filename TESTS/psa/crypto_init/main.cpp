@@ -16,14 +16,15 @@
 * limitations under the License.
 */
 
+#include "psa/crypto.h"
+
 #if ((!defined(TARGET_PSA)) || (!defined(MBEDTLS_PSA_CRYPTO_C)))
 #error [NOT_SUPPORTED] Mbed Crypto is OFF - skipping.
-#endif // TARGET_PSA
+#else
 
 #include "greentea-client/test_env.h"
 #include "unity/unity.h"
 #include "utest/utest.h"
-#include "crypto.h"
 #include "entropy.h"
 #include "entropy_poll.h"
 
@@ -41,9 +42,7 @@ using namespace utest::v1;
 
 utest::v1::status_t greentea_test_setup(const size_t number_of_cases)
 {
-#ifndef NO_GREENTEA
     GREENTEA_SETUP(60, "default_auto");
-#endif
     return greentea_test_setup_handler(number_of_cases);
 }
 
@@ -113,3 +112,5 @@ int main()
 #endif
     return !Harness::run(specification);
 }
+
+#endif // ((!defined(TARGET_PSA)) || (!defined(MBEDTLS_PSA_CRYPTO_C)))

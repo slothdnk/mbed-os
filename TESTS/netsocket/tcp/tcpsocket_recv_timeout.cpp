@@ -36,6 +36,7 @@ static void _sigio_handler(osThreadId id)
 
 void TCPSOCKET_RECV_TIMEOUT()
 {
+    SKIP_IF_TCP_UNSUPPORTED();
     static const int DATA_LEN = 100;
     char buff[DATA_LEN] = {0};
     int time_allotted = split2half_rmng_tcp_test_time(); // [s]
@@ -66,8 +67,13 @@ void TCPSOCKET_RECV_TIMEOUT()
                     TEST_FAIL();
                     goto CLEANUP;
                 }
-                printf("MBED: recv() took: %dus\n", timer.read_us());
-                TEST_ASSERT_INT_WITHIN(51, 150, (timer.read_us() + 500) / 1000);
+                int recv_time_ms = (timer.read_us() + 500) / 1000;
+                printf("MBED: recv() took: %dus\n", recv_time_ms);
+                if (recv_time_ms > 150) {
+                    TEST_ASSERT(150 - recv_time_ms < 51);
+                } else {
+                    TEST_ASSERT(recv_time_ms - 150 < 51);
+                }
                 continue;
             } else if (recvd < 0) {
                 printf("[pkt#%02d] network error %d\n", i, recvd);

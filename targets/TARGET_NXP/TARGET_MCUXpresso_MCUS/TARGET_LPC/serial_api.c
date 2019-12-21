@@ -28,6 +28,7 @@
 #include "fsl_usart.h"
 #include "PeripheralPins.h"
 #include "clock_config.h"
+#include "gpio_api.h"
 
 static uint32_t serial_irq_ids[FSL_FEATURE_SOC_USART_COUNT] = {0};
 static uart_irq_handler irq_handler;
@@ -79,13 +80,13 @@ void serial_init(serial_t *obj, PinName tx, PinName rx)
             CLOCK_AttachClk(kFRO12M_to_FLEXCOMM7);
             RESET_PeripheralReset(kFC7_RST_SHIFT_RSTn);
             break;
-#if (FSL_FEATURE_SOC_FLEXCOMM_COUNT > 8U)
+#if (FSL_FEATURE_SOC_USART_COUNT > 8U)
         case 8:
             CLOCK_AttachClk(kFRO12M_to_FLEXCOMM8);
             RESET_PeripheralReset(kFC8_RST_SHIFT_RSTn);
             break;
 #endif
-#if (FSL_FEATURE_SOC_FLEXCOMM_COUNT > 9U)
+#if (FSL_FEATURE_SOC_USART_COUNT > 9U)
         case 9:
             CLOCK_AttachClk(kFRO12M_to_FLEXCOMM9);
             RESET_PeripheralReset(kFC9_RST_SHIFT_RSTn);
@@ -225,7 +226,7 @@ void uart7_irq()
     uart_irq((status_flags & kUSART_TxFifoEmptyFlag), (status_flags & kUSART_RxFifoNotEmptyFlag), 7);
 }
 
-#if (FSL_FEATURE_SOC_FLEXCOMM_COUNT > 8U)
+#if (FSL_FEATURE_SOC_USART_COUNT > 8U)
 void uart8_irq()
 {
     uint32_t status_flags = USART8->FIFOSTAT;
@@ -233,7 +234,7 @@ void uart8_irq()
 }
 #endif
 
-#if (FSL_FEATURE_SOC_FLEXCOMM_COUNT > 9U)
+#if (FSL_FEATURE_SOC_USART_COUNT > 9U)
 void uart9_irq()
 {
     uint32_t status_flags = USART9->FIFOSTAT;
@@ -277,12 +278,12 @@ void serial_irq_set(serial_t *obj, SerialIrq irq, uint32_t enable)
         case 7:
             vector = (uint32_t)&uart7_irq;
             break;
-#if (FSL_FEATURE_SOC_FLEXCOMM_COUNT > 8U)
+#if (FSL_FEATURE_SOC_USART_COUNT > 8U)
         case 8:
             vector = (uint32_t)&uart8_irq;
             break;
 #endif
-#if (FSL_FEATURE_SOC_FLEXCOMM_COUNT > 9U)
+#if (FSL_FEATURE_SOC_USART_COUNT > 9U)
         case 9:
             vector = (uint32_t)&uart9_irq;
             break;
@@ -381,6 +382,48 @@ void serial_break_clear(serial_t *obj)
     uart_addrs[obj->index]->CTL &= ~USART_CTL_TXBRKEN_MASK;
 }
 
+#if DEVICE_SERIAL_FC
+/*
+ * Only hardware flow control is implemented in this API.
+ */
+void serial_set_flow_control(serial_t *obj, FlowControl type, PinName rxflow, PinName txflow)
+{
+    gpio_t gpio;
+
+    switch(type) {
+        case FlowControlRTS:
+            pinmap_pinout(rxflow, PinMap_UART_RTS);
+            uart_addrs[obj->index]->CFG &= ~USART_CFG_CTSEN_MASK;
+            break;
+
+        case FlowControlCTS:
+            /* Do not use RTS, configure pin to GPIO input */
+            gpio_init(&gpio, rxflow);
+            gpio_dir(&gpio, PIN_INPUT);
+
+            pinmap_pinout(txflow, PinMap_UART_CTS);
+            uart_addrs[obj->index]->CFG |= USART_CFG_CTSEN_MASK;
+            break;
+
+        case FlowControlRTSCTS:
+            pinmap_pinout(rxflow, PinMap_UART_RTS);
+            pinmap_pinout(txflow, PinMap_UART_CTS);
+            uart_addrs[obj->index]->CFG |= USART_CFG_CTSEN_MASK;
+            break;
+
+        case FlowControlNone:
+            /* Do not use RTS, configure pin to GPIO input */
+            gpio_init(&gpio, rxflow);
+            gpio_dir(&gpio, PIN_INPUT);
+
+            uart_addrs[obj->index]->CFG &= ~USART_CFG_CTSEN_MASK;
+            break;
+
+        default:
+            break;
+    }
+}
+#endif
 const PinMap *serial_tx_pinmap()
 {
     return PinMap_UART_TX;

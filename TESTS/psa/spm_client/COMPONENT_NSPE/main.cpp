@@ -17,7 +17,7 @@
 
 #ifndef COMPONENT_PSA_SRV_IPC
 #error [NOT_SUPPORTED] SPM tests can run only on SPM-enabled targets
-#endif // COMPONENT_PSA_SRV_IPC
+#else
 
 #include "mbed.h"
 #include "greentea-client/test_env.h"
@@ -27,8 +27,8 @@
 #include "psa_manifest/sid.h"
 
 #if defined(TARGET_TFM)
-#include "psa/service.h"
 #define MBED_CONF_SPM_IPC_MAX_NUM_OF_CHANNELS TFM_CONN_HANDLE_MAX_NUM
+#define PSA_MAX_IOVEC 4
 #endif
 
 using namespace utest::v1;
@@ -460,7 +460,6 @@ Case cases[] = {
     Case("Testing client tx_buff_null", tx_buff_null),
     Case("Testing client rx_tx_null", rx_tx_null),
     Case("Testing client multiple_call from a single thread", multiple_call),
-    Case("Testing client exceed num of max channels allowed", exceed_num_of_max_channels),
     Case("Testing client close on NULL handle", client_close_null_handle),
     Case("Testing DROP_CONNECTION State", drop_connection),
     Case("Testing client psa_framework_version() API", verify_psa_framework_version),
@@ -468,14 +467,15 @@ Case cases[] = {
     Case("Testing client psa_version() API on non-existing SID", psa_version_non_existing),
     Case("Testing client psa_version() API to a service that is not NSPE callable", psa_version_secure_access_only),
     Case("Testing client multiple calls on different channels to the same SID", multi_thread_diff_handles),
+#if defined TARGET_MBED_SPM // TF-M issue: https://developer.trustedfirmware.org/T244
+    Case("Testing client exceed num of max channels allowed", exceed_num_of_max_channels),
+#endif
 };
 
 utest::v1::status_t test_setup(const size_t number_of_cases)
 {
     // Setup Greentea using a reasonable timeout in seconds
-#ifndef NO_GREENTEA
     GREENTEA_SETUP(60, "default_auto");
-#endif
     return verbose_test_setup_handler(number_of_cases);
 }
 
@@ -486,3 +486,5 @@ int main()
     Harness::run(specification);
     return 0;
 }
+
+#endif // COMPONENT_PSA_SRV_IPC
