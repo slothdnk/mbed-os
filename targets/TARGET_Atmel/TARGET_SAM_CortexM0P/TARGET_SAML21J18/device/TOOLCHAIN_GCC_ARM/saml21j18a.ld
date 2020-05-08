@@ -10,7 +10,7 @@ STACK_SIZE = MBED_BOOT_STACK_SIZE;
 
 /* Memory Spaces Definitions */
 MEMORY {
-    rom (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00040000
+    rom (rx)  : ORIGIN = 0x00002000, LENGTH = 0x00040000
         ram (rwx) : ORIGIN = 0x20000000 + 0xB8, LENGTH = 0x00008000 - 0xB8
     }
 
