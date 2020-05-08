@@ -1460,6 +1460,7 @@ lorawan_status_t LoRaMac::prepare_join(const lorawan_connect_t *params, bool is_
             _params.keys.app_eui = params->connection_u.otaa.app_eui;
             _params.keys.app_key = params->connection_u.otaa.app_key;
             _params.max_join_request_trials = params->connection_u.otaa.nb_trials;
+            _params.dev_nonce = params->connection_u.otaa.dev_nonce;
 
             if (!_lora_phy->verify_nb_join_trials(params->connection_u.otaa.nb_trials)) {
                 // Value not supported, get default
@@ -1584,7 +1585,8 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
                                      _params.keys.dev_eui, 8);
             _params.tx_buffer_len += 8;
 
-            _params.dev_nonce = _lora_phy->get_radio_rng();
+            if(_params.dev_nonce == 0)
+            	_params.dev_nonce = _lora_phy->get_radio_rng();
 
             _params.tx_buffer[_params.tx_buffer_len++] = _params.dev_nonce & 0xFF;
             _params.tx_buffer[_params.tx_buffer_len++] = (_params.dev_nonce >> 8) & 0xFF;
