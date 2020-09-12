@@ -809,6 +809,13 @@ protected:
     LoRaRadio *_radio;
     LoRaWANTimeHandler *_lora_time;
     loraphy_params_t phy_params;
+
+private:
+    uint16_t _server_adr_ack_limit;
+    uint16_t _server_adr_ack_delay;
+
+    uint32_t _rejoin_max_time;
+    uint32_t _rejoin_max_count;
 };
 
 #endif /* MBED_OS_LORAPHY_BASE_ */

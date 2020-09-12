@@ -437,7 +437,6 @@ public:
      */
     void post_process_mcps_req(void);
     void post_process_mcps_ind(void);
-    void post_process_mlme_request(void);
     void post_process_mlme_ind(void);
 
     /**
@@ -479,6 +478,8 @@ public:
      * Gets the current receive slot
      */
     rx_slot_t get_current_slot(void);
+
+    uint8_t get_current_adr_ack_limit();
 
     /**
      * Indicates what level of QOS is set by network server. QOS level is set
@@ -573,7 +574,7 @@ private:
     /**
      * Handles a Join Accept frame
      */
-    void handle_join_accept_frame(const uint8_t *payload, uint16_t size);
+    loramac_event_info_status_t handle_join_accept_frame(const uint8_t *payload, uint16_t size);
 
     /**
      * Handles data frames
@@ -617,6 +618,7 @@ private:
     /**
      * Decrypts and extracts MAC commands from the received encrypted
      * payload if there is no data
+     * @return True if successful, false otherwise
      */
     bool extract_mac_commands_only(const uint8_t *payload, uint16_t size, int8_t snr, uint8_t fopts_len,
                                    mbed::Callback<void(loramac_mlme_confirm_t &)> confirm_handler);

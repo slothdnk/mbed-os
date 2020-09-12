@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "LoRaMacCrypto.h"
 #include "system/lorawan_data_structures.h"
@@ -380,7 +381,6 @@ int LoRaMacCrypto::compute_skeys_for_join_frame(const uint8_t *args, uint8_t arg
                                                 server_type_t stype)
 {
     uint8_t nonce[16];
-    uint8_t *p_dev_nonce = (uint8_t *) &dev_nonce;
     int ret = 0;
 
     mbedtls_aes_init(&aes_ctx);

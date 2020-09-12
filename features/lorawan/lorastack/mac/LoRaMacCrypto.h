@@ -33,6 +33,7 @@ SPDX-License-Identifier: BSD-3-Clause
 #include "mbedtls/config.h"
 #include "mbedtls/aes.h"
 #include "mbedtls/cmac.h"
+#include "system/lorawan_data_structures.h"
 
 
 class LoRaMacCrypto {

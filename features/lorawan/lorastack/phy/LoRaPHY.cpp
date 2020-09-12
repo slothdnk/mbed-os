@@ -27,6 +27,7 @@ SPDX-License-Identifier: BSD-3-Clause
 #include <stdint.h>
 #include <math.h>
 
+#include "mbed_rtc_time.h"
 #include "LoRaPHY.h"
 
 #define BACKOFF_DC_1_HOUR       100
@@ -35,6 +36,8 @@ SPDX-License-Identifier: BSD-3-Clause
 #define MAX_PREAMBLE_LENGTH     8.0f
 #define TICK_GRANULARITY_JITTER 1.0f
 #define CHANNELS_IN_MASK        16
+#define GPS_EPOCH_DIFF_WITH_UTC 315964800
+#define CHANNELS_IN_MASK  16
 
 #define DEVICE_DOES_NOT_SUPPORT_TIME 0
 #define DEVICE_SUPPORTS_TIME 1
@@ -47,7 +50,11 @@ SPDX-License-Identifier: BSD-3-Clause
 
 LoRaPHY::LoRaPHY()
     : _radio(NULL),
-      _lora_time(NULL)
+      _lora_time(NULL),
+      _server_adr_ack_limit(0),
+      _server_adr_ack_delay(0),
+      _rejoin_max_time(MBED_CONF_LORA_REJOIN_DEFAULT_MAX_TIME),
+      _rejoin_max_count(MBED_CONF_LORA_REJOIN_DEFAULT_MAX_COUNT)
 {
     memset(&phy_params, 0, sizeof(phy_params));
 }
@@ -694,7 +701,6 @@ bool LoRaPHY::verify_rx_datarate(uint8_t datarate)
 {
     if (is_datarate_supported(datarate)) {
         if (phy_params.dl_dwell_time_setting == 0) {
-            //TODO: Check this! datarate must be same as minimum! Can be compared directly if OK
             return val_in_range(datarate,
                                 phy_params.min_rx_datarate,
                                 phy_params.max_rx_datarate);
@@ -833,14 +839,14 @@ bool LoRaPHY::get_next_ADR(bool restore_channel_mask, int8_t &dr_out,
 {
     bool set_adr_ack_bit = false;
 
-    uint16_t ack_limit_plus_delay = phy_params.adr_ack_limit + phy_params.adr_ack_delay;
+    uint16_t ack_limit_plus_delay = get_adr_ack_limit() + get_adr_ack_delay();
 
     if (dr_out == phy_params.min_tx_datarate) {
         adr_ack_cnt = 0;
         return set_adr_ack_bit;
     }
 
-    if (adr_ack_cnt < phy_params.adr_ack_limit) {
+    if (adr_ack_cnt < get_adr_ack_limit()) {
         return set_adr_ack_bit;
     }
 
@@ -849,7 +855,7 @@ bool LoRaPHY::get_next_ADR(bool restore_channel_mask, int8_t &dr_out,
     tx_power_out = phy_params.max_tx_power;
 
     if (adr_ack_cnt >= ack_limit_plus_delay) {
-        if ((adr_ack_cnt % phy_params.adr_ack_delay) == 1) {
+        if ((adr_ack_cnt % get_adr_ack_delay()) == 1) {
             // Decrease the datarate
             dr_out = get_next_lower_tx_datarate(dr_out);
 

@@ -71,19 +71,19 @@ typedef enum {
      *
      * LoRaWAN Specification V1.0.2, chapter 3.
      */
-    CLASS_A,
+    CLASS_A = 0x00,
     /**
      * LoRaWAN device class B.
      *
      * LoRaWAN Specification V1.0.2, chapter 8.
      */
-    CLASS_B,
+    CLASS_B = 0x01,
     /**
      * LoRaWAN device class C.
      *
      * LoRaWAN Specification V1.0.2, chapter 17.
      */
-    CLASS_C,
+    CLASS_C = 0x02,
 } device_class_t;
 
 /**
@@ -132,6 +132,7 @@ typedef struct {
     /** Application identifier
      *
      * LoRaWAN Specification V1.0.2, chapter 6.1.2
+     * In case of LW1.1 or greater this is same as JoinEUI
      */
     uint8_t *app_eui;
     /** AES-128 application key
@@ -139,16 +140,19 @@ typedef struct {
      * LoRaWAN Specification V1.0.2, chapter 6.2.2
      */
     uint8_t *app_key;
+    /** AES-128 network key
+     *
+     * In case of LoRaWAN Specification V1.0.2, must be same as app_key!
+     * LoRaWAN specification 1.1, chapter 6.2.2
+     */
+    uint8_t *nwk_key;
     /** Join request trials
      *
      * Number of trials for the join request.
      */
     uint8_t nb_trials;
-    /** Join request dev_nonce
-     *
-     * Random selected but increasing number.
-     */
-    uint16_t dev_nonce;
+
+    unsigned long dev_nonce;
 } lorawan_connect_otaa_t;
 
 /** The lorawan_connect_abp structure.
@@ -170,6 +174,7 @@ typedef struct {
     /** Network session key
      *
      * LoRaWAN Specification V1.0.2, chapter 6.1.3
+     * LoRaWAN Spec V1.1 onwards this is used as FNwkSIntKey
      */
     uint8_t *nwk_skey;
     /** Application session key
@@ -177,6 +182,18 @@ typedef struct {
      * LoRaWAN Specification V1.0.2, chapter 6.1.4
      */
     uint8_t *app_skey;
+
+    /** Serving Network session integrity key
+     *
+     * LoRaWAN Specification V1.1, chapter 6.1.2.3
+     */
+    uint8_t *snwk_sintkey;
+
+    /** Network session encryption key
+     *
+     * LoRaWAN Specification V1.1, chapter 6.1.2.4
+     */
+    uint8_t *nwk_senckey;
 } lorawan_connect_abp_t;
 
 /** lorawan_connect_t structure

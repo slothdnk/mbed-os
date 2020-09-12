@@ -29,6 +29,8 @@ SPDX-License-Identifier: BSD-3-Clause
 #include "mbed-trace/mbed_trace.h"
 #define TRACE_GROUP "LMACC"
 
+using namespace mbed;
+
 /**
  * LoRaMAC max EIRP (dBm) table.
  */
@@ -80,7 +82,6 @@ void LoRaMacCommand::parse_mac_commands_to_repeat()
                 mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i];
                 break;
             }
-
             // NON-STICKY
             case MOTE_MAC_DEV_STATUS_ANS: { // 2 bytes payload
                 i += 2;
@@ -139,7 +140,6 @@ bool LoRaMacCommand::has_sticky_mac_cmd() const
 
 lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, uint8_t mac_index,
                                                       uint8_t commands_size, uint8_t snr,
-                                                      loramac_mlme_confirm_t &mlme_conf,
                                                       lora_mac_system_params_t &mac_sys_params,
                                                       LoRaPHY &lora_phy,
                                                       Callback<void(loramac_mlme_confirm_t &)> confirm_handler,
