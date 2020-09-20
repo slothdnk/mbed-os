@@ -134,6 +134,11 @@ typedef struct {
      * Number of trials for the join request.
      */
     uint8_t nb_trials;
+    /** Dev nonce
+     *
+     *
+     */
+    uint8_t dev_nonce;
 } lorawan_connect_otaa_t;
 
 /** The lorawan_connect_abp structure.

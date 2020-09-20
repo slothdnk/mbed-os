@@ -1086,6 +1086,7 @@ typedef struct {
      * NOTE! LoRaMac determines the length of the key based on sizeof this variable
      */
     uint8_t app_skey[16];
+    uint8_t dev_nonce;
 
 } loramac_keys;
 
