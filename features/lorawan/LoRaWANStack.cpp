@@ -641,9 +641,11 @@ void LoRaWANStack::post_process_tx_with_reception()
             if(_loramac.get_device_class() != CLASS_C)
             {
             	_loramac.post_process_mcps_req();
-				_ctrl_flags |= TX_DONE_FLAG;
-				make_tx_metadata_available();
+            } else
+            {
             }
+            _ctrl_flags |= TX_DONE_FLAG;
+			make_tx_metadata_available();
             state_controller(DEVICE_STATE_STATUS_CHECK);
         }
     }
