@@ -758,9 +758,14 @@ void LoRaWANStack::post_process_tx_with_reception()
             _qos_cnt++;
             tr_info("QOS: repeated transmission #%d queued", _qos_cnt);
         } else {
-            _loramac.post_process_mcps_req();
+            if(_loramac.get_device_class() != CLASS_C)
+            {
+            	_loramac.post_process_mcps_req();
+            } else
+            {
+            }
             _ctrl_flags |= TX_DONE_FLAG;
-            make_tx_metadata_available();
+	    make_tx_metadata_available();
             state_controller(DEVICE_STATE_STATUS_CHECK);
         }
     }
