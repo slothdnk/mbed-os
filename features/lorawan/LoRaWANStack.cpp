@@ -703,7 +703,6 @@ void LoRaWANStack::process_reception(const uint8_t *const payload, uint16_t size
                                      int16_t rssi, int8_t snr)
 {
     _device_current_state = DEVICE_STATE_RECEIVING;
-    tr_debug("_ctrl_flags: 0x%02x", _ctrl_flags);
     _ctrl_flags &= ~MSG_RECVD_FLAG;
     _ctrl_flags &= ~TX_DONE_FLAG;
     _ctrl_flags &= ~RETRY_EXHAUSTED_FLAG;

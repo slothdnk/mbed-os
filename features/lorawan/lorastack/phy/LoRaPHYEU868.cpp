@@ -67,7 +67,7 @@
  */
 #define EU868_DEFAULT_DATARATE                      DR_0
 
-#define EU868_DEFAULT_MAX_DATARATE                  DR_5
+#define EU868_DEFAULT_MAX_DATARATE                  DR_3
 
 /*!
  * Minimal Rx1 receive datarate offset
