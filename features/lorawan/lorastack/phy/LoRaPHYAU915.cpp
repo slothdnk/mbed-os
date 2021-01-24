@@ -96,7 +96,7 @@
 /*!
  * Default antenna gain
  */
-#define AU915_DEFAULT_ANTENNA_GAIN                  -2.15f
+#define AU915_DEFAULT_ANTENNA_GAIN                  2.15f
 
 /*!
  * ADR Ack limit
@@ -228,26 +228,25 @@ static const uint8_t max_payload_with_repeater_AU915[] = { 51, 51, 51, 115,
 
 static const uint16_t fsb_mask[] = MBED_CONF_LORA_FSB_MASK;
 
-static const uint16_t full_channel_mask [] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x00FF};
-
+static const uint16_t full_channel_mask [] = {0x00FF, 0x0000, 0x0000, 0x0000, 0x0002};
 LoRaPHYAU915::LoRaPHYAU915()
 {
     bands[0] = AU915_BAND0;
 
-    // Activate Channels
-    // 125 kHz channels Upstream only
-    for (uint8_t i = 0; i < AU915_MAX_NB_CHANNELS - 8; i++) {
-        channels[i].frequency = 915200000 + i * 200000;
-        channels[i].dr_range.value = (DR_5 << 4) | DR_0;
-        channels[i].band = 0;
-    }
-    // 500 kHz channels
-    // Upstream and downstream both
-    for (uint8_t i = AU915_MAX_NB_CHANNELS - 8; i < AU915_MAX_NB_CHANNELS; i++) {
-        channels[i].frequency = 915900000 + (i - (AU915_MAX_NB_CHANNELS - 8)) * 1600000;
-        channels[i].dr_range.value = (DR_6 << 4) | DR_6;
-        channels[i].band = 0;
-    }
+	// Activate Channels
+	// 125 kHz channels Upstream only
+	for (uint8_t i = 0; i < AU915_MAX_NB_CHANNELS - 8; i++) {
+		channels[i].frequency = 915200000 + i * 200000;
+		channels[i].dr_range.value = (DR_5 << 4) | DR_0;
+		channels[i].band = 0;
+	}
+	// 500 kHz channels
+	// Upstream and downstream both
+	for (uint8_t i = AU915_MAX_NB_CHANNELS - 8; i < AU915_MAX_NB_CHANNELS; i++) {
+		channels[i].frequency = 915900000 + (i - (AU915_MAX_NB_CHANNELS - 8)) * 1600000;
+		channels[i].dr_range.value = (DR_6 << 4) | DR_6;
+		channels[i].band = 0;
+	}
 
     // Initialize channels default mask
     // All channels are default channels here

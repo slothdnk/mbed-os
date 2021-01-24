@@ -113,7 +113,7 @@
 /*!
  * Default antenna gain
  */
-#define AS923_DEFAULT_ANTENNA_GAIN                  2.15f
+#define AS923_DEFAULT_ANTENNA_GAIN                  -2.15f
 
 /*!
  * ADR Ack limit
