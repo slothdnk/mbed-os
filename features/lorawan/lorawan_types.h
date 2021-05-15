@@ -134,11 +134,13 @@ typedef struct {
      * Number of trials for the join request.
      */
     uint8_t nb_trials;
-    /** Dev nonce
+
+    /** Join request dev_nonce
      *
-     *
+     * Random selected but increasing number.
      */
-    uint8_t dev_nonce;
+    uint16_t dev_nonce;
+
 } lorawan_connect_otaa_t;
 
 /** The lorawan_connect_abp structure.
@@ -671,14 +673,6 @@ typedef struct {
      * A boolean to mark if the meta data is stale
      */
     bool stale;
-    /**
-     * Frequency for the downlink channel
-     */
-    uint32_t channel;
-    /**
-     * Time spent on air by the RX frame
-     */
-    uint32_t rx_toa;
 } lorawan_rx_metadata;
 
 #endif /* MBED_LORAWAN_TYPES_H_ */

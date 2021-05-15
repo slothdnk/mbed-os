@@ -480,21 +480,16 @@ typedef struct continuous_wave_mode_params_s {
     uint16_t timeout;
 } cw_mode_params_t;
 
-/*!
- * Template for a table
- */
 typedef struct {
     void *table;
     uint8_t size;
 } loraphy_table_t;
 
-/*!
- * Contains information regarding channel configuration of
- * a given PHY
- */
 typedef struct {
+
     uint8_t channel_list_size;
     uint8_t  mask_size;
+
     uint16_t *mask;
     uint16_t *default_mask;
     channel_params_t *channel_list;

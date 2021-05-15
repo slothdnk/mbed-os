@@ -29,7 +29,6 @@
  *
  */
 
-#include <string.h>
 #include "LoRaPHYAU915.h"
 #include "lora_phy_ds.h"
 
@@ -228,7 +227,7 @@ static const uint8_t max_payload_with_repeater_AU915[] = { 51, 51, 51, 115,
 
 static const uint16_t fsb_mask[] = MBED_CONF_LORA_FSB_MASK;
 
-static const uint16_t full_channel_mask [] = {0x00FF, 0x0000, 0x0000, 0x0000, 0x0002};
+static const uint16_t full_channel_mask [] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x00FF};
 LoRaPHYAU915::LoRaPHYAU915()
 {
     bands[0] = AU915_BAND0;
@@ -437,16 +436,12 @@ uint8_t LoRaPHYAU915::link_ADR_request(adr_req_params_t *params,
     // Initialize local copy of channels mask
     copy_channel_mask(temp_channel_masks, channel_mask, AU915_CHANNEL_MASK_SIZE);
 
-    while (bytes_processed < params->payload_size &&
-            params->payload[bytes_processed] == SRV_MAC_LINK_ADR_REQ) {
+    while (bytes_processed < params->payload_size) {
         next_index = parse_link_ADR_req(&(params->payload[bytes_processed]),
-                                        params->payload_size,
                                         &adr_settings);
 
         if (next_index == 0) {
-            bytes_processed = 0;
-            // break loop, malformed packet
-            break;
+            break; // break loop, since no more request has been found
         }
 
         // Update bytes processed
@@ -475,11 +470,6 @@ uint8_t LoRaPHYAU915::link_ADR_request(adr_req_params_t *params,
         } else {
             temp_channel_masks[adr_settings.ch_mask_ctrl] = adr_settings.channel_mask;
         }
-    }
-
-    if (bytes_processed == 0) {
-        *nb_bytes_parsed = 0;
-        return status;
     }
 
     // FCC 15.247 paragraph F mandates to hop on at least 2 125 kHz channels

@@ -29,7 +29,6 @@
  *
  */
 
-#include <string.h>
 #include "LoRaPHYUS915.h"
 #include "lora_phy_ds.h"
 
@@ -463,16 +462,12 @@ uint8_t LoRaPHYUS915::link_ADR_request(adr_req_params_t *params,
     // Initialize local copy of channels mask
     copy_channel_mask(temp_channel_masks, channel_mask, US915_CHANNEL_MASK_SIZE);
 
-    while (bytes_processed < params->payload_size &&
-            params->payload[bytes_processed] == SRV_MAC_LINK_ADR_REQ) {
+    while (bytes_processed < params->payload_size) {
         next_idx = parse_link_ADR_req(&(params->payload[bytes_processed]),
-                                      params->payload_size - bytes_processed,
                                       &adr_settings);
 
         if (next_idx == 0) {
-            bytes_processed = 0;
-            // break loop, malformed packet
-            break;
+            break; // break loop, since no more request has been found
         }
 
         // Update bytes processed
@@ -506,11 +501,6 @@ uint8_t LoRaPHYUS915::link_ADR_request(adr_req_params_t *params,
         } else {
             temp_channel_masks[adr_settings.ch_mask_ctrl] = adr_settings.channel_mask;
         }
-    }
-
-    if (bytes_processed == 0) {
-        *nb_bytes_parsed = 0;
-        return status;
     }
 
     // FCC 15.247 paragraph F mandates to hop on at least 2 125 kHz channels

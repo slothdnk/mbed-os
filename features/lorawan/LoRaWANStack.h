@@ -42,7 +42,6 @@
 
 #include <stdint.h>
 #include "events/EventQueue.h"
-#include "platform/mbed_critical.h"
 #include "platform/Callback.h"
 #include "platform/NonCopyable.h"
 #include "platform/ScopedLock.h"
@@ -54,9 +53,6 @@
 
 class LoRaPHY;
 
-/** LoRaWANStack Class
- * A controller layer for LoRaWAN MAC and PHY
- */
 class LoRaWANStack: private mbed::NonCopyable<LoRaWANStack> {
 
 public:
@@ -393,6 +389,15 @@ public:
         _loramac.unlock();
     }
 
+    lorawan_status_t get_session(loramac_protocol_params *params)
+    {
+        return _loramac.get_session(params);
+    }
+
+    lorawan_status_t set_session(loramac_protocol_params *params) {
+        return _loramac.set_session(params);
+    }
+
 private:
     typedef mbed::ScopedLock<LoRaWANStack> Lock;
     /**
@@ -508,7 +513,7 @@ private:
     uint8_t _app_port;
     bool _link_check_requested;
     bool _automatic_uplink_ongoing;
-    core_util_atomic_flag _rx_payload_in_use;
+    volatile bool _ready_for_rx;
     uint8_t _rx_payload[LORAMAC_PHY_MAXPAYLOAD];
     events::EventQueue *_queue;
     lorawan_time_t _tx_timestamp;

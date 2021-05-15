@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-/** @addtogroup LoRaWAN
- * Mbed OS LoRaWAN Stack
- *  @{
- */
-
 #ifndef LORAWANINTERFACE_H_
 #define LORAWANINTERFACE_H_
 
 #include "platform/Callback.h"
 #include "platform/ScopedLock.h"
-#include "events/EventQueue.h"
 #include "LoRaWANStack.h"
 #include "LoRaRadio.h"
-#include "lorawan_types.h"
+#include "LoRaWANBase.h"
 
-// Forward declaration of LoRaPHY class
 class LoRaPHY;
 
-/** LoRaWANInterface Class
- * A network interface for LoRaWAN
- */
-class LoRaWANInterface {
+class LoRaWANInterface: public LoRaWANBase {
 
 public:
 
@@ -534,6 +524,12 @@ public:
      */
     lorawan_status_t cancel_sending(void);
 
+    lorawan_status_t get_session(loramac_protocol_params *params);
+
+    lorawan_status_t set_session(loramac_protocol_params *params);
+
+
+
     /** Provides exclusive access to the stack.
      *
      * Use only if the stack is being run in it's own separate thread.
@@ -542,27 +538,15 @@ public:
     {
         _lw_stack.lock();
     }
-
-    /** Releases exclusive access to the stack.
-     *
-     * Use only if the stack is being run in it's own separate thread.
-     */
     void unlock(void)
     {
         _lw_stack.unlock();
     }
 
+
 private:
-    /** ScopedLock object
-     *
-     * RAII style exclusive access
-     */
     typedef mbed::ScopedLock<LoRaWANInterface> Lock;
 
-    /** LoRaWANStack object
-     *
-     * Handle for the LoRaWANStack class
-     */
     LoRaWANStack _lw_stack;
 
     /** PHY object if created by LoRaWANInterface
@@ -574,4 +558,3 @@ private:
 };
 
 #endif /* LORAWANINTERFACE_H_ */
-/** @}*/

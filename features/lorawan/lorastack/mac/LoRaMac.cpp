@@ -22,7 +22,6 @@ Copyright (c) 2017, Arm Limited and affiliates.
 SPDX-License-Identifier: BSD-3-Clause
 */
 #include <stdlib.h>
-#include <string.h>
 #include "LoRaMac.h"
 
 #include "mbed-trace/mbed_trace.h"
@@ -72,13 +71,11 @@ LoRaMac::LoRaMac()
       _mac_commands(),
       _channel_plan(),
       _lora_crypto(),
-      _params(),
       _ev_queue(NULL),
       _mcps_indication(),
       _mcps_confirmation(),
       _mlme_indication(),
       _mlme_confirmation(),
-      _ongoing_tx_msg(),
       _is_nwk_joined(false),
       _can_cancel_tx(true),
       _continuous_rx2_window_open(false),
@@ -86,9 +83,39 @@ LoRaMac::LoRaMac()
       _prev_qos_level(LORAWAN_DEFAULT_QOS),
       _demod_ongoing(false)
 {
+    memset(&_params, 0, sizeof(_params));
+    _params.keys.dev_eui = NULL;
+    _params.keys.app_eui = NULL;
+    _params.keys.app_key = NULL;
+
+    memset(_params.keys.nwk_skey, 0, sizeof(_params.keys.nwk_skey));
+    memset(_params.keys.app_skey, 0, sizeof(_params.keys.app_skey));
+    memset(&_ongoing_tx_msg, 0, sizeof(_ongoing_tx_msg));
+    memset(&_params.sys_params, 0, sizeof(_params.sys_params));
+
+    _params.dev_nonce = 0;
+    _params.net_id = 0;
+    _params.dev_addr = 0;
+    _params.tx_buffer_len = 0;
+    _params.rx_buffer_len = 0;
+    _params.ul_frame_counter = 0;
+    _params.dl_frame_counter = 0;
     _params.is_rx_window_enabled = true;
+    _params.adr_ack_counter = 0;
+    _params.is_node_ack_requested = false;
+    _params.is_srv_ack_requested = false;
+    _params.ul_nb_rep_counter = 0;
+    _params.timers.mac_init_time = 0;
     _params.max_ack_timeout_retries = 1;
     _params.ack_timeout_retry_counter = 1;
+    _params.is_ack_retry_timeout_expired = false;
+    _params.timers.tx_toa = 0;
+
+    _params.multicast_channels = NULL;
+
+
+    _params.sys_params.adr_on = false;
+    _params.sys_params.max_duty_cycle = 0;
 
     reset_mcps_confirmation();
     reset_mlme_confirmation();
@@ -292,11 +319,8 @@ bool LoRaMac::message_integrity_check(const uint8_t *const payload,
     sequence_counter_prev = (uint16_t) * downlink_counter;
     sequence_counter_diff = sequence_counter - sequence_counter_prev;
     *downlink_counter += sequence_counter_diff;
-
-    if (sequence_counter_diff >= _lora_phy->get_maximum_frame_counter_gap()) {
-        _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_DOWNLINK_TOO_MANY_FRAMES_LOST;
-        _mcps_indication.dl_frame_counter = *downlink_counter;
-        return false;
+    if (sequence_counter < sequence_counter_prev) {
+        *downlink_counter += 0x10000;
     }
 
     // sizeof nws_skey must be the same as _params.keys.nwk_skey,
@@ -307,6 +331,12 @@ bool LoRaMac::message_integrity_check(const uint8_t *const payload,
 
     if (mic_rx != mic) {
         _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_MIC_FAIL;
+        return false;
+    }
+
+    if (sequence_counter_diff >= _lora_phy->get_maximum_frame_counter_gap()) {
+        _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_DOWNLINK_TOO_MANY_FRAMES_LOST;
+        _mcps_indication.dl_frame_counter = *downlink_counter;
         return false;
     }
 
@@ -599,17 +629,6 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
     if (_mcps_confirmation.ack_received) {
         _lora_time.stop(_params.timers.ack_timeout_timer);
     }
-
-    channel_params_t *list = _lora_phy->get_phy_channels();
-    _mcps_indication.channel = list[_params.channel].frequency;
-
-    if (get_current_slot() == RX_SLOT_WIN_1) {
-        _mcps_indication.rx_toa = _lora_phy->get_rx_time_on_air(_params.rx_window1_config.modem_type,
-                                                                _mcps_indication.buffer_size);
-    } else {
-        _mcps_indication.rx_toa = _lora_phy->get_rx_time_on_air(_params.rx_window2_config.modem_type,
-                                                                _mcps_indication.buffer_size);
-    }
 }
 
 void LoRaMac::set_batterylevel_callback(mbed::Callback<uint8_t(void)> battery_level)
@@ -648,14 +667,13 @@ void LoRaMac::on_radio_tx_done(lorawan_time_t timestamp)
         if (get_device_class() == CLASS_C) {
             _lora_time.start(_rx2_closure_timer_for_class_c,
                              (_params.rx_window2_delay - time_diff) +
-                             _params.rx_window2_config.window_timeout_ms);
+                             _params.rx_window2_config.window_timeout);
         }
 
         // start timer after which ack wait will timeout (for Confirmed messages)
         if (_params.is_node_ack_requested) {
             _lora_time.start(_params.timers.ack_timeout_timer,
                              (_params.rx_window2_delay - time_diff) +
-                             _params.rx_window2_config.window_timeout_ms +
                              _lora_phy->get_ack_timeout());
         }
     } else {
@@ -711,15 +729,6 @@ void LoRaMac::on_radio_rx_done(const uint8_t *const payload, uint16_t size,
             break;
 
         default:
-            //  This can happen e.g. if we happen to receive uplink of another device
-            //  during the receive window. Block RX2 window since it can overlap with
-            //  QOS TX and cause a mess.
-            tr_debug("RX unexpected mtype %u", mac_hdr.bits.mtype);
-            if (get_current_slot() == RX_SLOT_WIN_1) {
-                _lora_time.stop(_params.timers.rx_window2_timer);
-            }
-            _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_ADDRESS_FAIL;
-            _mcps_indication.pending = false;
             break;
     }
 }
@@ -882,13 +891,7 @@ void LoRaMac::open_rx1_window(void)
     _lora_time.stop(_params.timers.rx_window1_timer);
     _params.rx_slot = RX_SLOT_WIN_1;
 
-    channel_params_t *active_channel_list = _lora_phy->get_phy_channels();
     _params.rx_window1_config.channel = _params.channel;
-    _params.rx_window1_config.frequency = active_channel_list[_params.channel].frequency;
-    // Apply the alternative RX 1 window frequency, if it is available
-    if (active_channel_list[_params.channel].rx1_frequency != 0) {
-        _params.rx_window1_config.frequency = active_channel_list[_params.channel].rx1_frequency;
-    }
     _params.rx_window1_config.dr_offset = _params.sys_params.rx1_dr_offset;
     _params.rx_window1_config.dl_dwell_time = _params.sys_params.downlink_dwell_time;
     _params.rx_window1_config.is_repeater_supported = _params.is_repeater_supported;
@@ -1094,8 +1097,6 @@ lorawan_status_t LoRaMac::schedule_tx()
 {
     channel_selection_params_t next_channel;
     lorawan_time_t backoff_time = 0;
-    lorawan_time_t aggregated_timeoff = 0;
-    uint8_t channel = 0;
     uint8_t fopts_len = 0;
 
     if (_params.sys_params.max_duty_cycle == 255) {
@@ -1121,12 +1122,9 @@ lorawan_status_t LoRaMac::schedule_tx()
     next_channel.last_aggregate_tx_time = _params.timers.aggregated_last_tx_time;
 
     lorawan_status_t status = _lora_phy->set_next_channel(&next_channel,
-                                                          &channel,
+                                                          &_params.channel,
                                                           &backoff_time,
-                                                          &aggregated_timeoff);
-
-    _params.channel = channel;
-    _params.timers.aggregated_timeoff = aggregated_timeoff;
+                                                          &_params.timers.aggregated_timeoff);
 
     switch (status) {
         case LORAWAN_STATUS_NO_CHANNEL_FOUND:
@@ -1461,6 +1459,7 @@ lorawan_status_t LoRaMac::prepare_join(const lorawan_connect_t *params, bool is_
             _params.keys.dev_eui = params->connection_u.otaa.dev_eui;
             _params.keys.app_eui = params->connection_u.otaa.app_eui;
             _params.keys.app_key = params->connection_u.otaa.app_key;
+            _params.dev_nonce = params->connection_u.otaa.dev_nonce;
             _params.max_join_request_trials = params->connection_u.otaa.nb_trials;
             _params.keys.dev_nonce = params->connection_u.otaa.dev_nonce;
 
