@@ -343,7 +343,7 @@ LoRaPHYUS915::LoRaPHYUS915()
     phy_params.max_tx_power = US915_MAX_TX_POWER;
     phy_params.default_tx_power = US915_DEFAULT_TX_POWER;
     phy_params.default_max_eirp = 0;
-    phy_params.default_antenna_gain = 0;
+    phy_params.default_antenna_gain = -2;
     phy_params.adr_ack_limit = US915_ADR_ACK_LIMIT;
     phy_params.adr_ack_delay = US915_ADR_ACK_DELAY;
     phy_params.max_rx_window = US915_MAX_RX_WINDOW;
