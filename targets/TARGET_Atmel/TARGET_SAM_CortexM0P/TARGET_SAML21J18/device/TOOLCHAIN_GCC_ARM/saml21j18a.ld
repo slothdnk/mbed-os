@@ -10,7 +10,7 @@ STACK_SIZE = MBED_BOOT_STACK_SIZE;
 
 /* Memory Spaces Definitions */
 MEMORY {
-    rom (rx)  : ORIGIN = 0x00002000, LENGTH = 0x00040000
+    	rom (rx)  : ORIGIN = 0x00002000, LENGTH = 256k - 8k
         ram (rwx) : ORIGIN = 0x20000000 + 0xB8, LENGTH = 0x00008000 - 0xB8
     }
 
@@ -75,6 +75,11 @@ MEMORY {
 
     . = ALIGN(8);
     _etext = .;
+
+    _setup_keys_start = 256k - 512; 
+	.setup_keys _setup_keys_start : {
+      KEEP(*(.setup_keys)) ;
+    } > rom                              /* end new */
 
 .relocate :
     AT (_etext)

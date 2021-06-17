@@ -498,7 +498,7 @@ uint8_t LoRaPHYUS915::link_ADR_request(adr_req_params_t *params,
             // RFU
             status &= 0xFE; // Channel mask KO
 
-        } else {
+        } else if (adr_settings.ch_mask_ctrl <= 4){
             temp_channel_masks[adr_settings.ch_mask_ctrl] = adr_settings.channel_mask;
         }
     }

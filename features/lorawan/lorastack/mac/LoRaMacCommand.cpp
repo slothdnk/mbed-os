@@ -63,7 +63,6 @@ void LoRaMacCommand::parse_mac_commands_to_repeat()
 {
     uint8_t i = 0;
     uint8_t cmd_cnt = 0;
-
     for (i = 0; i < mac_cmd_buf_idx; i++) {
         switch (mac_cmd_buffer[i]) {
             // STICKY
@@ -77,13 +76,17 @@ void LoRaMacCommand::parse_mac_commands_to_repeat()
                 mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i];
                 break;
             }
+            case MOTE_MAC_LINK_ADR_ANS: { // 1 byte payload
+                mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i++];
+                mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i];
+                break;
+            }
 
             // NON-STICKY
             case MOTE_MAC_DEV_STATUS_ANS: { // 2 bytes payload
                 i += 2;
                 break;
             }
-            case MOTE_MAC_LINK_ADR_ANS:
             case MOTE_MAC_NEW_CHANNEL_ANS: { // 1 byte payload
                 i++;
                 break;
@@ -104,6 +107,7 @@ void LoRaMacCommand::parse_mac_commands_to_repeat()
 
 void LoRaMacCommand::clear_repeat_buffer()
 {
+    tr_error("empty buffer\r\n");
     mac_cmd_buf_idx_to_repeat = 0;
 }
 
@@ -323,6 +327,7 @@ lorawan_status_t LoRaMacCommand::add_link_adr_ans(uint8_t status)
         mac_cmd_buffer[mac_cmd_buf_idx++] = MOTE_MAC_LINK_ADR_ANS;
         mac_cmd_buffer[mac_cmd_buf_idx++] = status;
         ret = LORAWAN_STATUS_OK;
+        tr_error("add_link_adr_ans added\r\n");
     }
     return ret;
 }
