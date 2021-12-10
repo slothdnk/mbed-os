@@ -8309,7 +8309,9 @@
     },
     "SAMR34_XPLAINED_PRO": {
         "inherits": ["SAML21J18"],
-        "macros_add": ["SAMR34"]
+        "macros_add": ["SAMR34"],
+        "default_lib": "small"
+        
     },
     "SAMR34_BUSYLIGHT_11_EU": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
