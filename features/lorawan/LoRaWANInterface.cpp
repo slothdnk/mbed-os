@@ -130,6 +130,12 @@ lorawan_status_t LoRaWANInterface::remove_channel_plan()
     return _lw_stack.drop_channel_list();
 }
 
+uint8_t LoRaWANInterface::get_max_possible_tx_size()
+{
+    Lock lock(*this);
+	return _lw_stack.get_max_possible_tx_size();
+}
+
 int16_t LoRaWANInterface::send(uint8_t port, const uint8_t *data, uint16_t length, int flags)
 {
     Lock lock(*this);

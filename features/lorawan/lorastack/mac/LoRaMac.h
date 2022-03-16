@@ -447,7 +447,6 @@ public:
         return LORAWAN_STATUS_OK;
     }
 
-private:
     /**
      * @brief   Queries the LoRaMAC the maximum possible FRMPayload size to send.
      *          The LoRaMAC takes the scheduled MAC commands into account and returns
@@ -462,6 +461,7 @@ private:
      */
     uint8_t get_max_possible_tx_size(uint8_t fopts_len);
 
+private:
     /**
      * @brief set_nwk_joined This is used for ABP mode for which real joining does not happen
      * @param joined True if device has joined in network, false otherwise

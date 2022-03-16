@@ -285,6 +285,12 @@ lorawan_status_t LoRaWANStack::stop_sending(void)
     return status;
 }
 
+uint8_t LoRaWANStack::get_max_possible_tx_size()
+{
+	return _loramac.get_max_possible_tx_size(0);
+}
+
+
 int16_t LoRaWANStack::handle_tx(const uint8_t port, const uint8_t *data,
                                 uint16_t length, uint8_t flags,
                                 bool null_allowed, bool allow_port_0)
