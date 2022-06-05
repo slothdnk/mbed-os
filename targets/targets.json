@@ -8330,5 +8330,8 @@
 	},
     "SAMR34_BUSYLIGHT_12_AS": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_12_IN": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
 	}
 }
