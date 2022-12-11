@@ -88,6 +88,9 @@ void pwmout_period_ms(pwmout_t *obj, int ms);
  */
 void pwmout_period_us(pwmout_t *obj, int us);
 
+bool pwmout_set_duty_cycle(pwmout_t* obj, float dutycycle);
+
+
 /** Set the PWM pulsewidth specified in seconds, keeping the period the same.
  *
  * @param obj     The pwmout object

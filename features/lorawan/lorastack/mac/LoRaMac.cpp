@@ -311,6 +311,8 @@ bool LoRaMac::message_integrity_check(const uint8_t *const payload,
     sequence_counter = (uint16_t) payload[(*ptr_pos)++];
     sequence_counter |= (uint16_t) payload[(*ptr_pos)++] << 8;
 
+    tr_error("sequence_counter %d\r\n", sequence_counter);
+
     mic_rx |= (uint32_t) payload[size - LORAMAC_MFR_LEN];
     mic_rx |= ((uint32_t) payload[size - LORAMAC_MFR_LEN + 1] << 8);
     mic_rx |= ((uint32_t) payload[size - LORAMAC_MFR_LEN + 2] << 16);
@@ -537,6 +539,8 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
     _params.adr_ack_counter = 0;
     _mac_commands.clear_repeat_buffer();
     _mac_commands.clear_command_buffer();
+
+    tr_error("downlink_counter = %u\r\n", downlink_counter);
 
     if (is_multicast) {
         _mcps_indication.type = MCPS_MULTICAST;

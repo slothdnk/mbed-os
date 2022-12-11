@@ -102,7 +102,7 @@ typedef enum {
     LORA_DIO1   = PA11,
     LORA_DIO2   = PA12,
     LORA_DIO3   = PB17,
-    LORA_TCXO   = PA09,
+    LORA_TCXO   = PA14,
     LORA_RFSWITCH_CTL1 = PA13,
     LORA_RFSWITCH_CTL2 = PA14,
 

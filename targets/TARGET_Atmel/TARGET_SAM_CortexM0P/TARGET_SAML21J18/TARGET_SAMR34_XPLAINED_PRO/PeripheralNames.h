@@ -144,16 +144,12 @@ struct dac_pin_channel {
 #define MBED_UART0        PB08, PB09
 #define MBED_UARTUSB      USBTX, USBRX
 
-#define MBED_I2C0         PA08, PA09
-
 #define MBED_ANALOGIN0    PB05
 #define MBED_ANALOGIN1    PA03
 #define MBED_ANALOGIN2    PA06
 #define MBED_ANALOGIN3    PA07
 #define MBED_ANALOGIN4    PB02
 #define MBED_ANALOGIN5    PB03
-#define MBED_ANALOGIN7    PA08
-#define MBED_ANALOGIN8    PA09
 
 #define MBED_PWMOUT0      PB12
 #define MBED_PWMOUT1      PB13

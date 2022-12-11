@@ -486,6 +486,7 @@ static inline enum status_code _tcc_build_waves(
  *                             was supplied
  * \retval STATUS_ERR_DENIED   Hardware module was already enabled
  */
+
 enum status_code tcc_init(
     struct tcc_module *const module_inst,
     Tcc *const hw,
@@ -507,8 +508,27 @@ enum status_code tcc_init(
 
     /* Check if it's enabled. */
     if (hw->CTRLA.reg & TCC_CTRLA_ENABLE) {
-        return STATUS_ERR_DENIED;
+        /* Initialize pins */
+
+    	module_inst->hw = hw;
+
+        module_inst->double_buffering_enabled = config->double_buffering_enabled;
+
+        struct system_pinmux_config pin_config;
+        for (i = 0; i <  _tcc_ow_nums[module_index]; i ++) {
+            if (!config->pins.enable_wave_out_pin[i]) {
+                continue;
+            }
+            system_pinmux_get_config_defaults(&pin_config);
+            pin_config.mux_position = config->pins.wave_out_pin_mux[i];
+            pin_config.direction = SYSTEM_PINMUX_PIN_DIR_OUTPUT;
+            system_pinmux_pin_set_config(
+                config->pins.wave_out_pin[i], &pin_config);
+            hw->CC[i].reg = (config->compare.match[i]);
+        }
+        return STATUS_OK;
     }
+
     /* Check if it's resetting */
     if (hw->CTRLA.reg & TCC_CTRLA_SWRST) {
         return STATUS_ERR_DENIED;
@@ -1057,6 +1077,7 @@ static enum status_code _tcc_set_compare_value(
     }
 
     if (double_buffering_enabled) {
+    	tcc_module->CC[channel_index].reg = compare;
 #if (SAML21) || (SAMC20) || (SAMC21)
         tcc_module->CCBUF[channel_index].reg = compare;
 #else

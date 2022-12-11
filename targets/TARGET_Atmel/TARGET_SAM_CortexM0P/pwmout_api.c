@@ -35,6 +35,48 @@ const uint32_t tcc_prescaler[] = {
 /* Max count limits of TCC Modules */
 extern const uint32_t _tcc_maxs[TCC_INST_NUM];
 
+/** Set the duty cycle of PWM object
+ *
+ * @param[in] obj        The PWM object whose period is to be updated
+ * @param[in] duty_cycle duty cycle in %
+ * @return    bool true on OK
+ */
+bool pwmout_set_duty_cycle(pwmout_t* obj, float dutycycle)
+{
+    PinName pin;
+    uint32_t ch_index = (uint32_t)NC;
+    uint32_t pwm = (uint32_t)NC;
+
+    pwm = pinmap_peripheral(pin, PinMap_PWM);
+    if (pwm == (uint32_t)NC) return 0; /* Pin not supported */
+
+    ch_index = pinmap_channel_pwm(obj->pin, (PWMName) pwm);
+    if (ch_index == (uint32_t)NC) {
+        /* Pin not supported */
+        return 0;
+    }
+
+    /* Enable PWM Module */
+    tcc_disable(&obj->tcc);
+    if(pwm<=PWM_2) {
+        uint32_t tcc_channel = (uint32_t)NC;
+        if ((ch_index == 0) || (ch_index == 4)) {
+    		tcc_channel = 0;
+    	} else if ((ch_index == 1) || (ch_index == 5)) {
+    		tcc_channel = 1;
+    	} else if ((ch_index == 2) || (ch_index == 6)) {
+    		tcc_channel = 2;
+    	} else if ((ch_index == 3) || (ch_index == 7)) {
+    		tcc_channel = 3;
+    	}
+        tcc_set_compare_value(&obj->tcc, tcc_channel, obj->period * dutycycle);
+    } else {
+    	tc_set_compare_value(&obj->tc, TC_COMPARE_CAPTURE_CHANNEL_0, obj->period * dutycycle);
+    }
+    /* Enable PWM Module */
+    tcc_enable(&obj->tcc);
+}
+
 /** Set the period of PWM object (will not update the waveform)
  *
  * @param[in] obj        The PWM object whose period is to be updated
@@ -115,7 +157,7 @@ bool pwmout_init_hw(pwmout_t* obj)
     	}
 
     	tcc_get_config_defaults(&config_tcc, (Tcc*)pwm);
-
+    	config_tcc.double_buffering_enabled = false;
     	config_tcc.counter.clock_source = obj->clock_source;
     	config_tcc.counter.clock_prescaler = (enum tcc_clock_prescaler)obj->clock_prescaler;
 
@@ -217,14 +259,8 @@ void pwmout_write(pwmout_t* obj, float value)
     /* Modify the pulse width keeping period same */
     obj->duty_cycle = value;
 
-    /* Disable PWM Module */
-    tcc_disable(&obj->tcc);
-
     /* Update the changes */
-    if (pwmout_init_hw(obj)) {
-        /* Enable PWM Module */
-        tcc_enable(&obj->tcc);
-    }
+    pwmout_set_duty_cycle(obj, value);
 }
 
 /** Get the duty cycle of PWM Waveform
