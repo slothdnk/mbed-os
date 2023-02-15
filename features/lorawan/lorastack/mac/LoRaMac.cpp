@@ -1590,8 +1590,8 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
                                      _params.keys.dev_eui, 8);
             _params.tx_buffer_len += 8;
 
-            //_params.dev_nonce = _lora_phy->get_radio_rng();
-            _params.dev_nonce = _params.keys.dev_nonce;
+            _params.dev_nonce = _lora_phy->get_radio_rng();
+            //_params.dev_nonce = _params.keys.dev_nonce;
 
             _params.tx_buffer[_params.tx_buffer_len++] = _params.dev_nonce & 0xFF;
             _params.tx_buffer[_params.tx_buffer_len++] = (_params.dev_nonce >> 8) & 0xFF;
