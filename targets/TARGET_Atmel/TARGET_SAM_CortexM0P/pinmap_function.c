@@ -215,7 +215,7 @@ uint32_t pinmap_channel_pwm(PinName pin, PWMName pwm)
     struct pwm_pin_channel *pwm_ch =  pwn_pins;
 
     while (pwm_ch->pin != NC) {
-        if (pin == pwm_ch->pin) {
+        if (pin == pwm_ch->pin && pwm == pwm_ch->pwm) {
             return (uint32_t)pwm_ch->channel_index;
         }
         pwm_ch++;

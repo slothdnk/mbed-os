@@ -42,6 +42,14 @@ typedef struct pwmout_s pwmout_t;
  *
  * @param obj The pwmout object to initialize
  * @param pin The pwmout pin to initialize
+ * @param pwm The pwm timer to use
+ */
+void pwmout_init_atmel(pwmout_t* obj, PinName pin, PWMName pwm);
+
+/** Initialize the pwm out peripheral and configure the pin
+ *
+ * @param obj The pwmout object to initialize
+ * @param pin The pwmout pin to initialize
  */
 void pwmout_init(pwmout_t *obj, PinName pin);
 
@@ -119,6 +127,7 @@ void pwmout_pulsewidth_us(pwmout_t *obj, int us);
  *
  * @return PinMap array
  */
+
 const PinMap *pwmout_pinmap(void);
 
 /**@}*/

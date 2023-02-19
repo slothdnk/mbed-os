@@ -32,6 +32,18 @@ const uint32_t tcc_prescaler[] = {
     TCC_CLOCK_PRESCALER_DIV1024
 };
 
+/* Prescaler values for TC Module */
+const uint32_t tc_prescaler[] = {
+    TC_CLOCK_PRESCALER_DIV1,
+    TC_CLOCK_PRESCALER_DIV2,
+    TC_CLOCK_PRESCALER_DIV4,
+    TC_CLOCK_PRESCALER_DIV8,
+    TC_CLOCK_PRESCALER_DIV16,
+    TC_CLOCK_PRESCALER_DIV64,
+    TC_CLOCK_PRESCALER_DIV256,
+    TC_CLOCK_PRESCALER_DIV1024
+};
+
 /* Max count limits of TCC Modules */
 extern const uint32_t _tcc_maxs[TCC_INST_NUM];
 
@@ -43,11 +55,10 @@ extern const uint32_t _tcc_maxs[TCC_INST_NUM];
  */
 bool pwmout_set_duty_cycle(pwmout_t* obj, float dutycycle)
 {
-    PinName pin;
     uint32_t ch_index = (uint32_t)NC;
     uint32_t pwm = (uint32_t)NC;
 
-    pwm = pinmap_peripheral(pin, PinMap_PWM);
+    pwm = pinmap_peripheral(obj->pin, PinMap_PWM);
     if (pwm == (uint32_t)NC) return 0; /* Pin not supported */
 
     ch_index = pinmap_channel_pwm(obj->pin, (PWMName) pwm);
@@ -56,9 +67,9 @@ bool pwmout_set_duty_cycle(pwmout_t* obj, float dutycycle)
         return 0;
     }
 
-    /* Enable PWM Module */
-    tcc_disable(&obj->tcc);
     if(pwm<=PWM_2) {
+        /* Disable PWM Module */
+        tcc_disable(&obj->tcc);
         uint32_t tcc_channel = (uint32_t)NC;
         if ((ch_index == 0) || (ch_index == 4)) {
     		tcc_channel = 0;
@@ -70,11 +81,16 @@ bool pwmout_set_duty_cycle(pwmout_t* obj, float dutycycle)
     		tcc_channel = 3;
     	}
         tcc_set_compare_value(&obj->tcc, tcc_channel, obj->period * dutycycle);
+        /* Enable PWM Module */
+        tcc_enable(&obj->tcc);
     } else {
+    	/* Disable PWM Module */
+    	tc_disable(&obj->tc);
     	tc_set_compare_value(&obj->tc, TC_COMPARE_CAPTURE_CHANNEL_0, obj->period * dutycycle);
+    	/* Enable PWM Module */
+    	tc_enable(&obj->tc);
     }
-    /* Enable PWM Module */
-    tcc_enable(&obj->tcc);
+    return 1;
 }
 
 /** Set the period of PWM object (will not update the waveform)
@@ -85,35 +101,70 @@ bool pwmout_set_duty_cycle(pwmout_t* obj, float dutycycle)
  */
 static void pwmout_set_period(pwmout_t* obj, int period_us)
 {
-    uint8_t i;
-    uint32_t freq_hz;
-    uint32_t div_freq;
-    double us_per_cycle;
-    uint64_t max_period = 0;
-    uint32_t us_period = period_us;
+	uint8_t i;
+	uint32_t freq_hz;
+	uint32_t div_freq;
+	double us_per_cycle;
+	uint64_t max_period = 0;
+	uint32_t us_period = period_us;
 
-    /* Sanity check arguments */
-    MBED_ASSERT(obj);
+	/* Sanity check arguments */
+	MBED_ASSERT(obj);
 
-    /* TCC instance index */
-    uint8_t module_index = _tcc_get_inst_index(obj->tcc.hw);
+	if(obj->tcc.hw != NULL)
+	{
+		/* TCC instance index */
+		uint8_t module_index = _tcc_get_inst_index(obj->tcc.hw);
 
-    uint32_t count_max  = _tcc_maxs[module_index];
+		uint32_t count_max  = _tcc_maxs[module_index];
 
-    freq_hz = system_gclk_gen_get_hz(obj->clock_source);
+		freq_hz = system_gclk_gen_get_hz(obj->clock_source);
 
-    for (i=0; i<sizeof(tcc_prescaler) / sizeof(tcc_prescaler[0]); i++) {
-        div_freq = freq_hz >> tcc_prescaler[i];
-        if (!div_freq) break;
-        us_per_cycle = 1000000.00 / div_freq;
-        max_period = us_per_cycle * count_max;
-        if (max_period >= us_period) {
-            obj->clock_prescaler = (enum tc_clock_prescaler)tcc_prescaler[i];
-            obj->period = us_period / us_per_cycle;
-            obj->us_per_cycle = us_per_cycle;
-            break;
+		for (i=0; i<sizeof(tcc_prescaler) / sizeof(tcc_prescaler[0]); i++) {
+			div_freq = freq_hz >> tcc_prescaler[i];
+			if (!div_freq) break;
+			us_per_cycle = 1000000.00 / div_freq;
+			max_period = us_per_cycle * count_max;
+			if (max_period >= us_period) {
+				obj->clock_prescaler = (enum tc_clock_prescaler)tcc_prescaler[i];
+				obj->period = us_period / us_per_cycle;
+				obj->us_per_cycle = us_per_cycle;
+				break;
+			}
+		}
+	}
+	if(obj->tc.hw != NULL)
+	{
+		freq_hz = system_gclk_gen_get_hz(obj->clock_source);
+		for (i=0; i<sizeof(tc_prescaler) / sizeof(tc_prescaler[0]); i++) {
+			if(i==0)
+				div_freq = freq_hz;
+			else
+				div_freq = freq_hz / tc_prescaler[i];
+			if (!div_freq) break;
+			us_per_cycle = 1000000.00 / div_freq;
+			max_period = us_per_cycle * 255;
+			if (max_period >= us_period) {
+				obj->clock_prescaler = (enum tc_clock_prescaler)tc_prescaler[i];
+				obj->period = us_period / us_per_cycle;
+				obj->us_per_cycle = us_per_cycle;
+				break;
+			}
+		}
+
+	}
+}
+
+
+uint32_t pinmap_function_pwm(PinName pin, const PinMap *map, uint32_t pwm)
+{
+    while (map->pin != NC) {
+        if (map->pin == pin && map->peripheral == pwm) {
+            return map->function;
         }
+        map++;
     }
+    return (uint32_t)NC;
 }
 
 /** Initialize PWM Module with updated values
@@ -133,10 +184,12 @@ bool pwmout_init_hw(pwmout_t* obj)
     MBED_ASSERT(obj);
 
     pin = obj->pin;
-    pwm = pinmap_peripheral(pin, PinMap_PWM);
-    if (pwm == (uint32_t)NC) return 0; /* Pin not supported */
 
-    mux_func = pinmap_function(pin, PinMap_PWM);
+    pwm = obj->peripheral;
+    if (pwm == (uint32_t)NC)
+    	return 0; /* Pin not supported */
+
+    mux_func = pinmap_function_pwm(pin, PinMap_PWM, pwm);
     ch_index = pinmap_channel_pwm(pin, (PWMName) pwm);
     if ((mux_func == (uint32_t)NC) || (ch_index == (uint32_t)NC)) {
         /* Pin not supported */
@@ -173,10 +226,10 @@ bool pwmout_init_hw(pwmout_t* obj)
     } else {
     	struct tc_config config;
     	tc_get_config_defaults(&config);
-    	config.clock_prescaler = (enum tcc_clock_prescaler)obj->clock_prescaler;
+    	config.clock_prescaler = (enum tc_clock_prescaler)obj->clock_prescaler;
     	config.clock_source = obj->clock_source;
     	config.count_direction = TC_COUNT_DIRECTION_UP;
-    	config.counter_size = TC_COUNTER_SIZE_16BIT;
+    	config.counter_size = TC_COUNTER_SIZE_8BIT;
     	//config.double_buffering_enabled = false;
     	config.enable_capture_on_channel[0] = false;
     	config.enable_capture_on_channel[1] = false;
@@ -189,12 +242,13 @@ bool pwmout_init_hw(pwmout_t* obj)
     	config.wave_generation = TC_WAVE_GENERATION_NORMAL_PWM;
     	config.waveform_invert_output = 0b0;
 
+    	tc_disable(&obj->tc);
     	tc_init(&obj->tc, TC4, &config);
     	tc_set_top_value(&obj->tc, obj->period);
     	tc_set_compare_value(&obj->tc, TC_COMPARE_CAPTURE_CHANNEL_0, obj->period * obj->duty_cycle);
     	tc_enable(&obj->tc);
     }
-    return (STATUS_OK == ret);
+    return STATUS_OK;
 }
 
 /** Initialize PWM Module
@@ -202,8 +256,9 @@ bool pwmout_init_hw(pwmout_t* obj)
  * @param[in][out] obj  The PWM object to initialize
  * @return         void
  */
-void pwmout_init(pwmout_t* obj, PinName pin)
+void pwmout_init_atmel(pwmout_t* obj, PinName pin, PWMName pwm)
 {
+
     /* Sanity check arguments */
     MBED_ASSERT(obj);
 
@@ -213,17 +268,39 @@ void pwmout_init(pwmout_t* obj, PinName pin)
     }
 
     obj->pin = pin;
-    obj->period = 0xFFFF;
+    obj->peripheral = pwm;
     obj->duty_cycle = 1;
     obj->clock_source = GCLK_GENERATOR_0; /* 8Mhz input clock */
-    obj->clock_prescaler = (enum tc_clock_prescaler)TCC_CLOCK_PRESCALER_DIV8; /* Default to 1MHz for 8Mhz input clock */
-
+    if(obj->tcc.hw != NULL)
+    {
+    	obj->period = 0xFFFF;
+    	obj->clock_prescaler = (enum tc_clock_prescaler)TCC_CLOCK_PRESCALER_DIV8; /* Default to 1MHz for 8Mhz input clock */
+    } else {
+    	obj->period = 0xFF;
+    	obj->clock_prescaler = (enum tc_clock_prescaler)TC_CLOCK_PRESCALER_DIV8; /* Default to 1MHz for 8Mhz input clock */
+    }
     /* Update the changes */
     if (pwmout_init_hw(obj)) {
         /* Enable PWM Module */
         tcc_enable(&obj->tcc);
     }
 
+
+
+}
+/** Initialize PWM Module
+ *
+ * @param[in][out] obj  The PWM object to initialize
+ * @return         void
+ */
+void pwmout_init(pwmout_t* obj, PinName pin)
+{
+	PWMName peripheral = pinmap_peripheral(pin, PinMap_PWM);
+    if ((uint32_t)NC == peripheral) {
+        /* Pin not supported */
+        return;
+    }
+    pwmout_init_atmel(obj, pin, peripheral);
 }
 
 /** Free the PWM Module
@@ -306,20 +383,40 @@ void pwmout_period_ms(pwmout_t* obj, int ms)
  */
 void pwmout_period_us(pwmout_t* obj, int us)
 {
-    /* Sanity check arguments */
-    MBED_ASSERT(obj);
+	/* Sanity check arguments */
+	MBED_ASSERT(obj);
 
-    /* Disable PWM Module */
-    tcc_disable(&obj->tcc);
+	/* TODO: Find and set the period */
+	pwmout_set_period(obj, us);
 
-    /* TODO: Find and set the period */
-    pwmout_set_period(obj, us);
+	if(obj->tcc.hw != NULL)
+	{
+		/* Disable PWM Module */
+		tcc_disable(&obj->tcc);
+	}
+	else
+	{
 
-    /* Update the changes */
-    if (pwmout_init_hw(obj)) {
-        /* Enable PWM Module */
-        tcc_enable(&obj->tcc);
-    }
+    	tc_disable(&obj->tc);
+        /* Temporary variable to hold all updates to the CTRLA
+         * register before they are written to it */
+        uint32_t ctrla_tmp = obj->tc.hw->COUNT8.CTRLA.reg;
+        ctrla_tmp &= 0xf8ff;
+        ctrla_tmp |= (uint32_t)obj->clock_prescaler;
+    	obj->tc.hw->COUNT8.CTRLA.reg = ctrla_tmp;
+    	tc_set_top_value(&obj->tc, obj->period);
+    	tc_set_compare_value(&obj->tc, TC_COMPARE_CAPTURE_CHANNEL_0, obj->period * obj->duty_cycle);
+    	tc_enable(&obj->tc);
+    	return;
+	}
+	/* Update the changes */
+	if (pwmout_init_hw(obj)) {
+		if(obj->tcc.hw != NULL)
+		{
+			/* Enable PWM Module */
+			tcc_enable(&obj->tcc);
+		}
+	}
 }
 
 /** Set the pulse width of PWM Waveform

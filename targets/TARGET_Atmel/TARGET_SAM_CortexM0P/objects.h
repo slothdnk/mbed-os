@@ -89,6 +89,7 @@ struct dac_s {
 #endif
 
 struct pwmout_s {
+	PWMName peripheral;
     struct tcc_module tcc;
     struct tc_module tc;
     PinName pin;
