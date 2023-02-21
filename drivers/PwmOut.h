@@ -65,7 +65,18 @@ public:
         core_util_critical_section_exit();
     }
 
-    ~PwmOut()
+    /** Create a PwmOut connected to the specified pin
+     *
+     *  @param pin PwmOut pin to connect to
+     */
+    PwmOut(PinName pin, PWMName pwm) : _deep_sleep_locked(false)
+    {
+        core_util_critical_section_enter();
+        pwmout_init_atmel(&_pwm, pin, pwm);
+        core_util_critical_section_exit();
+    }
+
+   ~PwmOut()
     {
         core_util_critical_section_enter();
         unlock_deep_sleep();
