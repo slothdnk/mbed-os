@@ -229,6 +229,9 @@ typedef enum lora_events {
     JOIN_FAILURE,
     UPLINK_REQUIRED,
     AUTOMATIC_UPLINK_ERROR,
+		// Added by Olaf
+		NONCE_UPDATED
+		// End Added by Olaf
 } lorawan_event_t;
 
 /**

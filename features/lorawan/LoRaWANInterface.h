@@ -313,13 +313,11 @@ public:
      */
     lorawan_status_t remove_channel(uint8_t index);
 
-
     /** Get Max Availeble TX payload size
-     *  @return             The max number of bytes that can fit in a package with the current data rate.
-     *  					The actual number of transmitted data might be smaller due to protocol overhead
-     */
-    uint8_t get_max_possible_tx_size();
-
+        *  @return             The max number of bytes that can fit in a package with the current data rate.
+        *  					The actual number of transmitted data might be smaller due to protocol overhead
+        */
+       uint8_t get_max_possible_tx_size();
 
     /** Send message to gateway
      *

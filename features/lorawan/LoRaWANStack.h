@@ -197,14 +197,11 @@ public:
      *                          code on failure.
      */
     lorawan_status_t enable_adaptive_datarate(bool adr_enabled);
-
     /** Get Max Available TX payload size
-     *  @return             The max number of bytes that can fit in a package with the current data rate.
-     *  					The actual number of transmitted data might be smaller due to protocol overhead
-     */
-    uint8_t get_max_possible_tx_size();
-
-
+         *  @return             The max number of bytes that can fit in a package with the current data rate.
+         *  					The actual number of transmitted data might be smaller due to protocol overhead
+         */
+        uint8_t get_max_possible_tx_size();
     /** Send message to gateway
      *
      * @param port              The application port number. Port numbers 0 and 224
@@ -500,6 +497,10 @@ private:
     void make_rx_metadata_available(void);
 
     void handle_scheduling_failure(void);
+
+    // Added by Olaf
+        void handle_nonce_changed(void);
+        // End added by Olaf
 
     void post_process_tx_with_reception(void);
     void post_process_tx_no_reception(void);

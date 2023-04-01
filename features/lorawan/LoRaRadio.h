@@ -78,7 +78,7 @@ typedef struct radio_fsk_settings {
 typedef struct radio_fsk_packet_handler {
     uint8_t  preamble_detected;
     uint8_t  sync_word_detected;
-    int16_t  rssi_value;
+    int8_t   rssi_value;
     int32_t  afc_value;
     uint8_t  rx_gain;
     uint16_t size;

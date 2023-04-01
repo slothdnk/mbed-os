@@ -76,17 +76,13 @@ void LoRaMacCommand::parse_mac_commands_to_repeat()
                 mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i];
                 break;
             }
-            case MOTE_MAC_LINK_ADR_ANS: { // 1 byte payload
-                mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i++];
-                mac_cmd_buffer_to_repeat[cmd_cnt++] = mac_cmd_buffer[i];
-                break;
-            }
 
             // NON-STICKY
             case MOTE_MAC_DEV_STATUS_ANS: { // 2 bytes payload
                 i += 2;
                 break;
             }
+            case MOTE_MAC_LINK_ADR_ANS:
             case MOTE_MAC_NEW_CHANNEL_ANS: { // 1 byte payload
                 i++;
                 break;
@@ -140,6 +136,7 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
 {
     uint8_t status = 0;
     lorawan_status_t ret_value = LORAWAN_STATUS_OK;
+    bool adrBlockFound = false;
 
     while (mac_index < commands_size) {
         // Decode Frame MAC commands
@@ -149,7 +146,9 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
                 mlme_conf.demod_margin = payload[mac_index++];
                 mlme_conf.nb_gateways = payload[mac_index++];
                 break;
-            case SRV_MAC_LINK_ADR_REQ: {
+            case SRV_MAC_LINK_ADR_REQ:
+            if(!adrBlockFound) {
+            	adrBlockFound = true;
                 adr_req_params_t link_adr_req;
                 int8_t link_adr_dr = DR_0;
                 int8_t link_adr_txpower = TX_POWER_0;
@@ -176,6 +175,8 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
                     mac_sys_params.channel_data_rate = link_adr_dr;
                     mac_sys_params.channel_tx_power = link_adr_txpower;
                     mac_sys_params.nb_trans = link_adr_nbtrans;
+                } else {
+                	tr_error("ADR Error\r\n");
                 }
 
                 // Add the answers to the buffer
@@ -327,7 +328,7 @@ lorawan_status_t LoRaMacCommand::add_link_adr_ans(uint8_t status)
         mac_cmd_buffer[mac_cmd_buf_idx++] = MOTE_MAC_LINK_ADR_ANS;
         mac_cmd_buffer[mac_cmd_buf_idx++] = status;
         ret = LORAWAN_STATUS_OK;
-        tr_error("add_link_adr_ans added\r\n");
+        sticky_mac_cmd = true;
     }
     return ret;
 }

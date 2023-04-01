@@ -290,7 +290,6 @@ uint8_t LoRaWANStack::get_max_possible_tx_size()
 	return _loramac.get_max_possible_tx_size(0);
 }
 
-
 int16_t LoRaWANStack::handle_tx(const uint8_t port, const uint8_t *data,
                                 uint16_t length, uint8_t flags,
                                 bool null_allowed, bool allow_port_0)
@@ -600,7 +599,7 @@ void LoRaWANStack::process_transmission(void)
 
 void LoRaWANStack::post_process_tx_with_reception()
 {
-	tr_debug("post_process_tx_with_reception _ctrl_flags: 0x%02x", _ctrl_flags);
+	tr_debug("post_process_tx_with_reception _ctrl_flags: 0x%02lx", _ctrl_flags);
     if (_loramac.get_mcps_confirmation()->req_type == MCPS_CONFIRMED) {
         // if ack was not received, we will try retransmission after
         // ACK_TIMEOUT. handle_data_frame() already disables ACK_TIMEOUT timer
@@ -650,6 +649,9 @@ void LoRaWANStack::post_process_tx_with_reception()
             	_loramac.post_process_mcps_req();
             } else
             {
+            	// Added by Olaf
+            	_loramac.post_process_mcps_req();
+            	// End Added by Olaf
             }
             _ctrl_flags |= TX_DONE_FLAG;
             make_tx_metadata_available();
@@ -1265,10 +1267,21 @@ void LoRaWANStack::process_idle_state(lorawan_status_t &op_status)
     op_status = LORAWAN_STATUS_OK;
 }
 
+// Added by Olaf
+
+void LoRaWANStack::handle_nonce_changed(void)
+{
+	tr_debug("Nonce was changed");
+	send_event_to_application(NONCE_UPDATED);
+}
+
+// End added by Olaf
+
 void LoRaWANStack::process_uninitialized_state(lorawan_status_t &op_status)
 {
-    op_status = _loramac.initialize(_queue, mbed::callback(this,
-                                                           &LoRaWANStack::handle_scheduling_failure));
+    op_status = _loramac.initialize(_queue, mbed::callback(this,&LoRaWANStack::handle_scheduling_failure),
+														   // Added by Olaf
+						    								mbed::callback(this, &LoRaWANStack::handle_nonce_changed));
 
     if (op_status == LORAWAN_STATUS_OK) {
         _device_current_state = DEVICE_STATE_IDLE;

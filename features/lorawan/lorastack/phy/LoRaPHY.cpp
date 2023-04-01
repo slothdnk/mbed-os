@@ -211,6 +211,22 @@ bool LoRaPHY::disable_channel(uint16_t *channel_mask, uint8_t id,
     return true;
 }
 
+bool LoRaPHY::enable_channel(uint16_t *channel_mask, uint8_t id,
+                              uint8_t max_channels_num)
+{
+    uint8_t index = id / 16;
+
+    if ((index > phy_params.channels.mask_size) || (id >= max_channels_num)) {
+        return false;
+    }
+
+    // Deactivate channel
+    mask_bit_set(channel_mask, id);
+
+    return true;
+}
+
+
 uint8_t LoRaPHY::count_bits(uint16_t mask, uint8_t nbBits)
 {
     uint8_t nbActiveBits = 0;

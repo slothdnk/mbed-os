@@ -590,6 +590,12 @@ protected:
     bool disable_channel(uint16_t *channel_mask, uint8_t id, uint8_t max_channels);
 
     /**
+     * Enables a channel in a given channels mask.
+     */
+    bool enable_channel(uint16_t *channel_mask, uint8_t id, uint8_t max_channels);
+
+
+    /**
      * Counts number of bits on in a given mask
      */
     uint8_t count_bits(uint16_t mask, uint8_t nb_bits);

@@ -311,8 +311,6 @@ bool LoRaMac::message_integrity_check(const uint8_t *const payload,
     sequence_counter = (uint16_t) payload[(*ptr_pos)++];
     sequence_counter |= (uint16_t) payload[(*ptr_pos)++] << 8;
 
-    tr_error("sequence_counter %d\r\n", sequence_counter);
-
     mic_rx |= (uint32_t) payload[size - LORAMAC_MFR_LEN];
     mic_rx |= ((uint32_t) payload[size - LORAMAC_MFR_LEN + 1] << 8);
     mic_rx |= ((uint32_t) payload[size - LORAMAC_MFR_LEN + 2] << 16);
@@ -539,8 +537,6 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
     _params.adr_ack_counter = 0;
     _mac_commands.clear_repeat_buffer();
     _mac_commands.clear_command_buffer();
-
-    tr_error("downlink_counter = %u\r\n", downlink_counter);
 
     if (is_multicast) {
         _mcps_indication.type = MCPS_MULTICAST;
@@ -973,7 +969,16 @@ void LoRaMac::on_ack_timeout_timer_event(void)
     lorawan_status_t status = handle_retransmission();
 
     if (status == LORAWAN_STATUS_NO_CHANNEL_FOUND ||
-            status == LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND) {
+            status == LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND)
+    {
+    	if (status == LORAWAN_STATUS_NO_CHANNEL_FOUND)
+    	{
+    		tr_error("status: LORAWAN_STATUS_NO_CHANNEL_FOUND");
+    	}
+    	else if (status == LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND)
+		{
+    		tr_error("status: LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND");
+		}
         // In a case when enabled channels are not found, PHY layer
         // resorts to default channels. Next attempt should go forward as the
         // default channels are always available if there is a base station in the
@@ -1590,8 +1595,15 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
                                      _params.keys.dev_eui, 8);
             _params.tx_buffer_len += 8;
 
-            _params.dev_nonce = _lora_phy->get_radio_rng();
+            /// Removed by Olaf
+            //_params.dev_nonce = _lora_phy->get_radio_rng();
+            // End removed by Olaf
+            // Added by jakob
             //_params.dev_nonce = _params.keys.dev_nonce;
+            // End added by Jakob
+            _params.dev_nonce = ++_params.keys.dev_nonce;
+            _nonce_changed_handler.call();
+            // End added by Olaf
 
             _params.tx_buffer[_params.tx_buffer_len++] = _params.dev_nonce & 0xFF;
             _params.tx_buffer[_params.tx_buffer_len++] = (_params.dev_nonce >> 8) & 0xFF;
@@ -1778,13 +1790,18 @@ void LoRaMac::reset_mcps_indication()
 }
 
 lorawan_status_t LoRaMac::initialize(EventQueue *queue,
-                                     mbed::Callback<void(void)>scheduling_failure_handler)
+                                     mbed::Callback<void(void)>scheduling_failure_handler,
+									 // Added by Olaf
+									 mbed::Callback<void(void)>nonce_changed_handler)
 {
     _lora_time.activate_timer_subsystem(queue);
     _lora_phy->initialize(&_lora_time);
 
     _ev_queue = queue;
     _scheduling_failure_handler = scheduling_failure_handler;
+    // Added By Olaf
+        _nonce_changed_handler = nonce_changed_handler;
+        // End Added by Olaf
     _rx2_closure_timer_for_class_c.callback = NULL;
     _rx2_closure_timer_for_class_c.timer_id = -1;
 

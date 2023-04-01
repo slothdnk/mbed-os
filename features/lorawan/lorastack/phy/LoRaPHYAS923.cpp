@@ -31,7 +31,8 @@
 
 #include "LoRaPHYAS923.h"
 #include "lora_phy_ds.h"
-
+#include "mbed-trace/mbed_trace.h"
+#define TRACE_GROUP "LPHY_AS923"
 /*!
  * Number of default channels
  */
@@ -324,6 +325,8 @@ LoRaPHYAS923::LoRaPHYAS923()
     phy_params.ack_timeout_rnd = AS923_ACK_TIMEOUT_RND;
     phy_params.rx_window2_datarate = AS923_RX_WND_2_DR;
     phy_params.rx_window2_frequency = AS923_RX_WND_2_FREQ;
+
+
 }
 
 LoRaPHYAS923::~LoRaPHYAS923()
@@ -340,6 +343,11 @@ lorawan_status_t LoRaPHYAS923::set_next_channel(channel_selection_params_t *next
                                                 uint8_t *channel, lorawan_time_t *time,
                                                 lorawan_time_t *aggregate_timeoff)
 {
+	/*for (int i=0; i< phy_params.channels.channel_list_size; i++)
+	    {
+	    	tr_debug("Set_Channel %d, Freq = %lu", i, phy_params.channels.channel_list[i].frequency);
+	    }*/
+
     uint8_t next_channel_idx = 0;
     uint8_t nb_enabled_channels = 0;
     uint8_t delay_tx = 0;
