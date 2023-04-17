@@ -31,6 +31,8 @@
 
 #include "LoRaPHYAU915.h"
 #include "lora_phy_ds.h"
+#include "mbed-trace/mbed_trace.h"
+#define TRACE_GROUP "LPHY_AU915"
 
 /*!
  * Minimal datarate that can be used by the node
@@ -228,6 +230,19 @@ static const uint8_t max_payload_with_repeater_AU915[] = { 51, 51, 51, 115,
 static const uint16_t fsb_mask[] = MBED_CONF_LORA_FSB_MASK;
 
 static const uint16_t full_channel_mask [] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0x00FF};
+
+static uint16_t fsb1_channel_mask [] = {0x00FF, 0x0000, 0x0000, 0x0000, 0x0001};
+static uint16_t fsb2_channel_mask [] = {0xFF00, 0x0000, 0x0000, 0x0000, 0x0002};
+static uint16_t fsb3_channel_mask [] = {0x0000, 0x00FF, 0x0000, 0x0000, 0x0004};
+static uint16_t fsb4_channel_mask [] = {0x0000, 0xFF00, 0x0000, 0x0000, 0x0008};
+static uint16_t fsb5_channel_mask [] = {0x0000, 0x0000, 0x00FF, 0x0000, 0x0010};
+static uint16_t fsb6_channel_mask [] = {0x0000, 0x0000, 0xFF00, 0x0000, 0x0020};
+static uint16_t fsb7_channel_mask [] = {0x0000, 0x0000, 0x0000, 0x00FF, 0x0040};
+static uint16_t fsb8_channel_mask [] = {0x0000, 0x0000, 0x0000, 0xFF00, 0x0080};
+
+static uint8_t current_fsb = 0;
+
+
 LoRaPHYAU915::LoRaPHYAU915()
 {
     bands[0] = AU915_BAND0;
@@ -300,7 +315,10 @@ LoRaPHYAU915::LoRaPHYAU915()
     phy_params.duty_cycle_enabled = AU915_DUTY_CYCLE_ENABLED;
     phy_params.accept_tx_param_setup_req = false;
     phy_params.custom_channelplans_supported = false;
-    phy_params.cflist_supported = false;
+    // Changed by Olaf
+    //phy_params.cflist_supported = false;
+    phy_params.cflist_supported = true;
+
     phy_params.fsk_supported = false;
 
     phy_params.default_channel_cnt = AU915_MAX_NB_CHANNELS;
@@ -420,6 +438,120 @@ bool LoRaPHYAU915::tx_config(tx_config_params_t *params, int8_t *tx_power,
     return true;
 }
 
+// Added by Olaf
+
+void LoRaPHYAU915::set_fsb_mask()
+{
+	switch (current_fsb)
+	{
+		case 1:
+			copy_channel_mask(channel_mask, fsb1_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb1_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 2:
+			copy_channel_mask(channel_mask, fsb2_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb2_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 3:
+			copy_channel_mask(channel_mask, fsb3_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb3_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 4:
+			copy_channel_mask(channel_mask, fsb4_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb4_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 5:
+			copy_channel_mask(channel_mask, fsb5_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb5_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 6:
+			copy_channel_mask(channel_mask, fsb6_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb6_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 7:
+			copy_channel_mask(channel_mask, fsb7_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb7_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+		case 8:
+			copy_channel_mask(channel_mask, fsb8_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			copy_channel_mask(current_channel_mask, fsb8_channel_mask, AU915_CHANNEL_MASK_SIZE);
+			break;
+
+		default:
+			tr_error("Unknown fsb: %d", current_fsb);
+			break;
+	}
+
+
+}
+
+void LoRaPHYAU915::apply_cf_list(const uint8_t *payload, uint8_t size)
+{
+    // if the underlying PHY doesn't support CF-List, ignore the request
+    if (!phy_params.cflist_supported) {
+    	set_fsb_mask();
+        return;
+    }
+
+    // Size of the optional CF list
+    if (size != 16) {
+    	tr_debug("CFSize not 16, is %d", size);
+    	set_fsb_mask();
+        return;
+    }
+
+    // Last byte CFListType must be 0x01 to indicate the CFList contains a series of ChMask fields
+    if( payload[15] != 0x01 )
+    {
+    	tr_debug("CFListType != 0x01");
+    	set_fsb_mask();
+	   return;
+    }
+
+    uint16_t temp_channel_mask[AU915_CHANNEL_MASK_SIZE] = {0, 0, 0, 0, 0};
+
+    //verify_adr_params_t verify_params;
+
+    // Initialize local copy of channels mask
+    copy_channel_mask(temp_channel_mask, channel_mask, AU915_CHANNEL_MASK_SIZE);
+
+    for (int i=0; i< AU915_CHANNEL_MASK_SIZE; i++)
+    {
+    	tr_debug("channel_mask[%d]= %hx", i, channel_mask[i]);
+    }
+
+    for (int i=0; i<size; i++)
+    {
+    	tr_debug("payload[%d]= %02X", i, payload[i]);
+    }
+
+    for (int i=0; i< AU915_CHANNEL_MASK_SIZE-1; i++)
+    {
+    	uint16_t part_mask = (uint16_t) payload[i*2+1];
+    	part_mask = part_mask << 8;
+    	part_mask |= (uint16_t) payload[i*2];
+/*
+    	uint16_t part_mask = (uint16_t) payload[i*2];
+    	part_mask = part_mask << 8;
+    	part_mask |= (uint16_t) payload[i*2 + 1]; */
+    	//tr_debug("part_mask[%d]= %hx", i, part_mask);
+    	temp_channel_mask[i]=part_mask;
+    }
+    temp_channel_mask[4]=payload[15];
+    for (int i=0; i< AU915_CHANNEL_MASK_SIZE; i++)
+    {
+       	tr_debug("new channel_mask[%d]= %hx", i, temp_channel_mask[i]);
+    }
+
+    // Make active
+    copy_channel_mask(channel_mask, temp_channel_mask, AU915_CHANNEL_MASK_SIZE);
+    copy_channel_mask(current_channel_mask, temp_channel_mask, AU915_CHANNEL_MASK_SIZE);
+}
+
+
+// End added by Olaf
+
+
 uint8_t LoRaPHYAU915::link_ADR_request(adr_req_params_t *params,
                                        int8_t *dr_out, int8_t *tx_power_out,
                                        uint8_t *nb_rep_out,
@@ -465,8 +597,51 @@ uint8_t LoRaPHYAU915::link_ADR_request(adr_req_params_t *params,
             // Apply chMask to channels 64 to 71
             temp_channel_masks[4] = adr_settings.channel_mask;
         } else if (adr_settings.ch_mask_ctrl == 5) {
-            // RFU
-            status &= 0xFE; // Channel mask KO
+        	// Removed by Olaf
+			// RFU
+			//status &= 0xFE; // Channel mask KO
+			// end removed by Olaf
+
+
+			// Added by Olaf
+			uint8_t bitMask = 1;
+
+			// cntChannelmask for Channelsmask[0] until channelsMask[3]
+
+			uint8_t cntChannelMask = 0;
+
+			for (uint8_t i=0; i<=7; i++)
+			{
+				// 8 MSBs of Chmask are RFU
+				// Checking if mask is set, then true
+
+				if (((adr_settings.channel_mask & 0x00FF ) & (bitMask << i)) != 0)
+				{
+					// Enable a bank of 8 125kHz channels, 8 LSBs
+					temp_channel_masks[cntChannelMask] |= 0x00FF;
+					// Enable the corresponding 500kHz Channel
+					temp_channel_masks[4] |= (bitMask << i);
+					if ((i % 2)>0)
+					{
+						// cntChannelMask increment for uneven i
+						cntChannelMask++;
+					}
+				}
+				// channel_mask not set
+				else
+				{
+					// Disable an bank of 8 125 kHz channels, 8 LSBs
+					temp_channel_masks[cntChannelMask] &= 0x00FF;
+					// Enable the corresponding 500kHz Channel
+					temp_channel_masks[4] &= ~(bitMask << i);
+					if ((i % 2)>0)
+					{
+						// cntChannelMask increment for uneven i
+						cntChannelMask++;
+					}
+				}
+			}
+			// End added by Olaf
         } else if (adr_settings.ch_mask_ctrl <= 4){
             temp_channel_masks[adr_settings.ch_mask_ctrl] = adr_settings.channel_mask;
         }
@@ -581,42 +756,124 @@ lorawan_status_t LoRaPHYAU915::set_next_channel(channel_selection_params_t *next
         current_channel_mask[4] = channel_mask[4];
     }
 
-    if (next_chan_params->aggregate_timeoff <= _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time)) {
-        // Reset Aggregated time off
-        *aggregated_timeOff = 0;
+    // Added by Olaf
+    if (next_chan_params->joined)
+    {
+		//End added by Olaf
 
-        // Update bands Time OFF
-        next_tx_delay = update_band_timeoff(next_chan_params->joined,
-                                            next_chan_params->dc_enabled,
-                                            bands, AU915_MAX_NB_BANDS);
+		if (next_chan_params->aggregate_timeoff <= _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time)) {
+			// Reset Aggregated time off
+			*aggregated_timeOff = 0;
 
-        // Search how many channels are enabled
-        nb_enabled_channels = enabled_channel_count(next_chan_params->current_datarate,
-                                                    current_channel_mask,
-                                                    enabled_channels, &delay_tx);
-    } else {
-        delay_tx++;
-        next_tx_delay = next_chan_params->aggregate_timeoff - _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time);
+			// Update bands Time OFF
+			next_tx_delay = update_band_timeoff(next_chan_params->joined,
+												next_chan_params->dc_enabled,
+												bands, AU915_MAX_NB_BANDS);
+
+			// Search how many channels are enabled
+			nb_enabled_channels = enabled_channel_count(next_chan_params->current_datarate,
+														current_channel_mask,
+														enabled_channels, &delay_tx);
+		} else {
+			delay_tx++;
+			next_tx_delay = next_chan_params->aggregate_timeoff - _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time);
+		}
+
+		if (nb_enabled_channels > 0) {
+			// We found a valid channel
+			*channel = enabled_channels[get_random(0, nb_enabled_channels - 1)];
+			// Disable the channel in the mask
+			disable_channel(current_channel_mask, *channel, AU915_MAX_NB_CHANNELS);
+
+			*time = 0;
+			return LORAWAN_STATUS_OK;
+		} else {
+			if (delay_tx > 0) {
+				// Delay transmission due to AggregatedTimeOff or to a band time off
+				*time = next_tx_delay;
+				return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
+			}
+			// Datarate not supported by any channel
+			*time = 0;
+			return LORAWAN_STATUS_NO_CHANNEL_FOUND;
+		}
     }
+// Added by Olaf
+    else // Joining mode
+	{
+		// Search how many channels are enabled
+					nb_enabled_channels = enabled_channel_count(next_chan_params->current_datarate,
+																current_channel_mask,
+																enabled_channels, &delay_tx);
 
-    if (nb_enabled_channels > 0) {
-        // We found a valid channel
-        *channel = enabled_channels[get_random(0, nb_enabled_channels - 1)];
-        // Disable the channel in the mask
-        disable_channel(current_channel_mask, *channel, AU915_MAX_NB_CHANNELS);
+		// For rapid network acquisition in mixed gateway channel plan environments, the device
+		// follow a random channel selection sequence. It probes alternating one out of a
+		// group of eight 125 kHz channels followed by probing one 500 kHz channel each pass.
+		// Each time a 125 kHz channel will be selected from another group.
+		if (next_chan_params->current_datarate == DR_0)
+		{
+			// 125kHz Channels (0 - 63) DR0
+			*channel = SelectChannelFromBand(current_fsb, enabled_channels, nb_enabled_channels - 1);
+			tr_debug("set_next_channel: Selected channel: %d from FSB: %d", *channel, current_fsb+1);
+			if (current_fsb < 7)
+			{
+				current_fsb++;
+			}
+			else
+			{
+				current_fsb=0;
+			}
+		}
+		else
+		{
+			*channel = SelectChannelFromBand(8, enabled_channels, nb_enabled_channels - 1);
+		}
+		// Disable the channel in the mask
+		disable_channel(current_channel_mask, *channel, AU915_MAX_NB_CHANNELS);
 
-        *time = 0;
-        return LORAWAN_STATUS_OK;
-    } else {
-        if (delay_tx > 0) {
-            // Delay transmission due to AggregatedTimeOff or to a band time off
-            *time = next_tx_delay;
-            return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
-        }
-        // Datarate not supported by any channel
-        *time = 0;
-        return LORAWAN_STATUS_NO_CHANNEL_FOUND;
-    }
+		*time = 0;
+		return LORAWAN_STATUS_OK;
+
+	}
+// end added by Olaf
+
+}
+
+// Added by Olaf
+uint8_t LoRaPHYAU915::SelectChannelFromBand(uint8_t fs_band, const uint8_t *enabled_channels, uint8_t nb_enabled_channels)
+{
+	uint8_t lowerbound = fs_band *8;
+	uint8_t higherbound = lowerbound + 7;
+	uint8_t channel=0;
+	uint8_t channelsinband[AU915_MAX_NB_CHANNELS] = {0};
+	uint8_t nb_channelsinband=0;
+
+	// find available channels inside the frequency sub band
+
+	for (int i=0; i<nb_enabled_channels; i++)
+	{
+		if ((lowerbound <= enabled_channels[i]) && (enabled_channels[i] <= higherbound))
+		{
+			channelsinband[nb_channelsinband++] = enabled_channels[i];
+		}
+	}
+
+	if (nb_channelsinband == 0)
+	{
+		// That is bad. Need to reset disabled channels
+		for (int i=lowerbound; i<higherbound; i++)
+		{
+			enable_channel(current_channel_mask, i, AU915_MAX_NB_CHANNELS);
+		}
+		channel = get_random(lowerbound, higherbound);
+	}
+	else
+	{
+		// Now we have the channels in channelsinband, select one randomly
+
+		channel = channelsinband[get_random(0, nb_channelsinband - 1)];
+	}
+	return channel;
 }
 
 uint8_t LoRaPHYAU915::apply_DR_offset(int8_t dr, int8_t dr_offset)

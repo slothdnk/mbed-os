@@ -76,6 +76,8 @@ public:
 
     virtual uint8_t apply_DR_offset(int8_t dr, int8_t dr_offset);
 
+    virtual void apply_cf_list(const uint8_t *payload, uint8_t size);
+
 private:
 
     /**
@@ -97,6 +99,10 @@ private:
      */
     void fill_channel_mask_with_value(uint16_t *channel_mask,
                                       uint16_t value, uint8_t size);
+
+    uint8_t SelectChannelFromBand(uint8_t fs_band, const uint8_t *enabled_channels, uint8_t nb_enabled_channels);
+
+    void set_fsb_mask();
 
 private:
 
