@@ -168,7 +168,7 @@
  * Band 0 definition
  * { DutyCycle, TxMaxPower, LastJoinTxDoneTime, LastTxDoneTime, TimeOff }
  */
-static const band_t AU915_BAND0 = {1, AU915_MAX_TX_POWER, 0, 0, 0, 915200000, 927800000}; //  100.0 %
+static const band_t AU915_BAND0 = {1, AU915_MAX_TX_POWER, 0, 0, 0}; //, 915200000, 927800000}; //  100.0 %
 
 /*!
  * Defines the first channel for RX window 1 for US band
@@ -246,6 +246,7 @@ static uint8_t current_fsb = 0;
 LoRaPHYAU915::LoRaPHYAU915()
 {
     bands[0] = AU915_BAND0;
+    current_fsb = 0;
 
 	// Activate Channels
 	// 125 kHz channels Upstream only
@@ -723,13 +724,25 @@ uint8_t LoRaPHYAU915::accept_rx_param_setup_req(rx_param_setup_req_t *params)
 
 int8_t LoRaPHYAU915::get_alternate_DR(uint8_t nb_trials)
 {
-    int8_t datarate = 0;
+    int8_t datarate = DR_0;
 
-    if ((nb_trials & 0x01) == 0x01) {
+    // Removed by Olaf
+    /*if ((nb_trials & 0x01) == 0x01) {
         datarate = DR_6;
     } else {
         datarate = DR_0;
+    }*/
+    // End removed by Olaf
+
+    //Added by Olaf
+
+    if (nb_trials % 9 == 0)
+    {
+		// Use DR_6 every 9th times
+		datarate = DR_6;
     }
+
+    // End Added by Olaf
 
     return datarate;
 }
@@ -774,21 +787,27 @@ lorawan_status_t LoRaPHYAU915::set_next_channel(channel_selection_params_t *next
 			nb_enabled_channels = enabled_channel_count(next_chan_params->current_datarate,
 														current_channel_mask,
 														enabled_channels, &delay_tx);
-		} else {
+		}
+		else
+		{
 			delay_tx++;
 			next_tx_delay = next_chan_params->aggregate_timeoff - _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time);
 		}
 
-		if (nb_enabled_channels > 0) {
+		if (nb_enabled_channels > 0)
+		{
 			// We found a valid channel
 			*channel = enabled_channels[get_random(0, nb_enabled_channels - 1)];
 			// Disable the channel in the mask
 			disable_channel(current_channel_mask, *channel, AU915_MAX_NB_CHANNELS);
-
+			tr_debug("set_next_channel: Selected channel: %d", *channel);
 			*time = 0;
 			return LORAWAN_STATUS_OK;
-		} else {
-			if (delay_tx > 0) {
+		}
+		else
+		{
+			if (delay_tx > 0)
+			{
 				// Delay transmission due to AggregatedTimeOff or to a band time off
 				*time = next_tx_delay;
 				return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
@@ -801,38 +820,78 @@ lorawan_status_t LoRaPHYAU915::set_next_channel(channel_selection_params_t *next
 // Added by Olaf
     else // Joining mode
 	{
-		// Search how many channels are enabled
-					nb_enabled_channels = enabled_channel_count(next_chan_params->current_datarate,
-																current_channel_mask,
-																enabled_channels, &delay_tx);
+    	if (next_chan_params->aggregate_timeoff <= _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time))
+    	{
+			// Reset Aggregated time off
+			*aggregated_timeOff = 0;
 
-		// For rapid network acquisition in mixed gateway channel plan environments, the device
-		// follow a random channel selection sequence. It probes alternating one out of a
-		// group of eight 125 kHz channels followed by probing one 500 kHz channel each pass.
-		// Each time a 125 kHz channel will be selected from another group.
-		if (next_chan_params->current_datarate == DR_0)
+			// Update bands Time OFF
+			next_tx_delay = update_band_timeoff(next_chan_params->joined,
+												next_chan_params->dc_enabled,
+												bands, AU915_MAX_NB_BANDS);
+
+			// Search how many channels are enabled
+			nb_enabled_channels = enabled_channel_count(next_chan_params->current_datarate,
+															current_channel_mask,
+															enabled_channels, &delay_tx);
+
+			tr_debug("set_next_channel: Next_TX_Delay: %ld", next_tx_delay);
+			tr_debug("set_next_channel: Number of enabled channels: %d", nb_enabled_channels);
+    	}
+    	else
+    	{
+    		delay_tx++;
+    		next_tx_delay = next_chan_params->aggregate_timeoff - _lora_time->get_elapsed_time(next_chan_params->last_aggregate_tx_time);
+    	}
+
+
+		if (nb_enabled_channels > 0)
 		{
-			// 125kHz Channels (0 - 63) DR0
-			*channel = SelectChannelFromBand(current_fsb, enabled_channels, nb_enabled_channels - 1);
-			tr_debug("set_next_channel: Selected channel: %d from FSB: %d", *channel, current_fsb+1);
-			if (current_fsb < 7)
+
+			// For rapid network acquisition in mixed gateway channel plan environments, the device
+			// follow a random channel selection sequence. It probes alternating one out of a
+			// group of eight 125 kHz channels followed by probing one 500 kHz channel each pass.
+			// Each time a 125 kHz channel will be selected from another group.
+			if (next_chan_params->current_datarate == DR_0)
 			{
-				current_fsb++;
+				// 125kHz Channels (0 - 63) DR0
+				*channel = SelectChannelFromBand(current_fsb, enabled_channels, nb_enabled_channels - 1);
+
+				if (current_fsb < 7)
+				{
+					current_fsb++;
+				}
+				else
+				{
+					current_fsb=0;
+				}
 			}
 			else
 			{
-				current_fsb=0;
+				*channel = SelectChannelFromBand(8, enabled_channels, nb_enabled_channels - 1);
 			}
+			tr_debug("set_next_channel: Selected channel: %d from FSB: %d", *channel, current_fsb+1);
+			// Disable the channel in the mask
+			disable_channel(current_channel_mask, *channel, AU915_MAX_NB_CHANNELS);
+
+			*time = 0;
+			return LORAWAN_STATUS_OK;
 		}
 		else
 		{
-			*channel = SelectChannelFromBand(8, enabled_channels, nb_enabled_channels - 1);
+			if (delay_tx > 0)
+			{
+				// Delay transmission due to AggregatedTimeOff or to a band time off
+				tr_debug("set_next_channel: Delay Transmission");
+				*time = next_tx_delay;
+				return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
+			}
+			// Datarate not supported by any channel
+			tr_debug("set_next_channel: Datarate not supported by any channel");
+			*time = 0;
+			return LORAWAN_STATUS_NO_CHANNEL_FOUND;
 		}
-		// Disable the channel in the mask
-		disable_channel(current_channel_mask, *channel, AU915_MAX_NB_CHANNELS);
 
-		*time = 0;
-		return LORAWAN_STATUS_OK;
 
 	}
 // end added by Olaf
@@ -848,6 +907,8 @@ uint8_t LoRaPHYAU915::SelectChannelFromBand(uint8_t fs_band, const uint8_t *enab
 	uint8_t channelsinband[AU915_MAX_NB_CHANNELS] = {0};
 	uint8_t nb_channelsinband=0;
 
+	tr_debug("SelectChannelFromBand: band: %d lowerbound: %d higherbound: %d", fs_band, lowerbound, higherbound);
+
 	// find available channels inside the frequency sub band
 
 	for (int i=0; i<nb_enabled_channels; i++)
@@ -855,12 +916,14 @@ uint8_t LoRaPHYAU915::SelectChannelFromBand(uint8_t fs_band, const uint8_t *enab
 		if ((lowerbound <= enabled_channels[i]) && (enabled_channels[i] <= higherbound))
 		{
 			channelsinband[nb_channelsinband++] = enabled_channels[i];
+			tr_debug("SelectChannelFromBand: Found free channel %d", enabled_channels[i]);
 		}
 	}
 
 	if (nb_channelsinband == 0)
 	{
 		// That is bad. Need to reset disabled channels
+		tr_debug("SelectChannelFromBand: No channel found. Need to reset disabled channels in band");
 		for (int i=lowerbound; i<higherbound; i++)
 		{
 			enable_channel(current_channel_mask, i, AU915_MAX_NB_CHANNELS);

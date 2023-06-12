@@ -38,7 +38,7 @@
 /*!
  * Minimal datarate that can be used by the node
  */
-#define US915_TX_MIN_DATARATE                       DR_1
+#define US915_TX_MIN_DATARATE                       DR_0
 
 /*!
  * Maximal datarate that can be used by the node
@@ -229,6 +229,7 @@ static uint8_t current_fsb = 0;
 LoRaPHYUS915::LoRaPHYUS915()
 {
     bands[0] = US915_BAND0;
+    current_fsb = 0;
 
     // Channels
     // 125 kHz channels - Upstream
