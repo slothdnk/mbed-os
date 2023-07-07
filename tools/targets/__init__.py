@@ -24,7 +24,8 @@ import inspect
 import sys
 from copy import copy
 from inspect import getmro
-from collections import namedtuple, Mapping
+from collections import namedtuple
+from collections.abc import Mapping
 from future.utils import raise_from
 from tools.resources import FileType
 from tools.targets.LPC import patch
