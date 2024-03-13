@@ -8311,7 +8311,6 @@
         "inherits": ["SAML21J18"],
         "macros_add": ["SAMR34"],
         "default_lib": "small"
-        
     },
     "SAMR34_BUSYLIGHT_11_EU": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
@@ -8331,25 +8330,16 @@
     "SAMR34_BUSYLIGHT_12_AS": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
+    "SAMR34_BUSYLIGHT_12_AS_2": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_12_AS_3": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_12_AS_4": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
     "SAMR34_BUSYLIGHT_12_IN": {
-    "inherits": ["SAMR34_XPLAINED_PRO"]
-	},
-    "SAMR34_BUSYLIGHT_13_EU": {
-    "inherits": ["SAMR34_XPLAINED_PRO"]
-	},
-    "SAMR34_BUSYLIGHT_13_EU_SETUP": {
-    "inherits": ["SAMR34_XPLAINED_PRO"]
-	},
-    "SAMR34_BUSYLIGHT_13_AU": {
-    "inherits": ["SAMR34_XPLAINED_PRO"]
-	},
-    "SAMR34_BUSYLIGHT_13_US": {
-    "inherits": ["SAMR34_XPLAINED_PRO"]
-	},
-    "SAMR34_BUSYLIGHT_13_AS": {
-    "inherits": ["SAMR34_XPLAINED_PRO"]
-	},
-    "SAMR34_BUSYLIGHT_13_IN": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_14_EU_SETUP": {
@@ -8365,6 +8355,15 @@
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_14_AS": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_14_AS_2": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_14_AS_3": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_14_AS_4": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_14_IN": {
@@ -8383,6 +8382,15 @@
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_20_AS": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+	"SAMR34_BUSYLIGHT_20_AS_2": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+	"SAMR34_BUSYLIGHT_20_AS_3": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+	"SAMR34_BUSYLIGHT_20_AS_4": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_20_IN": {

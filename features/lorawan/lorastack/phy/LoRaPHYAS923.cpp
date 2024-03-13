@@ -38,6 +38,79 @@
  */
 #define AS923_NUMB_DEFAULT_CHANNELS                 2
 
+
+/*!
+ * Set default SUB region if not defined
+ */
+#ifndef MBED_CONF_LORA_PHY_AS923_SUB_REGION
+#define MBED_CONF_LORA_PHY_AS923_SUB_REGION AS1
+#warning "MBED_CONF_LORA_PHY_AS923_SUB_REGION is not set in mbed_app.json, default to `AS1`!"
+#endif
+
+/*!
+ * Define the SUB-REGION's
+ */
+#define LORA_AS923_SUB_REGION_AS1     0x01
+#define LORA_AS923_SUB_REGION_AS2     0x02
+#define LORA_AS923_SUB_REGION_AS3     0x03
+#define LORA_AS923_SUB_REGION_AS4     0x04
+
+/*!
+ * Parse SUB-REGION config
+ */
+#define mbed_lora_concat_(x) LORA_AS923_SUB_REGION_##x
+#define mbed_lora_concat(x) mbed_lora_concat_(x)
+#define LORA_AS923_SUB_REGION mbed_lora_concat(MBED_CONF_LORA_PHY_AS923_SUB_REGION)
+
+/*!
+ * Define the Frequencies for the SUB REGION within AS923 for AS1,AS2, AS3,AS4.
+ */
+#if ( LORA_AS923_SUB_REGION == LORA_AS923_SUB_REGION_AS1 )
+// Singapore, Japan, Malaysia, Myanmar ....
+// Historical AS923 =>RP002-1.0.0 LoRaWAN - 915..928Mhz
+/*!
+* Default transmit channel frequency's definition.
+*/
+#define AS923_LC1_FREQ          923200000
+#define AS923_LC2_FREQ          923400000
+/*!
+* channel frequnecy range.
+*/
+#define AS923_LOWER_FREQ        915000000
+#define AS923_UPPER_FREQ        928000000
+/*!
+* Second reception window channel frequency definition.
+*/
+#define AS923_RX_WND_2_FREQ     923200000
+#elif ( LORA_AS923_SUB_REGION == LORA_AS923_SUB_REGION_AS2 )
+// Brunei, Hong Kong, Indonesia, Laos, Cambodia, Thaland, Taiwan, Vietnam
+// OFFSET -1.8 MHz AS923-1 =>RP002-1.0.1 LoRaWAN - 920..923Mhz
+#define AS923_LC1_FREQ          921400000
+#define AS923_LC2_FREQ          921600000
+#define AS923_LOWER_FREQ        920000000
+#define AS923_UPPER_FREQ        923000000
+#define AS923_RX_WND_2_FREQ     921400000
+#elif ( LORA_AS923_SUB_REGION == LORA_AS923_SUB_REGION_AS3 )
+// Philipines, Quatar, Switzerland, Hungary, Cuba, Denmark .... 18 countries
+// OFFSET -6.6Mhz AS923-1 =>RP002-1.0.1 LoRaWAN - 915..921Mhz
+#define AS923_LC1_FREQ          916600000
+#define AS923_LC2_FREQ          916800000
+#define AS923_LOWER_FREQ        915000000
+#define AS923_UPPER_FREQ        921000000
+#define AS923_RX_WND_2_FREQ     916600000
+#elif ( LORA_AS923_SUB_REGION == LORA_AS923_SUB_REGION_AS4 )
+// Israel
+// OFFSET -5.9MHz AS923-1 =>RP002-1.0.3 LoRaWAN - 917..920Mhz
+#define AS923_LC1_FREQ          917300000
+#define AS923_LC2_FREQ          917500000
+#define AS923_LOWER_FREQ        917000000
+#define AS923_UPPER_FREQ        920000000
+#define AS923_RX_WND_2_FREQ     917300000
+#else
+#error "Invalid SUB region configuration, update mbed_app.json with correct MBED_CONF_LORA_PHY_AS923_SUB_REGION value"
+#endif
+
+
 /*!
  * Number of channels to apply for the CF list
  */
@@ -114,7 +187,11 @@
 /*!
  * Default antenna gain
  */
-#define AS923_DEFAULT_ANTENNA_GAIN                  -2.15f
+#ifdef LORAPHY_ANTENNA_GAIN
+#define AS923_DEFAULT_ANTENNA_GAIN                  LORAPHY_ANTENNA_GAIN
+#else
+#define AS923_DEFAULT_ANTENNA_GAIN                  2.15f
+#endif
 
 /*!
  * ADR Ack limit
@@ -178,7 +255,7 @@
 /*!
  * Second reception window channel frequency definition.
  */
-#define AS923_RX_WND_2_FREQ                         923200000
+//#define AS923_RX_WND_2_FREQ                         923200000
 
 /*!
  * Second reception window channel datarate definition.
@@ -187,21 +264,24 @@
 
 /*!
  * Band 0 definition
- * { DutyCycle, TxMaxPower, LastJoinTxDoneTime, LastTxDoneTime, TimeOff }
+ * { DutyCycle, TxMaxPower, LastJoinTxDoneTime, LastTxDoneTime, TimeOff, lower_band_freq, higher_band_freq }
  */
-static const band_t AS923_BAND0 = {100, AS923_MAX_TX_POWER, 0, 0, 0, 923000000, 928000000}; //  1.0 %
+//static const band_t AS923_BAND0 = {100, AS923_MAX_TX_POWER, 0, 0, 0, 923000000, 928000000}; //  1.0 %
+static const band_t AS923_BAND0 = {100, AS923_MAX_TX_POWER, 0, 0, 0, AS923_LOWER_FREQ, AS923_UPPER_FREQ}; //  1.0 %
 
 /*!
  * LoRaMac default channel 1
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-static const channel_params_t AS923_LC1 = { 923200000, 0, { ((DR_5 << 4) | DR_0) }, 0 };
+//static const channel_params_t AS923_LC1 = { 923200000, 0, { ((DR_5 << 4) | DR_0) }, 0 };
+static const channel_params_t AS923_LC1 = { AS923_LC1_FREQ, 0, { ((DR_5 << 4) | DR_0) }, 0 };
 
 /*!
  * LoRaMac default channel 2
  * Channel = { Frequency [Hz], RX1 Frequency [Hz], { ( ( DrMax << 4 ) | DrMin ) }, Band }
  */
-static const channel_params_t AS923_LC2 = { 923400000, 0, { ((DR_5 << 4) | DR_0) }, 0 };
+//static const channel_params_t AS923_LC2 = { 923400000, 0, { ((DR_5 << 4) | DR_0) }, 0 };
+static const channel_params_t AS923_LC2 = { AS923_LC2_FREQ, 0, { ((DR_5 << 4) | DR_0) }, 0 };
 
 /*!
  * LoRaMac channels which are allowed for the join procedure
