@@ -1139,6 +1139,7 @@ lorawan_status_t LoRaMac::schedule_tx()
     switch (status) {
         case LORAWAN_STATUS_NO_CHANNEL_FOUND:
         case LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND:
+        	tr_debug("NO_CHANNEL_FOUND or NO_FREE:_CHANNEL_FOUND");
             _mcps_confirmation.status = LORAMAC_EVENT_INFO_STATUS_ERROR;
             return status;
         case LORAWAN_STATUS_DUTYCYCLE_RESTRICTED:

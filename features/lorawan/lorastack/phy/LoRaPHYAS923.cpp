@@ -423,47 +423,57 @@ lorawan_status_t LoRaPHYAS923::set_next_channel(channel_selection_params_t *next
                                                 uint8_t *channel, lorawan_time_t *time,
                                                 lorawan_time_t *aggregate_timeoff)
 {
-	/*for (int i=0; i< phy_params.channels.channel_list_size; i++)
+	tr_debug("set_next_channel: called.");
+	/*    for (int i=0; i< phy_params.channels.channel_list_size; i++)
 	    {
-	    	tr_debug("Set_Channel %d, Freq = %lu", i, phy_params.channels.channel_list[i].frequency);
+	    	tr_debug("set_next_channel: Channel_list[%d], Freq = %lu", i, phy_params.channels.channel_list[i].frequency);
 	    }*/
-
-    uint8_t next_channel_idx = 0;
+	uint8_t next_channel_idx = 0;
     uint8_t nb_enabled_channels = 0;
     uint8_t delay_tx = 0;
     uint8_t enabled_channels[AS923_MAX_NB_CHANNELS] = { 0 };
     lorawan_time_t next_tx_delay = 0;
 
-    if (num_active_channels(channel_mask, 0, 1) == 0) {
+    if (num_active_channels(channel_mask, 0, 1) == 0)
+    {
         // Reactivate default channels
         channel_mask[0] |= LC(1) + LC(2);
+        tr_debug("set_next_channel: Channel mask reactivated.");
     }
 
-    if (next_channel_prams->aggregate_timeoff <= _lora_time->get_elapsed_time(next_channel_prams->last_aggregate_tx_time)) {
+    if (next_channel_prams->aggregate_timeoff <= _lora_time->get_elapsed_time(next_channel_prams->last_aggregate_tx_time))
+    {
         // Reset Aggregated time off
         *aggregate_timeoff = 0;
 
         // Update bands Time OFF
+        tr_debug("set_next_channel: Update bands Time OFF.");
         next_tx_delay = update_band_timeoff(next_channel_prams->joined,
                                             next_channel_prams->dc_enabled,
                                             bands, AS923_MAX_NB_BANDS);
 
         // Search how many channels are enabled
+        tr_debug("set_next_channel: Search how many channels are enabled.");
         nb_enabled_channels = enabled_channel_count(next_channel_prams->current_datarate,
                                                     channel_mask,
                                                     enabled_channels, &delay_tx);
-    }  else {
+        tr_debug("set_next_channel: Channels enabled=%d", nb_enabled_channels);
+    }
+    else
+    {
+    	tr_debug("Calculate next tx delay.");
         delay_tx++;
         next_tx_delay = next_channel_prams->aggregate_timeoff - _lora_time->get_elapsed_time(next_channel_prams->last_aggregate_tx_time);
     }
 
-    if (nb_enabled_channels > 0) {
-
+    if (nb_enabled_channels > 0)
+    {
         _radio->lock();
 
         for (uint8_t  i = 0, j = get_random(0, nb_enabled_channels - 1); i < AS923_MAX_NB_CHANNELS; i++) {
             next_channel_idx = enabled_channels[j];
             j = (j + 1) % nb_enabled_channels;
+            tr_debug("set_next_channel: Perform carrier sense for next_channel_idx=%d frequency=%lu", next_channel_idx, channels[next_channel_idx].frequency);
 
             // Perform carrier sense for AS923_CARRIER_SENSE_TIME
             // If the channel is free, we can stop the LBT mechanism
@@ -471,43 +481,57 @@ lorawan_status_t LoRaPHYAS923::set_next_channel(channel_selection_params_t *next
             if (_radio->perform_carrier_sense(MODEM_LORA,
                                               channels[next_channel_idx].frequency,
                                               AS923_RSSI_FREE_TH,
-                                              AS923_CARRIER_SENSE_TIME) == true) {
+                                              AS923_CARRIER_SENSE_TIME) == true)
+            //if (true)
+            {
                 // Free channel found
                 _radio->unlock();
                 *channel = next_channel_idx;
                 *time = 0;
+                tr_debug("set_next_channel: LORAWAN_STATUS_OK");
                 return LORAWAN_STATUS_OK;
             }
         }
         _radio->unlock();
+        tr_debug("set_next_channel: LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND");
         return LORAWAN_STATUS_NO_FREE_CHANNEL_FOUND;
-    } else {
-
+    }
+    else
+    {
         if (delay_tx > 0) {
             // Delay transmission due to AggregatedTimeOff or to a band time off
+        	tr_debug("set_next_channel: LORAWAN_STATUS_DUTYCYCLE_RESTRICTED");
             *time = next_tx_delay;
             return LORAWAN_STATUS_DUTYCYCLE_RESTRICTED;
         }
 
         // Datarate not supported by any channel, restore defaults
+        tr_debug("set_next_channel: LORAWAN_STATUS_NO_CHANNEL_FOUND: restore defaults");
         channel_mask[0] |= LC(1) + LC(2);
         *time = 0;
         return LORAWAN_STATUS_NO_CHANNEL_FOUND;
     }
+    tr_debug("set_next_channel: Exit without return value");
 }
 
 uint8_t LoRaPHYAS923::apply_DR_offset(int8_t dr, int8_t dr_offset)
 {
+	tr_debug("apply_DR_offset called. DataRate=%d, DR_Offset=%d",
+			dr, dr_offset);
     // Initialize minDr for a downlink dwell time configuration of 0
     int8_t min_dr = DR_0;
+    uint8_t retval = DR_0;
 
     // Update the minDR for a downlink dwell time configuration of 1
-    if (phy_params.dl_dwell_time_setting == 1) {
+    if (phy_params.dl_dwell_time_setting == 1)
+    {
         min_dr = AS923_DWELL_LIMIT_DATARATE;
     }
 
     // Apply offset formula
-    return MIN(DR_5, MAX(min_dr, dr - rx1_dr_offset_AS923[dr_offset]));
+    retval = MIN(DR_5, MAX(min_dr, dr - rx1_dr_offset_AS923[dr_offset]));
+    tr_debug("apply_DR_offset return %d", retval);
+    return retval;
 }
 
 
