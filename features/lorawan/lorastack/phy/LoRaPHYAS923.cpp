@@ -139,7 +139,9 @@
 /*!
  * Default datarate used by the node
  */
-#define AS923_DEFAULT_DATARATE                      DR_2
+//#define AS923_DEFAULT_DATARATE                      DR_2
+// Changed by Olaf, DR_2 exceeds airtime in Japan
+#define AS923_DEFAULT_DATARATE                      DR_3
 
 #define AS923_DEFAULT_MAX_DATARATE                  DR_5
 
@@ -147,7 +149,8 @@
  * The minimum datarate which is used when the
  * dwell time is limited.
  */
-#define AS923_DWELL_LIMIT_DATARATE                  DR_2
+//#define AS923_DWELL_LIMIT_DATARATE                  DR_2
+#define AS923_DWELL_LIMIT_DATARATE                  DR_3
 
 /*!
  * Minimal Rx1 receive datarate offset
