@@ -229,9 +229,10 @@ typedef enum lora_events {
     JOIN_FAILURE,
     UPLINK_REQUIRED,
     AUTOMATIC_UPLINK_ERROR,
-		// Added by Olaf
-		NONCE_UPDATED
-		// End Added by Olaf
+	// Added by Olaf
+	NONCE_UPDATED,
+	ADR_REQ_RECEIVED
+	// End Added by Olaf
 } lorawan_event_t;
 
 /**
@@ -279,6 +280,10 @@ typedef struct {
      *     255     The end-device was not able to measure the battery level.
      */
     mbed::Callback<uint8_t(void)> battery_level;
+    /**
+         * This callback is optional
+	 */
+    mbed::Callback<void(void)> adr_req_handler;
 } lorawan_app_callbacks_t;
 
 /**

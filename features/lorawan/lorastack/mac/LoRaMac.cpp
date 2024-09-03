@@ -637,6 +637,15 @@ void LoRaMac::set_batterylevel_callback(mbed::Callback<uint8_t(void)> battery_le
     _mac_commands.set_batterylevel_callback(battery_level);
 }
 
+// Added by Olaf
+
+void LoRaMac::set_adr_req_called_callback(mbed::Callback<void(void)> adr_req)
+{
+    _mac_commands.set_adr_req_called_callback(adr_req);
+}
+
+// end added by Olaf.
+
 void LoRaMac::on_radio_tx_done(lorawan_time_t timestamp)
 {
     if (_device_class == CLASS_C) {
@@ -1803,8 +1812,8 @@ lorawan_status_t LoRaMac::initialize(EventQueue *queue,
     _ev_queue = queue;
     _scheduling_failure_handler = scheduling_failure_handler;
     // Added By Olaf
-        _nonce_changed_handler = nonce_changed_handler;
-        // End Added by Olaf
+    _nonce_changed_handler = nonce_changed_handler;
+    // End Added by Olaf
     _rx2_closure_timer_for_class_c.callback = NULL;
     _rx2_closure_timer_for_class_c.timer_id = -1;
 

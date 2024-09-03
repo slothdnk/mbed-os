@@ -185,6 +185,16 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
                 }
                 // Update MAC index
                 mac_index += link_adr_nb_bytes_pasred - 1;
+
+                // Added by Olaf
+                // Notify application
+
+                if (_adr_req_received_handler)
+                {
+                    _adr_req_received_handler();
+                }
+
+                // End added by Olaf.
             }
             break;
             case SRV_MAC_DUTY_CYCLE_REQ:
@@ -309,6 +319,13 @@ void LoRaMacCommand::set_batterylevel_callback(mbed::Callback<uint8_t(void)> bat
 {
     _battery_level_cb = battery_level;
 }
+
+// Added by Olaf
+void LoRaMacCommand::set_adr_req_called_callback(mbed::Callback<void(void)> adr_req)
+{
+	_adr_req_received_handler = adr_req;
+}
+// End Added by Olaf
 
 lorawan_status_t LoRaMacCommand::add_link_check_req()
 {

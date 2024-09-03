@@ -386,6 +386,13 @@ public:
      */
     void set_batterylevel_callback(mbed::Callback<uint8_t(void)> battery_level);
 
+    // Added by Olaf
+    /**
+	 * Set battery level query callback
+	 */
+	void set_adr_req_called_callback(mbed::Callback<void(void)> adr_req);
+    // end added by Olaf
+
     /**
      * Returns the event ID of backoff timer.
      */
@@ -680,13 +687,11 @@ private:
     mbed::Callback<void(void)> _scheduling_failure_handler;
 
     // Added by Olaf
-       /**
-        * Called when the DevNonce was changed. Needs to persist last nonce
-        */
-       mbed::Callback<void(void)> _nonce_changed_handler;
-
-
-       // End Added by Olaf
+    /**
+	 * Called when the DevNonce was changed. Needs to persist last nonce.
+	 */
+    mbed::Callback<void(void)> _nonce_changed_handler;
+    // End Added by Olaf
 
     timer_event_t _rx2_closure_timer_for_class_c;
 

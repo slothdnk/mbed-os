@@ -134,6 +134,14 @@ public:
      */
     void set_batterylevel_callback(mbed::Callback<uint8_t(void)> battery_level);
 
+    //Added by Olaf
+    /**
+        * @brief Set adr req received query callback method
+        *        If callback is not set, ??? is returned.
+        */
+    void set_adr_req_called_callback(mbed::Callback<void(void)> adr_req);
+    // End added by Olaf.
+
 private:
     /**
      * @brief Get the remaining size of the MAC command buffer
@@ -245,6 +253,17 @@ private:
     uint8_t mac_cmd_buffer_to_repeat[LORA_MAC_COMMAND_MAX_LENGTH];
 
     mbed::Callback<uint8_t(void)> _battery_level_cb;
+
+    // Added by Olaf
+
+    /**
+     * Called when adr_req was answered. Need to check if session works.
+     */
+    mbed::Callback<void(void)> _adr_req_received_handler;
+
+    // End Added by Olaf
+
+
 };
 
 #endif //__LORAMACCOMMAND_H__
