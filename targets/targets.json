@@ -8369,7 +8369,33 @@
     "SAMR34_BUSYLIGHT_14_IN": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
-    "SAMR34_BUSYLIGHT_20_EU": {
+	"SAMR34_BUSYLIGHT_15_EU_SETUP": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_EU": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_AU": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_US": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_AS": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_AS_2": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_AS_3": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_AS_4": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+    "SAMR34_BUSYLIGHT_15_IN": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},    "SAMR34_BUSYLIGHT_20_EU": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_20_EU_SETUP": {
