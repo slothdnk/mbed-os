@@ -280,10 +280,6 @@ typedef struct {
      *     255     The end-device was not able to measure the battery level.
      */
     mbed::Callback<uint8_t(void)> battery_level;
-    /**
-         * This callback is optional
-	 */
-    mbed::Callback<void(void)> adr_req_handler;
 } lorawan_app_callbacks_t;
 
 /**

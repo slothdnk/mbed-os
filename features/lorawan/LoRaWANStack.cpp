@@ -140,16 +140,6 @@ lorawan_status_t LoRaWANStack::set_lora_callbacks(const lorawan_app_callbacks_t 
         _loramac.set_batterylevel_callback(callbacks->battery_level);
     }
 
-    // Added by Olaf
-
-    if (callbacks->adr_req_handler)
-    {
-    	_callbacks.adr_req_handler = callbacks->adr_req_handler;
-    	_loramac.set_adr_req_called_callback(_callbacks.adr_req_handler);
-    }
-
-    // end added by Olaf
-
     return LORAWAN_STATUS_OK;
 }
 
