@@ -649,7 +649,7 @@ void LoRaWANStack::post_process_tx_with_reception()
             	_loramac.post_process_mcps_req();
             } else
             {
-            	// Added by Olaf
+            	// Added by Olaf due to difference to reference implementation
             	_loramac.post_process_mcps_req();
             	// End Added by Olaf
             }

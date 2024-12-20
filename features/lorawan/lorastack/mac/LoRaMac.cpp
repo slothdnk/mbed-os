@@ -170,17 +170,24 @@ void LoRaMac::post_process_mcps_req()
             _mcps_confirmation.status = LORAMAC_EVENT_INFO_STATUS_ERROR;
         }
 
-        //_params.ul_frame_counter++;
+        // moved by Olaf to prepare_frame to avoid failure in increasing
+        // change according to refrernce implementation
+		//_params.ul_frame_counter++;
+		// end moved by Olaf
         _params.adr_ack_counter++;
     } else {
         //UNCONFIRMED or PROPRIETARY
+    	// moved by Olaf
         //_params.ul_frame_counter++;
+    	// end moved by Olaf
         _params.adr_ack_counter++;
         if (_params.sys_params.nb_trans > 1) {
             _mcps_confirmation.nb_retries = _params.ul_nb_rep_counter;
         }
     }
-    tr_debug("Uplink frame counter is now %ld", _params.ul_frame_counter);
+    // Moved by Olaf
+    //tr_debug("Uplink frame counter is now %ld", _params.ul_frame_counter);
+    // end moved by Olaf
 }
 
 void LoRaMac::post_process_mcps_ind()
@@ -1656,6 +1663,8 @@ lorawan_status_t LoRaMac::prepare_frame(loramac_mhdr_t *machdr,
             }
 
             _params.ul_frame_counter++;
+            tr_debug("Uplink frame counter is now %ld", _params.ul_frame_counter);
+
             _params.tx_buffer[pkt_header_len++] = (_params.dev_addr) & 0xFF;
             _params.tx_buffer[pkt_header_len++] = (_params.dev_addr >> 8) & 0xFF;
             _params.tx_buffer[pkt_header_len++] = (_params.dev_addr >> 16) & 0xFF;
