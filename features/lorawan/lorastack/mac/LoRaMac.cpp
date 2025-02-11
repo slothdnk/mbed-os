@@ -486,6 +486,8 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
     address |= ((uint32_t) payload[ptr_pos++] << 16);
     address |= ((uint32_t) payload[ptr_pos++] << 24);
 
+    tr_debug("Message received.");
+
     if (address != _params.dev_addr) {
         // check if Multicast is destined for us
         cur_multicast_params = _params.multicast_channels;
@@ -1473,6 +1475,20 @@ void LoRaMac::setup_link_check_request()
     _mac_commands.add_link_check_req();
 }
 
+// Added by Olaf
+
+void LoRaMac::setup_device_time_request()
+{
+    reset_mlme_confirmation();
+
+    //_mlme_confirmation.req_type = MLME_LINK_CHECK;
+    //_mlme_confirmation.pending = true;
+    _mac_commands.add_device_time_req();
+}
+
+
+// end added by Olaf
+
 lorawan_status_t LoRaMac::prepare_join(const lorawan_connect_t *params, bool is_otaa)
 {
     if (params) {
@@ -1814,6 +1830,7 @@ lorawan_status_t LoRaMac::initialize(EventQueue *queue,
                                      mbed::Callback<void(void)>scheduling_failure_handler,
 									 // Added by Olaf
 									 mbed::Callback<void(void)>nonce_changed_handler)
+									 //mbed::Callback<void(void)>device_time_ans_handler)
 {
     _lora_time.activate_timer_subsystem(queue);
     _lora_phy->initialize(&_lora_time);

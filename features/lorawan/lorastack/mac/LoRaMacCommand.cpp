@@ -25,7 +25,7 @@ SPDX-License-Identifier: BSD-3-Clause
 #include <string.h>
 #include "LoRaMacCommand.h"
 #include "LoRaMac.h"
-
+#include "mbed.h"
 #include "mbed-trace/mbed_trace.h"
 #define TRACE_GROUP "LMACC"
 
@@ -89,6 +89,7 @@ void LoRaMacCommand::parse_mac_commands_to_repeat()
             }
             case MOTE_MAC_TX_PARAM_SETUP_ANS:
             case MOTE_MAC_DUTY_CYCLE_ANS:
+            case MOTE_MAC_DEVICE_TIME_REQ:
             case MOTE_MAC_LINK_CHECK_REQ: { // 0 byte payload
                 break;
             }
@@ -300,6 +301,30 @@ lorawan_status_t LoRaMacCommand::process_mac_commands(const uint8_t *payload, ui
                 ret_value = add_dl_channel_ans(status);
             }
             break;
+// Added by Olaf
+            case SRV_DEVICE_TIME_ANS:
+            {
+            	// etract data
+            	uint32_t epoch;
+            	epoch = (uint32_t) payload[mac_index++];
+            	epoch |= (uint32_t) payload[mac_index++] << 8;
+            	epoch |= (uint32_t) payload[mac_index++] << 16;
+            	epoch |= (uint32_t) payload[mac_index++] << 24;
+            	uint8_t second_fractions = payload[mac_index++];
+            	// Set MBED clock
+            	// TODO
+            	const uint32_t gps_diff=315964800;
+            	time_t start =epoch + gps_diff;
+            	set_time_fractions(start, second_fractions);
+            	//wait_ms(500);
+            	//time_t seconds = time(NULL);
+            	printf("Received DateTime from Network Server.\n");
+				printf("Time as seconds since January 1, 1970 = %u\n", (unsigned int)start);
+				printf("Time as a basic string = %s\n", ctime(&start));
+
+            }
+            break;
+// End added by Olaf
             default:
                 // Unknown command. ABORT MAC commands processing
                 tr_error("Invalid MAC command (0x%X)!", payload[mac_index]);
@@ -438,3 +463,18 @@ lorawan_status_t LoRaMacCommand::add_dl_channel_ans(uint8_t status)
     }
     return ret;
 }
+
+// Added by Olaf
+
+lorawan_status_t LoRaMacCommand::add_device_time_req()
+{
+    lorawan_status_t ret = LORAWAN_STATUS_LENGTH_ERROR;
+    if (cmd_buffer_remaining() > 0) // cid
+    {
+        mac_cmd_buffer[mac_cmd_buf_idx++] = MOTE_MAC_DEVICE_TIME_REQ;
+        ret = LORAWAN_STATUS_OK;
+    }
+    return ret;
+}
+
+// End added by Olaf

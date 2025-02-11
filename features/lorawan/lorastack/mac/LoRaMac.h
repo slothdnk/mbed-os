@@ -309,6 +309,8 @@ public:
      */
     void setup_link_check_request();
 
+    void setup_device_time_request();
+
     /**
      * @brief prepare_join prepares arguments to be ready for join() call.
      * @param params Join parameters to use, if NULL, the default will be used.
@@ -691,6 +693,10 @@ private:
 	 * Called when the DevNonce was changed. Needs to persist last nonce.
 	 */
     mbed::Callback<void(void)> _nonce_changed_handler;
+    /*
+	 * Called when the Device Time answer was received by the NS.
+	 */
+    //mbed::Callback<void(uint32_t)> _device_time_ans_handler;
     // End Added by Olaf
 
     timer_event_t _rx2_closure_timer_for_class_c;

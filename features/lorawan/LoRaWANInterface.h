@@ -534,7 +534,35 @@ public:
 
     lorawan_status_t set_session(loramac_protocol_params *params);
 
+    /**
+         * @brief   LoRaMAC multicast channel link service.
+         *
+         * @details Links a multicast channel into the linked list.
+         *
+         * @param [in] channel_param    The multicast channel parameters to link.
+         *
+         * @return  `lorawan_status_t` The  status of the operation. The possible values are:
+         *          \ref LORAWAN_STATUS_OK
+         *          \ref LORAWAN_STATUS_BUSY
+         *          \ref LORAWAN_STATUS_PARAMETER_INVALID
+         */
+	lorawan_status_t multicast_channel_link(multicast_params_t *channel_param);
 
+        /**
+         * @brief   LoRaMAC multicast channel unlink service.
+         *
+         * @details Unlinks a multicast channel from the linked list.
+         *
+         * @param [in] channel_param    The multicast channel parameters to unlink.
+         *
+         * @return  `lorawan_status_t` The status of the operation. The possible values are:
+         *          \ref LORAWAN_STATUS_OK
+         *          \ref LORAWAN_STATUS_BUSY
+         *          \ref LORAWAN_STATUS_PARAMETER_INVALID
+         */
+	lorawan_status_t multicast_channel_unlink(multicast_params_t *channel_param);
+
+	void send_device_time_request();
 
     /** Provides exclusive access to the stack.
      *

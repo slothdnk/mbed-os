@@ -74,7 +74,8 @@ LoRaWANStack::LoRaWANStack()
       _link_check_requested(false),
       _automatic_uplink_ongoing(false),
       _ready_for_rx(true),
-      _queue(NULL)
+      _queue(NULL),
+	  _device_time_requested(true)
 {
     _tx_metadata.stale = true;
     _rx_metadata.stale = true;
@@ -290,6 +291,11 @@ uint8_t LoRaWANStack::get_max_possible_tx_size()
 	return _loramac.get_max_possible_tx_size(0);
 }
 
+void LoRaWANStack::setup_device_time_request()
+{
+	_loramac.setup_device_time_request();
+}
+
 int16_t LoRaWANStack::handle_tx(const uint8_t port, const uint8_t *data,
                                 uint16_t length, uint8_t flags,
                                 bool null_allowed, bool allow_port_0)
@@ -315,6 +321,12 @@ int16_t LoRaWANStack::handle_tx(const uint8_t port, const uint8_t *data,
     if (_link_check_requested) {
         _loramac.setup_link_check_request();
     }
+
+    /*if (_device_time_requested)
+    {
+    	_loramac.setup_device_time_request();
+    	_device_time_requested=false;
+    }*/
     _qos_cnt = 1;
 
     lorawan_status_t status;
@@ -856,6 +868,21 @@ void LoRaWANStack::send_event_to_application(const lorawan_event_t event) const
         MBED_ASSERT(ret != 0);
         (void)ret;
     }
+}
+
+void LoRaWANStack::send_device_time_request()
+{
+	_loramac.setup_device_time_request();
+    // we will silently ignore the automatic uplink event if the user is already
+    // sending something
+    //const int16_t ret = handle_tx(0, NULL, 0, MSG_CONFIRMED_FLAG, true, true);
+    /*
+    if (ret == LORAWAN_STATUS_WOULD_BLOCK) {
+        _automatic_uplink_ongoing = false;
+    } else if (ret < 0) {
+        tr_debug("Failed to generate AUTOMATIC UPLINK, error code = %d", ret);
+        send_event_to_application(AUTOMATIC_UPLINK_ERROR);
+    }*/
 }
 
 void LoRaWANStack::send_automatic_uplink_message(const uint8_t port)

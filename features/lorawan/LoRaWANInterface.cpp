@@ -142,6 +142,12 @@ int16_t LoRaWANInterface::send(uint8_t port, const uint8_t *data, uint16_t lengt
     return _lw_stack.handle_tx(port, data, length, flags);
 }
 
+void LoRaWANInterface::send_device_time_request()
+{
+    Lock lock(*this);
+	_lw_stack.send_device_time_request();
+}
+
 lorawan_status_t LoRaWANInterface::cancel_sending(void)
 {
     Lock lock(*this);
@@ -198,4 +204,15 @@ lorawan_status_t LoRaWANInterface::get_session(loramac_protocol_params *params)
 lorawan_status_t LoRaWANInterface::set_session(loramac_protocol_params *params)
 {
     return _lw_stack.set_session(params);
+}
+
+lorawan_status_t LoRaWANInterface::multicast_channel_link(multicast_params_t *channel_param)
+{
+	return _lw_stack.multicast_channel_link(channel_param);
+}
+
+
+lorawan_status_t LoRaWANInterface::multicast_channel_unlink(multicast_params_t *channel_param)
+{
+	return _lw_stack.multicast_channel_unlink(channel_param);
 }

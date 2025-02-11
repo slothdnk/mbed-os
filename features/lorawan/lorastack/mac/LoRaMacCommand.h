@@ -141,7 +141,21 @@ public:
         */
     void set_adr_req_called_callback(mbed::Callback<void(void)> adr_req);
     // End added by Olaf.
+    // Added by Olaf
 
+        /**
+    	 * @brief Adds a new DeviceTimeAns MAC command to be sent.
+    	 *
+    	 * @param [in] time_epoch Time from GPS Epoch in seconds
+    	 *
+    	 * @param [in] second_fractions fractional seconds from GPS Epoch
+    	 *
+    	 * @return status  Function status: LORAWAN_STATUS_OK: OK,
+    	 *                                  LORAWAN_STATUS_LENGTH_ERROR: Buffer full
+    	 */
+        lorawan_status_t add_device_time_req();
+
+    // End Added by Olaf
 private:
     /**
      * @brief Get the remaining size of the MAC command buffer
@@ -224,6 +238,7 @@ private:
      *                                  LORAWAN_STATUS_LENGTH_ERROR: Buffer full
      */
     lorawan_status_t add_dl_channel_ans(uint8_t status);
+
 
 private:
     /**

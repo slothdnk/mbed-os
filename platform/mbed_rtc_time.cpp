@@ -131,6 +131,12 @@ time_t time(time_t *timer)
     return tv.tv_sec;
 }
 
+void set_time_fractions(time_t t, uint8_t fractions)
+{
+	__suseconds_t usecs = (((__suseconds_t)fractions) * 3906);
+	const struct timeval tv = { t, usecs };
+	settimeofday(&tv, NULL);
+}
 
 void set_time(time_t t)
 {

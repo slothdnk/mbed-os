@@ -338,7 +338,12 @@ typedef enum {
     /*!
      * DlChannelAns
      */
-    MOTE_MAC_DL_CHANNEL_ANS          = 0x0A
+    MOTE_MAC_DL_CHANNEL_ANS          = 0x0A,
+	/*!
+	 * DeviceTimeAns
+	 */
+	MOTE_MAC_DEVICE_TIME_REQ         = 0x0D,
+
 } mote_mac_cmds_t;
 
 /*!
@@ -383,6 +388,10 @@ typedef enum {
      * DlChannelReq
      */
     SRV_MAC_DL_CHANNEL_REQ           = 0x0A,
+	/*!
+	 * DeviceTimeReq
+	 */
+	SRV_DEVICE_TIME_ANS           	 = 0x0D,
 } server_mac_cmds_t;
 
 /*!

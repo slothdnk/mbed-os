@@ -280,6 +280,15 @@ typedef struct {
      *     255     The end-device was not able to measure the battery level.
      */
     mbed::Callback<uint8_t(void)> battery_level;
+// Added by Olaf
+    /**
+	 * This callback is optional
+	 *
+	 * The first parameter to the callback function is the GPS epoch time from the NS.
+	 */
+    //mbed::Callback<void(uint32_t)> device_time_ans;
+// End Added by Olaf
+
 } lorawan_app_callbacks_t;
 
 /**

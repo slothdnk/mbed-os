@@ -318,6 +318,9 @@ public:
      */
     void remove_link_check_request();
 
+    void setup_device_time_request();
+
+
     /** Shuts down the LoRaWAN protocol.
      *
      * In response to the user call for disconnection, the stack shuts down itself.
@@ -401,6 +404,19 @@ public:
     lorawan_status_t set_session(loramac_protocol_params *params) {
         return _loramac.set_session(params);
     }
+
+    lorawan_status_t multicast_channel_link(multicast_params_t *channel_param)
+    {
+    	return _loramac.multicast_channel_link(channel_param);
+    }
+
+
+    lorawan_status_t multicast_channel_unlink(multicast_params_t *channel_param)
+    {
+    	return _loramac.multicast_channel_unlink(channel_param);
+    }
+
+    void send_device_time_request();
 
 private:
     typedef mbed::ScopedLock<LoRaWANStack> Lock;
@@ -500,6 +516,7 @@ private:
 
     // Added by Olaf
         void handle_nonce_changed(void);
+
         // End added by Olaf
 
     void post_process_tx_with_reception(void);
@@ -520,6 +537,7 @@ private:
     uint32_t _ctrl_flags;
     uint8_t _app_port;
     bool _link_check_requested;
+    bool _device_time_requested;
     bool _automatic_uplink_ongoing;
     volatile bool _ready_for_rx;
     uint8_t _rx_payload[LORAMAC_PHY_MAXPAYLOAD];

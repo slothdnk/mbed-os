@@ -87,6 +87,9 @@ struct timeval {
  */
 void set_time(time_t t);
 
+
+void set_time_fractions(time_t t, uint8_t fractions);
+
 /** Attach an external RTC to be used for the C time functions
  *
  * @note Synchronization level: Thread safe
