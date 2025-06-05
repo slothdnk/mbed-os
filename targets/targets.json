@@ -8395,7 +8395,8 @@
 	},
     "SAMR34_BUSYLIGHT_15_IN": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
-	},    "SAMR34_BUSYLIGHT_20_EU": {
+	},    
+	"SAMR34_BUSYLIGHT_20_EU": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_20_EU_SETUP": {
@@ -8420,6 +8421,9 @@
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	},
     "SAMR34_BUSYLIGHT_20_IN": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+	"SAMR34_BUSYLIGHT_30_EU": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
 	}
 }

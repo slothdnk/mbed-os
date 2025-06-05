@@ -39,7 +39,9 @@
 #error This test is not supported on this target
 #endif
 
-Serial pc(UART_TX, UART_RX);
+//Serial pc(UART_TX, UART_RX);
+RawSerial pc(UART_TX, UART_RX);
+//UARTSerial pc(UART_TX, UART_RX);
 
 #ifdef RTS_CHECK_PIN
 InterruptIn in(RTS_CHECK_PIN);
