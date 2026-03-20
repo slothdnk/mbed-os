@@ -8428,5 +8428,11 @@
 	},
 	"SAMR34_BUSYLIGHT_30_US": {
     "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+	"SAMR34_BUSYLIGHT_31_EU": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
+	},
+	"SAMR34_BUSYLIGHT_31_US": {
+    "inherits": ["SAMR34_XPLAINED_PRO"]
 	}
 }
