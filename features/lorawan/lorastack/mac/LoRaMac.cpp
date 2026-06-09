@@ -817,6 +817,7 @@ void LoRaMac::on_radio_rx_timeout(bool is_timeout)
 
 bool LoRaMac::continue_joining_process()
 {
+	tr_debug("Join trial counter: %d Max Join trials: %d", _params.join_request_trial_counter, _params.max_join_request_trials);
     if (_params.join_request_trial_counter >= _params.max_join_request_trials) {
         return false;
     }
