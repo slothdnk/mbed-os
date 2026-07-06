@@ -110,6 +110,8 @@ LoRaMac::LoRaMac()
     _params.ack_timeout_retry_counter = 1;
     _params.is_ack_retry_timeout_expired = false;
     _params.timers.tx_toa = 0;
+    _params.timers.aggregated_last_tx_time = 0;
+    _params.timers.aggregated_timeoff = 0;
 
     _params.multicast_channels = NULL;
 
@@ -1516,6 +1518,7 @@ lorawan_status_t LoRaMac::prepare_join(const lorawan_connect_t *params, bool is_
 
             reset_mac_parameters();
 
+
             _params.sys_params.channel_data_rate =
                 _lora_phy->get_alternate_DR(_params.join_request_trial_counter + 1);
         } else {
@@ -1833,6 +1836,7 @@ lorawan_status_t LoRaMac::initialize(EventQueue *queue,
 									 mbed::Callback<void(void)>nonce_changed_handler)
 									 //mbed::Callback<void(void)>device_time_ans_handler)
 {
+	tr_debug("LoRaMac initialized.");
     _lora_time.activate_timer_subsystem(queue);
     _lora_phy->initialize(&_lora_time);
 
@@ -1851,9 +1855,11 @@ lorawan_status_t LoRaMac::initialize(EventQueue *queue,
     _params.join_request_trial_counter = 0;
     _params.max_join_request_trials = 1;
     _params.is_repeater_supported = false;
+    _params.ack_timeout_retry_counter=0;
 
     _params.timers.aggregated_last_tx_time = 0;
     _params.timers.aggregated_timeoff = 0;
+
 
     _lora_phy->reset_to_default_values(&_params, true);
     _params.sys_params.nb_trans = 1;
