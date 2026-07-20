@@ -492,10 +492,15 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
 
     if (address != _params.dev_addr) {
         // check if Multicast is destined for us
+    	tr_debug("Message has a different destination. Looking for Multicast.");
         cur_multicast_params = _params.multicast_channels;
-
-        while (cur_multicast_params != NULL) {
+		int counter = 0;
+        while ((cur_multicast_params != NULL) && (counter < 4))
+        {
+        	counter++;
+        	tr_debug("Checking Multicast address...");
             if (address == cur_multicast_params->address) {
+            	tr_debug("Multicast address match.");
                 is_multicast = true;
                 nwk_skey = cur_multicast_params->nwk_skey;
                 app_skey = cur_multicast_params->app_skey;
@@ -510,9 +515,11 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
             // We are not the destination of this frame.
             _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_ADDRESS_FAIL;
             _mcps_indication.pending = false;
+        	tr_debug("We are not the destination of this frame. Stop processing.");
             return;
         }
     } else {
+    	tr_debug("Message is Unicast for us.");
         is_multicast = false;
         nwk_skey = _params.keys.nwk_skey;
         app_skey = _params.keys.app_skey;
@@ -525,7 +532,7 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
     //perform MIC check
     if (!message_integrity_check(payload, size, &ptr_pos, address,
                                  &downlink_counter, nwk_skey)) {
-        tr_error("MIC failed");
+        tr_error("MIC failed. Stop Processing.");
         _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_MIC_FAIL;
         _mcps_indication.pending = false;
         return;
@@ -555,7 +562,9 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
 
         // Discard if its a repeated message
         if ((cur_multicast_params->dl_frame_counter == downlink_counter)
-                && (cur_multicast_params->dl_frame_counter != 0)) {
+                && (cur_multicast_params->dl_frame_counter != 0))
+        {
+        	tr_error("Repeated Message. Stop Processing.");
             _mcps_indication.status = LORAMAC_EVENT_INFO_STATUS_DOWNLINK_REPEATED;
             _mcps_indication.dl_frame_counter = downlink_counter;
             _mcps_indication.pending = false;

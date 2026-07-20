@@ -726,20 +726,24 @@ void LoRaWANStack::process_reception(const uint8_t *const payload, uint16_t size
     _ctrl_flags &= ~MSG_RECVD_FLAG;
     _ctrl_flags &= ~TX_DONE_FLAG;
     _ctrl_flags &= ~RETRY_EXHAUSTED_FLAG;
-
+    tr_debug("Process Reception.");
     _loramac.on_radio_rx_done(payload, size, rssi, snr);
 
     if (_loramac.get_mlme_confirmation()->pending) {
+        tr_debug("Confirmation Pending.");
+
         _loramac.post_process_mlme_request();
         mlme_confirm_handler();
 
         if (_loramac.get_mlme_confirmation()->req_type == MLME_JOIN) {
+            tr_debug("Confirmation for Join. Exiting.");
             _ready_for_rx = true;
             return;
         }
     }
 
     if (!_loramac.nwk_joined()) {
+        tr_debug("Network Joined. Return.");
         _ready_for_rx = true;
         return;
     }
@@ -751,6 +755,7 @@ void LoRaWANStack::process_reception(const uint8_t *const payload, uint16_t size
 
     // handle any pending MCPS indication
     if (_loramac.get_mcps_indication()->pending) {
+        tr_debug("handle any pending MCPS indication.");
         _loramac.post_process_mcps_ind();
         _ctrl_flags |= MSG_RECVD_FLAG;
         state_controller(DEVICE_STATE_STATUS_CHECK);
