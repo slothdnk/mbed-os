@@ -26,6 +26,8 @@ SPDX-License-Identifier: BSD-3-Clause
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
+#include "mbed-trace/mbed_trace.h"
+#define TRACE_GROUP "LPHY"
 
 #include "LoRaPHY.h"
 
@@ -1297,8 +1299,9 @@ lorawan_status_t LoRaPHY::set_next_channel(channel_selection_params_t *params,
                           phy_params.channels.mask_size);
     }
 
+    lorawan_time_t elapsed_time =_lora_time->get_elapsed_time(params->last_aggregate_tx_time);
     if (params->aggregate_timeoff
-            <= _lora_time->get_elapsed_time(params->last_aggregate_tx_time)) {
+            <= elapsed_time) {
         // Reset Aggregated time off
         *aggregate_timeoff = 0;
 
@@ -1313,8 +1316,9 @@ lorawan_status_t LoRaPHY::set_next_channel(channel_selection_params_t *params,
                                               enabled_channels, &delay_tx);
     } else {
         delay_tx++;
-        next_tx_delay = params->aggregate_timeoff -
-                        _lora_time->get_elapsed_time(params->last_aggregate_tx_time);
+    	tr_debug("time elapsed, %lu ms, delay_tx: %d", elapsed_time, delay_tx);
+        next_tx_delay = params->aggregate_timeoff - elapsed_time;
+                        //_lora_time->get_elapsed_time(params->last_aggregate_tx_time);
     }
 
     if (channel_count > 0) {

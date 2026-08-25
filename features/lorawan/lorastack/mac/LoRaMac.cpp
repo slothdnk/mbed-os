@@ -23,6 +23,7 @@ SPDX-License-Identifier: BSD-3-Clause
 */
 #include <stdlib.h>
 #include "LoRaMac.h"
+#include "mbed.h"
 
 #include "mbed-trace/mbed_trace.h"
 #define TRACE_GROUP "LMAC"
@@ -105,17 +106,16 @@ LoRaMac::LoRaMac()
     _params.is_node_ack_requested = false;
     _params.is_srv_ack_requested = false;
     _params.ul_nb_rep_counter = 0;
-    _params.timers.mac_init_time = 0;
+
     _params.max_ack_timeout_retries = 1;
     _params.ack_timeout_retry_counter = 1;
     _params.is_ack_retry_timeout_expired = false;
+    _params.timers.mac_init_time = 0;
     _params.timers.tx_toa = 0;
     _params.timers.aggregated_last_tx_time = 0;
     _params.timers.aggregated_timeoff = 0;
 
     _params.multicast_channels = NULL;
-
-
     _params.sys_params.adr_on = false;
     _params.sys_params.max_duty_cycle = 0;
 
@@ -492,7 +492,7 @@ void LoRaMac::handle_data_frame(const uint8_t *const payload,
 
     if (address != _params.dev_addr) {
         // check if Multicast is destined for us
-    	tr_debug("Message has a different destination. Looking for Multicast.");
+    	tr_debug("Message has a different destination: %ld. Unicast Address is: %ld. Looking for Multicast.", address, _params.dev_addr);
         cur_multicast_params = _params.multicast_channels;
 		int counter = 0;
         while ((cur_multicast_params != NULL) && (counter < 4))
@@ -945,6 +945,9 @@ void LoRaMac::open_rx2_window()
 {
     if (_demod_ongoing) {
         tr_info("RX1 Demodulation ongoing, skip RX2 window opening");
+        wait_ms(300);
+        _demod_ongoing=false;
+        open_rx2_window();
         return;
     }
     Lock lock(*this);
@@ -1282,7 +1285,10 @@ void LoRaMac::reset_mac_parameters(void)
     _params.is_srv_ack_requested = false;
 
     multicast_params_t *cur = _params.multicast_channels;
-    while (cur != NULL) {
+    int counter=0;
+    while ((cur != NULL) && (counter < 4))
+    {
+    	counter++;
         cur->dl_frame_counter = 0;
         cur = cur->next;
     }
@@ -2007,7 +2013,10 @@ lorawan_status_t LoRaMac::multicast_channel_link(multicast_params_t *channel_par
         _params.multicast_channels = channel_param;
     } else {
         multicast_params_t *cur = _params.multicast_channels;
-        while (cur->next != NULL) {
+        int counter =0;
+        while ((cur->next != NULL) && (counter < 4))
+		{
+        	counter++;
             cur = cur->next;
         }
         cur->next = channel_param;
